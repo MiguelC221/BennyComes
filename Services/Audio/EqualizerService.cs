@@ -19,6 +19,8 @@ public partial class EqualizerBand : ObservableObject
 
     public string GainFormatted => Gain >= 0 ? $"+{Gain:0.0} dB" : $"{Gain:0.0} dB";
 
+    public string DisplayFrequency => Label.EndsWith("k", StringComparison.OrdinalIgnoreCase) ? $"{Label}Hz" : $"{Label} Hz";
+
     public event Action? GainChanged;
 
     partial void OnGainChanged(float value)

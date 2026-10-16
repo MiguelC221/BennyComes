@@ -83,6 +83,12 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private bool _isNotificationWarning;
 
+    // Onboarding / First-run welcome state
+    [ObservableProperty]
+    private bool _isOnboardingVisible;
+
+    public ObservableCollection<string> OnboardingFolders { get; } = new();
+
     // Async Scan & Indexing Overlay State
     [ObservableProperty]
     private bool _isScanningOverlayVisible;
@@ -664,6 +670,18 @@ public partial class MainViewModel : ObservableObject
         await MyMusic.RefreshDataAsync();
         await RecentPlays.LoadRecentAsync();
         await Home.LoadHomeDataAsync();
+
+        string onboardingDone = await _libraryDao.GetSettingAsync("onboarding_completed", "false");
+        var configuredFolders = await _libraryDao.GetLibraryFoldersAsync();
+        if (onboardingDone != "true" || (configuredFolders.Count == 0 && existing.Count == 0))
+        {
+            string myMusic = Environment.GetFolderPath(Environment.SpecialFolder.MyMusic);
+            if (Directory.Exists(myMusic) && !OnboardingFolders.Contains(myMusic))
+            {
+                OnboardingFolders.Add(myMusic);
+            }
+            IsOnboardingVisible = true;
+        }
     }
 
     // Global Tile & Navigation Commands
@@ -1250,6 +1268,91 @@ public partial class MainViewModel : ObservableObject
                 IsNotificationVisible = false;
             }
         }
+    }
+
+    // Onboarding Commands
+    [RelayCommand]
+    public void AddOnboardingFolder()
+    {
+        var dialog = new Microsoft.Win32.OpenFolderDialog
+        {
+            Title = "Seleccionar Carpeta de Música"
+        };
+        if (dialog.ShowDialog() == true && Directory.Exists(dialog.FolderName))
+        {
+            if (!OnboardingFolders.Contains(dialog.FolderName))
+            {
+                OnboardingFolders.Add(dialog.FolderName);
+            }
+        }
+    }
+
+    [RelayCommand]
+    public void AddDefaultMusicFolder()
+    {
+        string myMusic = Environment.GetFolderPath(Environment.SpecialFolder.MyMusic);
+        if (Directory.Exists(myMusic) && !OnboardingFolders.Contains(myMusic))
+        {
+            OnboardingFolders.Add(myMusic);
+        }
+    }
+
+    [RelayCommand]
+    public void RemoveOnboardingFolder(string? folder)
+    {
+        if (!string.IsNullOrWhiteSpace(folder))
+        {
+            OnboardingFolders.Remove(folder);
+        }
+    }
+
+    [RelayCommand]
+    public async Task CompleteOnboardingAsync()
+    {
+        if (OnboardingFolders.Count == 0)
+        {
+            string myMusic = Environment.GetFolderPath(Environment.SpecialFolder.MyMusic);
+            if (Directory.Exists(myMusic) && !OnboardingFolders.Contains(myMusic))
+            {
+                OnboardingFolders.Add(myMusic);
+            }
+        }
+
+        foreach (var f in OnboardingFolders)
+        {
+            await _libraryDao.AddLibraryFolderAsync(f);
+            if (!Settings.LibraryFolders.Contains(f))
+            {
+                Settings.LibraryFolders.Add(f);
+            }
+        }
+
+        await _libraryDao.SetSettingAsync("onboarding_completed", "true");
+        IsOnboardingVisible = false;
+
+        if (OnboardingFolders.Count > 0)
+        {
+            await ScanDirectoriesOrFilesAsync(OnboardingFolders.ToList());
+            ShowToast("¡Bienvenido a BenyComes!", "Tu biblioteca ha sido indexada correctamente.", false, 4000);
+        }
+        else
+        {
+            ShowToast("¡Bienvenido a BenyComes!", "Puedes agregar carpetas de música en cualquier momento desde Ajustes.", false, 4000);
+        }
+    }
+
+    [RelayCommand]
+    public async Task SkipOnboardingAsync()
+    {
+        await _libraryDao.SetSettingAsync("onboarding_completed", "true");
+        IsOnboardingVisible = false;
+        ShowToast("BenyComes", "Puedes agregar carpetas en cualquier momento desde Ajustes.", false, 3000);
+    }
+
+    [RelayCommand]
+    public void OpenOnboarding()
+    {
+        IsOnboardingVisible = true;
     }
 
     // Modal Track Properties State
