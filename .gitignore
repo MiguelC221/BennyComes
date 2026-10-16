@@ -1,0 +1,8 @@
+@"
+bin/
+obj/
+installer_output/
+.vs/
+*.user
+*_wpftmp.csproj
+"@ | Set-Content .gitignore -Encoding utf8

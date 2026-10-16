@@ -1,0 +1,470 @@
+<UserControl x:Class="BenyComes.Views.SettingsPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             mc:Ignorable="d" 
+             d:DesignHeight="950" d:DesignWidth="900">
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="32,20,32,10">
+        <StackPanel MaxWidth="800" HorizontalAlignment="Left">
+            <!-- Header -->
+            <TextBlock Text="Configuración"
+                       FontFamily="Segoe UI Variable Display, Segoe UI"
+                       FontSize="28" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,24" />
+
+            <!-- ============================================== -->
+            <!-- SECTION 1: BIBLIOTECA DE MÚSICA (CARPETAS)    -->
+            <!-- ============================================== -->
+            <Border CornerRadius="12" Background="{DynamicResource SurfaceCardBrush}" BorderBrush="{DynamicResource SurfaceCardBorderBrush}" BorderThickness="1" Padding="20" Margin="0,0,0,20">
+                <StackPanel>
+                    <Grid Margin="0,0,0,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0">
+                            <StackPanel Orientation="Horizontal">
+                                <ui:SymbolIcon Symbol="FolderOpen24" FontSize="20" Foreground="{Binding Theme.CurrentAccentBrush}" Margin="0,0,10,0" />
+                                <TextBlock Text="Biblioteca de Música" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" />
+                            </StackPanel>
+                            <TextBlock Text="Carpetas locales supervisadas para indexación de canciones, álbumes y artistas."
+                                       FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="30,4,0,0" />
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="1" Orientation="Horizontal">
+                            <ui:Button Appearance="Secondary" Padding="12,6" Margin="0,0,8,0"
+                                       Command="{Binding Settings.OpenLibraryFoldersModalCommand}">
+                                <StackPanel Orientation="Horizontal">
+                                    <ui:SymbolIcon Symbol="FolderOpen24" FontSize="15" Margin="0,0,6,0" />
+                                    <TextBlock Text="Administrar carpetas de música" FontWeight="SemiBold" FontSize="12" />
+                                </StackPanel>
+                            </ui:Button>
+                            <ui:Button Appearance="Primary" Padding="14,7"
+                                       Background="{Binding Theme.CurrentAccentBrush}"
+                                       Command="{Binding Settings.AddFolderCommand}">
+                                <StackPanel Orientation="Horizontal">
+                                    <ui:SymbolIcon Symbol="FolderAdd24" FontSize="16" Foreground="{Binding Theme.AccentForegroundBrush}" Margin="0,0,6,0" />
+                                    <TextBlock Text="Agregar carpeta..." FontWeight="Bold" Foreground="{Binding Theme.AccentForegroundBrush}" FontSize="12" />
+                                </StackPanel>
+                            </ui:Button>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- Rescan Button & Status -->
+                    <Grid Margin="0,4,0,14">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Grid.Column="0" Text="{Binding Settings.ScanningStatus}" FontSize="12" Foreground="{Binding Theme.CurrentAccentBrush}" VerticalAlignment="Center" />
+                        <ui:Button Grid.Column="1" Appearance="Secondary" Padding="12,5"
+                                   Command="{Binding Settings.RescanAllCommand}">
+                            <StackPanel Orientation="Horizontal">
+                                <ui:SymbolIcon Symbol="ArrowClockwise24" FontSize="14" Margin="0,0,6,0" />
+                                <TextBlock Text="Re-escanear todo" FontSize="12" />
+                            </StackPanel>
+                        </ui:Button>
+                    </Grid>
+
+                    <!-- Folders List -->
+                    <ItemsControl ItemsSource="{Binding Settings.LibraryFolders}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border CornerRadius="8" Background="{DynamicResource SurfaceCardHoverBrush}" Padding="12,8" Margin="0,2">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <ui:SymbolIcon Grid.Column="0" Symbol="Folder24" FontSize="16" Foreground="{DynamicResource TextTertiaryBrush}" Margin="0,0,10,0" VerticalAlignment="Center" />
+                                        <TextBlock Grid.Column="1" Text="{Binding}" FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                        <ui:Button Grid.Column="2" Appearance="Danger" Padding="6,3"
+                                                   Command="{Binding DataContext.Settings.RemoveFolderCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                   CommandParameter="{Binding}" ToolTip="Quitar carpeta">
+                                            <ui:SymbolIcon Symbol="Dismiss24" FontSize="12" />
+                                        </ui:Button>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+
+            <!-- ============================================== -->
+            <!-- SECTION 2: PERSONALIZACIÓN Y COLORES           -->
+            <!-- ============================================== -->
+            <Border CornerRadius="12" Background="{DynamicResource SurfaceCardBrush}" BorderBrush="{DynamicResource SurfaceCardBorderBrush}" BorderThickness="1" Padding="20" Margin="0,0,0,20">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
+                        <ui:SymbolIcon Symbol="Color24" FontSize="20" Foreground="{Binding Theme.CurrentAccentBrush}" Margin="0,0,10,0" />
+                        <TextBlock Text="Personalización y Colores" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" />
+                    </StackPanel>
+
+                    <!-- Theme Selector -->
+                    <Grid Margin="0,0,0,16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="Tema de la Aplicación" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" />
+                            <TextBlock Text="Selecciona entre tema oscuro, claro o según la configuración del sistema." FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,2,0,0" />
+                        </StackPanel>
+                        <ComboBox Grid.Column="1" Width="170"
+                                  SelectedValue="{Binding Settings.SelectedTheme, Mode=TwoWay}"
+                                  SelectedValuePath="Content">
+                            <ComboBoxItem Content="Oscuro" />
+                            <ComboBoxItem Content="Claro" />
+                        </ComboBox>
+                    </Grid>
+
+                    <Separator Background="{DynamicResource DividerBrush}" Margin="0,0,0,16" />
+
+                    <!-- Dynamic Accent Extraction Switch -->
+                    <Grid Margin="0,0,0,16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="Color de Acento Reactivo (Material You)" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" />
+                            <TextBlock Text="Extraer y aplicar automáticamente el color vibrante de la carátula de la canción en reproducción." FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,2,0,0" />
+                        </StackPanel>
+                        <CheckBox Grid.Column="1" IsChecked="{Binding Settings.AutoExtractAccent, Mode=TwoWay}" VerticalAlignment="Center" />
+                    </Grid>
+
+                    <!-- Preset Palette Swatches -->
+                    <TextBlock Text="Paleta de Colores de Acento Predefinidos:" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,10" />
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                        <!-- Emerald -->
+                        <Button Width="36" Height="36" Margin="0,0,10,0" Click="OnAccentEmeraldClick" ToolTip="Verde Esmeralda" Cursor="Hand">
+                            <Button.Template>
+                                <ControlTemplate>
+                                    <Border CornerRadius="18" Background="#00D26A" BorderBrush="#FFFFFF" BorderThickness="2" />
+                                </ControlTemplate>
+                            </Button.Template>
+                        </Button>
+
+                        <!-- Groove Blue -->
+                        <Button Width="36" Height="36" Margin="0,0,10,0" Click="OnAccentBlueClick" ToolTip="Azul Groove" Cursor="Hand">
+                            <Button.Template>
+                                <ControlTemplate>
+                                    <Border CornerRadius="18" Background="#0078D7" BorderBrush="#FFFFFF" BorderThickness="2" />
+                                </ControlTemplate>
+                            </Button.Template>
+                        </Button>
+
+                        <!-- Cyan Hi-Fi -->
+                        <Button Width="36" Height="36" Margin="0,0,10,0" Click="OnAccentCyanClick" ToolTip="Cian Hi-Fi" Cursor="Hand">
+                            <Button.Template>
+                                <ControlTemplate>
+                                    <Border CornerRadius="18" Background="#00B7C3" BorderBrush="#FFFFFF" BorderThickness="2" />
+                                </ControlTemplate>
+                            </Button.Template>
+                        </Button>
+
+                        <!-- Purple -->
+                        <Button Width="36" Height="36" Margin="0,0,10,0" Click="OnAccentPurpleClick" ToolTip="Morado Eléctrico" Cursor="Hand">
+                            <Button.Template>
+                                <ControlTemplate>
+                                    <Border CornerRadius="18" Background="#8764B8" BorderBrush="#FFFFFF" BorderThickness="2" />
+                                </ControlTemplate>
+                            </Button.Template>
+                        </Button>
+
+                        <!-- Magenta -->
+                        <Button Width="36" Height="36" Margin="0,0,10,0" Click="OnAccentMagentaClick" ToolTip="Rosa Magenta" Cursor="Hand">
+                            <Button.Template>
+                                <ControlTemplate>
+                                    <Border CornerRadius="18" Background="#E3008C" BorderBrush="#FFFFFF" BorderThickness="2" />
+                                </ControlTemplate>
+                            </Button.Template>
+                        </Button>
+
+                        <!-- Orange -->
+                        <Button Width="36" Height="36" Margin="0,0,10,0" Click="OnAccentOrangeClick" ToolTip="Naranja Neón" Cursor="Hand">
+                            <Button.Template>
+                                <ControlTemplate>
+                                    <Border CornerRadius="18" Background="#FF8C00" BorderBrush="#FFFFFF" BorderThickness="2" />
+                                </ControlTemplate>
+                            </Button.Template>
+                        </Button>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- ============================================== -->
+            <!-- SECTION 3: REPRODUCCIÓN EN CURSO & VISUALIZADOR -->
+            <!-- ============================================== -->
+            <Border CornerRadius="12" Background="{DynamicResource SurfaceCardBrush}" BorderBrush="{DynamicResource SurfaceCardBorderBrush}" BorderThickness="1" Padding="20" Margin="0,0,0,20">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
+                        <ui:SymbolIcon Symbol="SoundSource24" FontSize="20" Foreground="{Binding Theme.CurrentAccentBrush}" Margin="0,0,10,0" />
+                        <TextBlock Text="Personalización de Reproducción en Curso" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" />
+                    </StackPanel>
+
+                    <!-- Background Darkness Slider -->
+                    <Grid Margin="0,0,0,16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="200" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                            <TextBlock Text="Nivel de Oscurecimiento del Fondo" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" />
+                            <TextBlock Text="Controla la opacidad del velo oscuro sobre la portada desenfocada (0% a 100%)." FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,2,0,0" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                            <Slider Width="140" Minimum="0.0" Maximum="1.0"
+                                    Value="{Binding Settings.NowPlayingBackgroundDarkness, Mode=TwoWay}"
+                                    IsMoveToPointEnabled="True" VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding Settings.NowPlayingBackgroundDarkness, StringFormat='{}{0:P0}'}"
+                                       FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" Width="45" TextAlignment="Right" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Grid>
+
+                    <Separator Background="{DynamicResource DividerBrush}" Margin="0,0,0,16" />
+
+                    <!-- Real-Time Audio Visualizer FFT Selector -->
+                    <Grid Margin="0,0,0,4">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                            <TextBlock Text="Visualizador de Audio en Tiempo Real (FFT)" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" />
+                            <TextBlock Text="Muestra barras de espectro, onda reactiva o pulso dinámico de carátula según el ritmo musical." FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,2,0,0" />
+                        </StackPanel>
+                        <ComboBox Grid.Column="1" Width="180"
+                                  SelectedValue="{Binding Settings.SelectedVisualizerMode, Mode=TwoWay}"
+                                  SelectedValuePath="Content">
+                            <ComboBoxItem Content="Ninguno" />
+                            <ComboBoxItem Content="Barras de Espectro" />
+                            <ComboBoxItem Content="Onda Reactiva" />
+                            <ComboBoxItem Content="Pulso de Carátula" />
+                        </ComboBox>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- ============================================== -->
+            <!-- SECTION 4: REPRODUCCIÓN Y AUDIO                -->
+            <!-- ============================================== -->
+            <Border CornerRadius="12" Background="{DynamicResource SurfaceCardBrush}" BorderBrush="{DynamicResource SurfaceCardBorderBrush}" BorderThickness="1" Padding="20" Margin="0,0,0,20">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
+                        <ui:SymbolIcon Symbol="Speaker224" FontSize="20" Foreground="{Binding Theme.CurrentAccentBrush}" Margin="0,0,10,0" />
+                        <TextBlock Text="Reproducción y Audio" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" />
+                    </StackPanel>
+
+                    <!-- Autoplay Switch -->
+                    <Grid Margin="0,0,0,4">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                            <TextBlock Text="Reproducir automáticamente al iniciar BenyComes" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" />
+                            <TextBlock Text="Cargar y reanudar automáticamente la última canción reproducida al abrir el reproductor." FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,2,0,0" />
+                        </StackPanel>
+                        <ui:ToggleSwitch Grid.Column="1"
+                                         IsChecked="{Binding Settings.IsAutoplayOnStartup, Mode=TwoWay}"
+                                         OffContent="Desactivado" OnContent="Activado"
+                                         VerticalAlignment="Center" />
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- ============================================== -->
+            <!-- SECTION 5: INDEXADOR INTELIGENTE DE ARTISTAS   -->
+            <!-- ============================================== -->
+            <Border CornerRadius="12" Background="{DynamicResource SurfaceCardBrush}" BorderBrush="{DynamicResource SurfaceCardBorderBrush}" BorderThickness="1" Padding="20" Margin="0,0,0,20">
+                <StackPanel>
+                    <Grid Margin="0,0,0,14">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0">
+                            <StackPanel Orientation="Horizontal">
+                                <ui:SymbolIcon Symbol="People24" FontSize="20" Foreground="{Binding Theme.CurrentAccentBrush}" Margin="0,0,10,0" />
+                                <TextBlock Text="Indexador Inteligente de Artistas" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" />
+                            </StackPanel>
+                            <TextBlock Text="Configura los separadores activos y la lista blanca de excepciones para dividir colaboraciones sin romper nombres de bandas."
+                                       FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" Margin="30,2,0,0" />
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                            <ui:Button Appearance="Secondary" Padding="12,6" Margin="0,0,8,0"
+                                       Command="{Binding Settings.ResetArtistConfigCommand}"
+                                       ToolTip="Restaurar separadores y excepciones predeterminados">
+                                <TextBlock Text="Valores por defecto" FontSize="12" />
+                            </ui:Button>
+                            <ui:Button Appearance="Primary" Padding="14,7"
+                                       Background="{Binding Theme.CurrentAccentBrush}"
+                                       Command="{Binding Settings.ReindexArtistsCommand}">
+                                <StackPanel Orientation="Horizontal">
+                                    <ui:SymbolIcon Symbol="ArrowSync24" FontSize="14" Foreground="{Binding Theme.AccentForegroundBrush}" Margin="0,0,6,0" />
+                                    <TextBlock Text="Guardar y re-indexar biblioteca" FontWeight="Bold" Foreground="{Binding Theme.AccentForegroundBrush}" FontSize="12" />
+                                </StackPanel>
+                            </ui:Button>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- Status Banner when Re-indexing -->
+                    <Border CornerRadius="8" Background="{DynamicResource SurfaceCardHoverBrush}" Padding="10,6" Margin="0,0,0,12"
+                            Visibility="{Binding Settings.ReindexStatusText, Converter={StaticResource StringToVisibilityConverter}}">
+                        <StackPanel Orientation="Horizontal">
+                            <ui:SymbolIcon Symbol="CheckmarkCircle24" FontSize="14" Foreground="{Binding Theme.CurrentAccentBrush}" Margin="0,0,8,0" VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding Settings.ReindexStatusText}" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Border>
+
+                    <!-- 1. Separadores Activos -->
+                    <Grid Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="Separadores activos" FontSize="13" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" />
+                            <TextBlock Text=" (ej. ',', ';', 'feat.', '&amp;', '/')" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
+                        </StackPanel>
+                        <ui:Button Grid.Column="1" Appearance="Secondary" Padding="10,4"
+                                   Command="{Binding Settings.OpenSeparatorsModalCommand}">
+                            <StackPanel Orientation="Horizontal">
+                                <ui:SymbolIcon Symbol="Open24" FontSize="12" Margin="0,0,6,0" />
+                                <TextBlock Text="{Binding Settings.ArtistSeparators.Count, StringFormat='Ver separadores ({0})'}" FontSize="11" FontWeight="SemiBold" />
+                            </StackPanel>
+                        </ui:Button>
+                    </Grid>
+
+                    <Grid Margin="0,0,0,10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <ui:TextBox Grid.Column="0" Text="{Binding Settings.NewSeparatorText, UpdateSourceTrigger=PropertyChanged}"
+                                    PlaceholderText="Escribe un separador (ej. 'feat.', ';', '/')..."
+                                    Background="{DynamicResource SurfaceCardHoverBrush}" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,10,0" />
+                        <ui:Button Grid.Column="1" Appearance="Secondary" Padding="14,6"
+                                   Command="{Binding Settings.AddSeparatorCommand}">
+                            <TextBlock Text="+ Agregar separador" FontSize="12" FontWeight="SemiBold" />
+                        </ui:Button>
+                    </Grid>
+
+                    <Border CornerRadius="8" Background="{DynamicResource AppBackgroundBrush}" BorderBrush="{DynamicResource SurfaceCardBorderBrush}" BorderThickness="1" Padding="10,10,10,2" Margin="0,0,0,16">
+                        <ItemsControl ItemsSource="{Binding Settings.ArtistSeparators}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel Orientation="Horizontal" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border CornerRadius="6" Background="{DynamicResource SurfaceCardHoverBrush}" BorderBrush="{DynamicResource SurfaceCardBorderBrush}" BorderThickness="1"
+                                            Padding="10,4" Margin="0,0,8,8">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="{Binding}" FontWeight="Bold" FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                            <ui:Button Appearance="Transparent" Padding="2" ToolTip="Eliminar separador"
+                                                       Command="{Binding DataContext.Settings.RemoveSeparatorCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                       CommandParameter="{Binding}">
+                                                <TextBlock Text="✕" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}" />
+                                            </ui:Button>
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </Border>
+
+                    <Separator Background="{DynamicResource DividerBrush}" Margin="0,0,0,14" />
+
+                    <!-- 2. Lista Blanca de Excepciones -->
+                    <Grid Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="Lista blanca de excepciones" FontSize="13" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" />
+                            <TextBlock Text=" (ej. 'Tyler, The Creator', 'AC/DC', 'Earth, Wind &amp; Fire')" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
+                        </StackPanel>
+                        <ui:Button Grid.Column="1" Appearance="Secondary" Padding="10,4"
+                                   Command="{Binding Settings.OpenExceptionsModalCommand}">
+                            <StackPanel Orientation="Horizontal">
+                                <ui:SymbolIcon Symbol="Open24" FontSize="12" Margin="0,0,6,0" />
+                                <TextBlock Text="{Binding Settings.ArtistExceptions.Count, StringFormat='Ver excepciones ({0})'}" FontSize="11" FontWeight="SemiBold" />
+                            </StackPanel>
+                        </ui:Button>
+                    </Grid>
+
+                    <Grid Margin="0,0,0,10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <ui:TextBox Grid.Column="0" Text="{Binding Settings.NewExceptionText, UpdateSourceTrigger=PropertyChanged}"
+                                    PlaceholderText="Escribe un artista o banda con símbolos (ej. 'Tyler, The Creator', 'AC/DC')..."
+                                    Background="{DynamicResource SurfaceCardHoverBrush}" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,10,0" />
+                        <ui:Button Grid.Column="1" Appearance="Secondary" Padding="14,6"
+                                   Command="{Binding Settings.AddExceptionCommand}">
+                            <TextBlock Text="+ Agregar excepción" FontSize="12" FontWeight="SemiBold" />
+                        </ui:Button>
+                    </Grid>
+
+                    <Border CornerRadius="8" Background="{DynamicResource AppBackgroundBrush}" BorderBrush="{DynamicResource SurfaceCardBorderBrush}" BorderThickness="1" Padding="10,10,10,2" Margin="0,0,0,4">
+                        <ItemsControl ItemsSource="{Binding Settings.ArtistExceptions}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel Orientation="Horizontal" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border CornerRadius="6" Background="{DynamicResource SurfaceCardHoverBrush}" BorderBrush="{DynamicResource SurfaceCardBorderBrush}" BorderThickness="1"
+                                            Padding="10,4" Margin="0,0,8,8">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="{Binding}" FontWeight="SemiBold" FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                            <ui:Button Appearance="Transparent" Padding="2" ToolTip="Eliminar excepción"
+                                                       Command="{Binding DataContext.Settings.RemoveExceptionCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                       CommandParameter="{Binding}">
+                                                <TextBlock Text="✕" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}" />
+                                            </ui:Button>
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </Border>
+                </StackPanel>
+            </Border>
+
+            <!-- ============================================== -->
+            <!-- SECTION 6: ACERCA DE LA APLICACIÓN             -->
+            <!-- ============================================== -->
+            <Border CornerRadius="12" Background="{DynamicResource SurfaceCardBrush}" BorderBrush="{DynamicResource SurfaceCardBorderBrush}" BorderThickness="1" Padding="20">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <Border Grid.Column="0" Width="64" Height="64" CornerRadius="32" Background="{DynamicResource SurfaceCardHoverBrush}" Margin="0,0,20,0" VerticalAlignment="Center">
+                        <ui:SymbolIcon Symbol="MusicNote224" FontSize="32" Foreground="{Binding Theme.CurrentAccentBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                        <TextBlock Text="BenyComes Music Player v1.0.0 (Release Final)" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" />
+                        <TextBlock Text="{Binding Settings.AppVersion}" FontSize="12" FontWeight="SemiBold" Foreground="{Binding Theme.CurrentAccentBrush}" Margin="0,2,0,6" />
+                        <TextBlock Text="{Binding Settings.AudioEngineInfo}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" Margin="0,0,0,4" />
+                        <TextBlock Text="{Binding Settings.TechnologiesInfo}" FontSize="11" Foreground="{DynamicResource TextTertiaryBrush}" TextWrapping="Wrap" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

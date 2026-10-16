@@ -1,0 +1,679 @@
+<UserControl x:Class="BenyComes.Views.SearchPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             xmlns:models="clr-namespace:BenyComes.Models"
+             xmlns:vm="clr-namespace:BenyComes.ViewModels"
+             mc:Ignorable="d" 
+             d:DesignHeight="1000" d:DesignWidth="1000">
+
+    <UserControl.Resources>
+        <!-- Hover scale animation for album and artist cards -->
+        <Style x:Key="SearchCardBorderStyle" TargetType="Border">
+            <Setter Property="RenderTransformOrigin" Value="0.5,0.5" />
+            <Setter Property="RenderTransform">
+                <Setter.Value>
+                    <ScaleTransform ScaleX="1.0" ScaleY="1.0" />
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Trigger.EnterActions>
+                        <BeginStoryboard>
+                            <Storyboard>
+                                <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
+                                                 To="1.03" Duration="0:0:0.3">
+                                    <DoubleAnimation.EasingFunction>
+                                        <CubicEase EasingMode="EaseOut" />
+                                    </DoubleAnimation.EasingFunction>
+                                </DoubleAnimation>
+                                <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)"
+                                                 To="1.03" Duration="0:0:0.3">
+                                    <DoubleAnimation.EasingFunction>
+                                        <CubicEase EasingMode="EaseOut" />
+                                    </DoubleAnimation.EasingFunction>
+                                </DoubleAnimation>
+                            </Storyboard>
+                        </BeginStoryboard>
+                    </Trigger.EnterActions>
+                    <Trigger.ExitActions>
+                        <BeginStoryboard>
+                            <Storyboard>
+                                <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
+                                                 To="1.0" Duration="0:0:0.3">
+                                    <DoubleAnimation.EasingFunction>
+                                        <CubicEase EasingMode="EaseOut" />
+                                    </DoubleAnimation.EasingFunction>
+                                </DoubleAnimation>
+                                <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)"
+                                                 To="1.0" Duration="0:0:0.3">
+                                    <DoubleAnimation.EasingFunction>
+                                        <CubicEase EasingMode="EaseOut" />
+                                    </DoubleAnimation.EasingFunction>
+                                </DoubleAnimation>
+                            </Storyboard>
+                        </BeginStoryboard>
+                    </Trigger.ExitActions>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+    </UserControl.Resources>
+
+    <Grid Margin="32,24,32,20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" /> <!-- Top Search Header & Filter Chips -->
+            <RowDefinition Height="*" />    <!-- Scrollable Unified Search Results -->
+        </Grid.RowDefinitions>
+
+        <!-- ============================================================== -->
+        <!-- ROW 0: SEARCH HEADER & FILTER CHIPS                            -->
+        <!-- ============================================================== -->
+        <StackPanel Grid.Row="0" Margin="0,0,0,20">
+            <!-- Title & Subtitle -->
+            <TextBlock Text="Búsqueda"
+                       FontFamily="Segoe UI Variable Display, Segoe UI"
+                       FontSize="30" FontWeight="Bold"
+                       Foreground="{DynamicResource TextPrimaryBrush}" />
+            <TextBlock Text="Explora canciones, artistas y álbumes simultáneamente en tu biblioteca"
+                       FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,4,0,16" />
+
+            <!-- Main Interactive Search Box -->
+            <Grid Margin="0,0,0,14" MaxWidth="700" HorizontalAlignment="Left">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <ui:TextBox x:Name="PageSearchBox"
+                            Grid.Column="0"
+                            Text="{Binding Search.SearchQuery, UpdateSourceTrigger=PropertyChanged}"
+                            PlaceholderText="Buscar por título de canción, nombre de artista o álbum..."
+                            FontSize="14"
+                            Padding="36,9,12,9"
+                            Background="{DynamicResource SurfaceCardBrush}"
+                            Foreground="{DynamicResource TextPrimaryBrush}"
+                            BorderBrush="{DynamicResource SurfaceCardBorderBrush}"
+                            BorderThickness="1"
+                            Width="520"
+                            HorizontalAlignment="Left" />
+
+                <!-- Left Search Icon inside box -->
+                <ui:SymbolIcon Symbol="Search24" FontSize="16"
+                               Foreground="{DynamicResource TextSecondaryBrush}"
+                               HorizontalAlignment="Left" VerticalAlignment="Center"
+                               Margin="12,0,0,0" IsHitTestVisible="False" />
+
+                <!-- Clear Button 'X' -->
+                <ui:Button Grid.Column="1" Appearance="Transparent" Padding="8,6" Margin="6,0,0,0"
+                           Command="{Binding Search.ClearSearchCommand}"
+                           Visibility="{Binding Search.HasSearchQuery, Converter={StaticResource BoolToVisConverter}}"
+                           ToolTip="Limpiar búsqueda">
+                    <StackPanel Orientation="Horizontal">
+                        <ui:SymbolIcon Symbol="Dismiss24" FontSize="14" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,4,0" />
+                        <TextBlock Text="Limpiar" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
+                    </StackPanel>
+                </ui:Button>
+            </Grid>
+
+            <!-- Filter Chips & Quick Play Action -->
+            <Grid Visibility="{Binding Search.HasSearchQuery, Converter={StaticResource BoolToVisConverter}}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <!-- Filter Chips -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                    <!-- Chip: Todo -->
+                    <Button Margin="0,0,8,0" Padding="14,6" Cursor="Hand"
+                            Command="{Binding Search.SetFilterCommand}" CommandParameter="Todo">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border CornerRadius="16" BorderThickness="1" Padding="{TemplateBinding Padding}">
+                                    <Border.Style>
+                                        <Style TargetType="Border">
+                                            <Setter Property="Background" Value="{DynamicResource SurfaceCardBrush}" />
+                                            <Setter Property="BorderBrush" Value="{DynamicResource SurfaceCardBorderBrush}" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Search.SelectedFilter}" Value="Todo">
+                                                    <Setter Property="Background" Value="{Binding Theme.CurrentAccentBrush}" />
+                                                    <Setter Property="BorderBrush" Value="{Binding Theme.CurrentAccentBrush}" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                    <TextBlock Text="{Binding Search.TotalCount, StringFormat='Todo ({0})'}" FontSize="12" FontWeight="SemiBold">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Search.SelectedFilter}" Value="Todo">
+                                                        <Setter Property="Foreground" Value="{Binding Theme.AccentForegroundBrush}" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </Border>
+                            </ControlTemplate>
+                        </Button.Template>
+                    </Button>
+
+                    <!-- Chip: Canciones -->
+                    <Button Margin="0,0,8,0" Padding="14,6" Cursor="Hand"
+                            Command="{Binding Search.SetFilterCommand}" CommandParameter="Canciones">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border CornerRadius="16" BorderThickness="1" Padding="{TemplateBinding Padding}">
+                                    <Border.Style>
+                                        <Style TargetType="Border">
+                                            <Setter Property="Background" Value="{DynamicResource SurfaceCardBrush}" />
+                                            <Setter Property="BorderBrush" Value="{DynamicResource SurfaceCardBorderBrush}" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Search.SelectedFilter}" Value="Canciones">
+                                                    <Setter Property="Background" Value="{Binding Theme.CurrentAccentBrush}" />
+                                                    <Setter Property="BorderBrush" Value="{Binding Theme.CurrentAccentBrush}" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                    <TextBlock Text="{Binding Search.TrackCount, StringFormat='Canciones ({0})'}" FontSize="12" FontWeight="SemiBold">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Search.SelectedFilter}" Value="Canciones">
+                                                        <Setter Property="Foreground" Value="{Binding Theme.AccentForegroundBrush}" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </Border>
+                            </ControlTemplate>
+                        </Button.Template>
+                    </Button>
+
+                    <!-- Chip: Artistas -->
+                    <Button Margin="0,0,8,0" Padding="14,6" Cursor="Hand"
+                            Command="{Binding Search.SetFilterCommand}" CommandParameter="Artistas">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border CornerRadius="16" BorderThickness="1" Padding="{TemplateBinding Padding}">
+                                    <Border.Style>
+                                        <Style TargetType="Border">
+                                            <Setter Property="Background" Value="{DynamicResource SurfaceCardBrush}" />
+                                            <Setter Property="BorderBrush" Value="{DynamicResource SurfaceCardBorderBrush}" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Search.SelectedFilter}" Value="Artistas">
+                                                    <Setter Property="Background" Value="{Binding Theme.CurrentAccentBrush}" />
+                                                    <Setter Property="BorderBrush" Value="{Binding Theme.CurrentAccentBrush}" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                    <TextBlock Text="{Binding Search.ArtistCount, StringFormat='Artistas ({0})'}" FontSize="12" FontWeight="SemiBold">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Search.SelectedFilter}" Value="Artistas">
+                                                        <Setter Property="Foreground" Value="{Binding Theme.AccentForegroundBrush}" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </Border>
+                            </ControlTemplate>
+                        </Button.Template>
+                    </Button>
+
+                    <!-- Chip: Álbumes -->
+                    <Button Margin="0,0,8,0" Padding="14,6" Cursor="Hand"
+                            Command="{Binding Search.SetFilterCommand}" CommandParameter="Álbumes">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border CornerRadius="16" BorderThickness="1" Padding="{TemplateBinding Padding}">
+                                    <Border.Style>
+                                        <Style TargetType="Border">
+                                            <Setter Property="Background" Value="{DynamicResource SurfaceCardBrush}" />
+                                            <Setter Property="BorderBrush" Value="{DynamicResource SurfaceCardBorderBrush}" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Search.SelectedFilter}" Value="Álbumes">
+                                                    <Setter Property="Background" Value="{Binding Theme.CurrentAccentBrush}" />
+                                                    <Setter Property="BorderBrush" Value="{Binding Theme.CurrentAccentBrush}" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                    <TextBlock Text="{Binding Search.AlbumCount, StringFormat='Álbumes ({0})'}" FontSize="12" FontWeight="SemiBold">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Search.SelectedFilter}" Value="Álbumes">
+                                                        <Setter Property="Foreground" Value="{Binding Theme.AccentForegroundBrush}" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </Border>
+                            </ControlTemplate>
+                        </Button.Template>
+                    </Button>
+                </StackPanel>
+
+                <!-- Quick Action: Reproducir todas las canciones encontradas -->
+                <ui:Button Grid.Column="1" Appearance="Primary" Padding="14,6"
+                           Background="{Binding Theme.CurrentAccentBrush}"
+                           Command="{Binding Search.PlayAllTracksCommand}"
+                           Visibility="{Binding Search.TrackCount, Converter={StaticResource NullToVisibilityConverter}}">
+                    <StackPanel Orientation="Horizontal">
+                        <ui:SymbolIcon Symbol="Play24" FontSize="14" Foreground="{Binding Theme.AccentForegroundBrush}" Margin="0,0,6,0" />
+                        <TextBlock Text="Reproducir canciones encontradas" FontSize="12" FontWeight="Bold" Foreground="{Binding Theme.AccentForegroundBrush}" />
+                    </StackPanel>
+                </ui:Button>
+            </Grid>
+        </StackPanel>
+
+        <!-- ============================================================== -->
+        <!-- ROW 1: SCROLLABLE UNIFIED RESULTS CONTAINER                    -->
+        <!-- ============================================================== -->
+        <ScrollViewer x:Name="SearchScrollViewer" Grid.Row="1" VerticalScrollBarVisibility="Auto">
+            <StackPanel Margin="0,0,16,40">
+
+                <!-- 0. LOADING ANIMATION (While search is running in background) -->
+                <StackPanel Margin="0,60,0,0" HorizontalAlignment="Center"
+                            Visibility="{Binding Search.IsSearching, Converter={StaticResource BoolToVisConverter}}">
+                    <ui:ProgressRing IsIndeterminate="True" Width="44" Height="44" HorizontalAlignment="Center" Margin="0,0,0,16" />
+                    <TextBlock Text="Buscando en tu biblioteca..." FontSize="16" FontWeight="SemiBold"
+                               Foreground="{DynamicResource TextPrimaryBrush}" HorizontalAlignment="Center" />
+                    <TextBlock Text="Consultando canciones, artistas y álbumes indexados" FontSize="13"
+                               Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center" Margin="0,6,0,0" />
+                </StackPanel>
+
+                <!-- 1. EMPTY PROMPT (When SearchQuery is empty) -->
+                <StackPanel Margin="0,60,0,0" HorizontalAlignment="Center">
+                    <StackPanel.Style>
+                        <Style TargetType="StackPanel">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                            <Style.Triggers>
+                                <MultiDataTrigger>
+                                    <MultiDataTrigger.Conditions>
+                                        <Condition Binding="{Binding Search.HasSearchQuery}" Value="False" />
+                                        <Condition Binding="{Binding Search.IsSearching}" Value="False" />
+                                    </MultiDataTrigger.Conditions>
+                                    <Setter Property="Visibility" Value="Visible" />
+                                </MultiDataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </StackPanel.Style>
+                    <Border Width="80" Height="80" CornerRadius="40" Background="{DynamicResource SurfaceCardBrush}" BorderBrush="{DynamicResource SurfaceCardBorderBrush}" BorderThickness="1" HorizontalAlignment="Center" Margin="0,0,0,16">
+                        <ui:SymbolIcon Symbol="Search24" FontSize="36" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <TextBlock Text="Busca en tu biblioteca musical" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" HorizontalAlignment="Center" />
+                    <TextBlock Text="Escribe una palabra para encontrar canciones, artistas y álbumes en una sola pantalla"
+                               FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center" Margin="0,8,0,0" TextAlignment="Center" />
+                </StackPanel>
+
+                <!-- 2. NO RESULTS PROMPT (When query is present, total matches == 0, and not searching) -->
+                <StackPanel Margin="0,60,0,0" HorizontalAlignment="Center">
+                    <StackPanel.Style>
+                        <Style TargetType="StackPanel">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                            <Style.Triggers>
+                                <MultiDataTrigger>
+                                    <MultiDataTrigger.Conditions>
+                                        <Condition Binding="{Binding Search.HasSearchQuery}" Value="True" />
+                                        <Condition Binding="{Binding Search.HasResults}" Value="False" />
+                                        <Condition Binding="{Binding Search.IsSearching}" Value="False" />
+                                    </MultiDataTrigger.Conditions>
+                                    <Setter Property="Visibility" Value="Visible" />
+                                </MultiDataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </StackPanel.Style>
+                    <Border Width="80" Height="80" CornerRadius="40" Background="{DynamicResource SurfaceCardBrush}" BorderBrush="{DynamicResource SurfaceCardBorderBrush}" BorderThickness="1" HorizontalAlignment="Center" Margin="0,0,0,16">
+                        <ui:SymbolIcon Symbol="DismissCircle24" FontSize="36" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <TextBlock Text="{Binding Search.SearchQuery, StringFormat='No se encontraron resultados para &quot;{0}&quot;'}"
+                               FontSize="18" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" HorizontalAlignment="Center" />
+                    <TextBlock Text="Revisa que la ortografía sea correcta o intenta buscar por otro artista, álbum o título"
+                               FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center" Margin="0,8,0,0" />
+                </StackPanel>
+
+                <!-- 3. SECCIÓN ARTISTAS -->
+                <StackPanel Margin="0,10,0,28"
+                            Visibility="{Binding Search.ShowArtistsSection, Converter={StaticResource BoolToVisConverter}}">
+                    <Grid Margin="0,0,0,14">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="Artistas" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" />
+                            <Border Background="{DynamicResource SurfaceCardHoverBrush}" CornerRadius="10" Padding="8,2" Margin="10,0,0,0" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding Search.ArtistCount, StringFormat='{}{0}'}" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" />
+                            </Border>
+                        </StackPanel>
+                    </Grid>
+
+                    <ItemsControl ItemsSource="{Binding Search.MatchingArtists}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel Orientation="Horizontal" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate DataType="{x:Type models:ArtistModel}">
+                                <Border Style="{StaticResource SearchCardBorderStyle}" Width="150" Margin="0,0,18,18" CornerRadius="12"
+                                        Background="{DynamicResource SurfaceCardBrush}" BorderBrush="{DynamicResource SurfaceCardBorderBrush}" BorderThickness="1"
+                                        Padding="12" Cursor="Hand">
+                                    <Border.ContextMenu>
+                                        <ContextMenu>
+                                            <MenuItem Header="Reproducir discografía"
+                                                      Command="{Binding DataContext.PlayArtistCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                      CommandParameter="{Binding}">
+                                                <MenuItem.Icon>
+                                                    <ui:SymbolIcon Symbol="Play24" />
+                                                </MenuItem.Icon>
+                                            </MenuItem>
+                                            <MenuItem Header="Ir a artista"
+                                                      Command="{Binding DataContext.NavigateToArtistCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                      CommandParameter="{Binding Name}">
+                                                <MenuItem.Icon>
+                                                    <ui:SymbolIcon Symbol="Person24" />
+                                                </MenuItem.Icon>
+                                            </MenuItem>
+                                        </ContextMenu>
+                                    </Border.ContextMenu>
+                                    <Border.InputBindings>
+                                        <MouseBinding MouseAction="LeftClick"
+                                                      Command="{Binding DataContext.NavigateToArtistCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                      CommandParameter="{Binding Name}" />
+                                    </Border.InputBindings>
+                                    <StackPanel HorizontalAlignment="Center">
+                                        <!-- Circular Avatar -->
+                                        <Grid Width="96" Height="96" Margin="0,0,0,10" HorizontalAlignment="Center">
+                                            <Border Width="96" Height="96" CornerRadius="48" ClipToBounds="True" Background="#1C1C26">
+                                                <Image Source="{Binding AvatarImageSource}" Stretch="UniformToFill" RenderOptions.BitmapScalingMode="HighQuality" />
+                                            </Border>
+                                            <!-- Hover Play Button Overlay -->
+                                            <Border x:Name="SearchArtistHover" Width="96" Height="96" CornerRadius="48" Background="#77000000" Opacity="0">
+                                                <ui:Button Appearance="Transparent" Padding="0" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                           Command="{Binding DataContext.PlayArtistCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                           CommandParameter="{Binding}">
+                                                    <ui:SymbolIcon Symbol="Play24" FontSize="20" Foreground="#FFFFFF" />
+                                                </ui:Button>
+                                            </Border>
+                                        </Grid>
+                                        <TextBlock Text="{Binding Name}" FontWeight="Bold" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"
+                                                   TextTrimming="CharacterEllipsis" TextAlignment="Center" MaxWidth="126" />
+                                        <TextBlock Text="{Binding TrackCount, StringFormat='{}{0} canciones'}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"
+                                                   TextAlignment="Center" Margin="0,3,0,0" />
+                                    </StackPanel>
+                                    <Border.Triggers>
+                                        <EventTrigger RoutedEvent="MouseEnter">
+                                            <BeginStoryboard>
+                                                <Storyboard>
+                                                    <DoubleAnimation Storyboard.TargetName="SearchArtistHover" Storyboard.TargetProperty="Opacity" To="1.0" Duration="0:0:0.15" />
+                                                </Storyboard>
+                                            </BeginStoryboard>
+                                        </EventTrigger>
+                                        <EventTrigger RoutedEvent="MouseLeave">
+                                            <BeginStoryboard>
+                                                <Storyboard>
+                                                    <DoubleAnimation Storyboard.TargetName="SearchArtistHover" Storyboard.TargetProperty="Opacity" To="0.0" Duration="0:0:0.15" />
+                                                </Storyboard>
+                                            </BeginStoryboard>
+                                        </EventTrigger>
+                                    </Border.Triggers>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+
+                <!-- 4. SECCIÓN ÁLBUMES -->
+                <StackPanel Margin="0,0,0,28"
+                            Visibility="{Binding Search.ShowAlbumsSection, Converter={StaticResource BoolToVisConverter}}">
+                    <Grid Margin="0,0,0,14">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="Álbumes" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" />
+                            <Border Background="{DynamicResource SurfaceCardHoverBrush}" CornerRadius="10" Padding="8,2" Margin="10,0,0,0" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding Search.AlbumCount, StringFormat='{}{0}'}" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" />
+                            </Border>
+                        </StackPanel>
+                    </Grid>
+
+                    <ItemsControl ItemsSource="{Binding Search.MatchingAlbums}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel Orientation="Horizontal" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate DataType="{x:Type models:AlbumModel}">
+                                <Border Style="{StaticResource SearchCardBorderStyle}" Width="160" Margin="0,0,18,18" CornerRadius="12"
+                                        Background="{DynamicResource SurfaceCardBrush}" BorderBrush="{DynamicResource SurfaceCardBorderBrush}" BorderThickness="1"
+                                        Padding="10" Cursor="Hand">
+                                    <Border.ContextMenu>
+                                        <ContextMenu>
+                                            <MenuItem Header="Reproducir álbum"
+                                                      Command="{Binding DataContext.PlayAlbumCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                      CommandParameter="{Binding}">
+                                                <MenuItem.Icon>
+                                                    <ui:SymbolIcon Symbol="Play24" />
+                                                </MenuItem.Icon>
+                                            </MenuItem>
+                                            <MenuItem Header="Ir a álbum"
+                                                      Command="{Binding DataContext.NavigateToAlbumCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                      CommandParameter="{Binding Name}">
+                                                <MenuItem.Icon>
+                                                    <ui:SymbolIcon Symbol="Album24" />
+                                                </MenuItem.Icon>
+                                            </MenuItem>
+                                        </ContextMenu>
+                                    </Border.ContextMenu>
+                                    <Border.InputBindings>
+                                        <MouseBinding MouseAction="LeftClick"
+                                                      Command="{Binding DataContext.NavigateToAlbumCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                      CommandParameter="{Binding Name}" />
+                                    </Border.InputBindings>
+                                    <StackPanel>
+                                        <!-- Square Artwork -->
+                                        <Grid Width="138" Height="138" Margin="0,0,0,10" HorizontalAlignment="Center">
+                                            <Border Width="138" Height="138" CornerRadius="8" ClipToBounds="True" Background="#1C1C26">
+                                                <Image Source="{Binding CoverImageSource}" Stretch="UniformToFill" RenderOptions.BitmapScalingMode="HighQuality" />
+                                            </Border>
+                                            <!-- Hover Play Button Overlay -->
+                                            <Border x:Name="SearchAlbumHover" Width="138" Height="138" CornerRadius="8" Background="#77000000" Opacity="0">
+                                                <ui:Button Appearance="Transparent" Padding="0" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                           Command="{Binding DataContext.PlayAlbumCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                           CommandParameter="{Binding}">
+                                                    <ui:SymbolIcon Symbol="Play24" FontSize="24" Foreground="#FFFFFF" />
+                                                </ui:Button>
+                                            </Border>
+                                        </Grid>
+                                        <TextBlock Text="{Binding Name}" FontWeight="Bold" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}"
+                                                   TextTrimming="CharacterEllipsis" MaxWidth="138" />
+                                        <TextBlock Text="{Binding Artist}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"
+                                                   TextTrimming="CharacterEllipsis" MaxWidth="138" Margin="0,2,0,0" />
+                                        <TextBlock Text="{Binding Year, StringFormat='{}{0}'}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"
+                                                   Margin="0,2,0,0" />
+                                    </StackPanel>
+                                    <Border.Triggers>
+                                        <EventTrigger RoutedEvent="MouseEnter">
+                                            <BeginStoryboard>
+                                                <Storyboard>
+                                                    <DoubleAnimation Storyboard.TargetName="SearchAlbumHover" Storyboard.TargetProperty="Opacity" To="1.0" Duration="0:0:0.15" />
+                                                </Storyboard>
+                                            </BeginStoryboard>
+                                        </EventTrigger>
+                                        <EventTrigger RoutedEvent="MouseLeave">
+                                            <BeginStoryboard>
+                                                <Storyboard>
+                                                    <DoubleAnimation Storyboard.TargetName="SearchAlbumHover" Storyboard.TargetProperty="Opacity" To="0.0" Duration="0:0:0.15" />
+                                                </Storyboard>
+                                            </BeginStoryboard>
+                                        </EventTrigger>
+                                    </Border.Triggers>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+
+                <!-- 5. SECCIÓN CANCIONES -->
+                <StackPanel Margin="0,0,0,28"
+                            Visibility="{Binding Search.ShowTracksSection, Converter={StaticResource BoolToVisConverter}}">
+                    <Grid Margin="0,0,0,14">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="Canciones" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" />
+                            <Border Background="{DynamicResource SurfaceCardHoverBrush}" CornerRadius="10" Padding="8,2" Margin="10,0,0,0" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding Search.TrackCount, StringFormat='{}{0}'}" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" />
+                            </Border>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- Table Header -->
+                    <Border Background="Transparent" Padding="8,6" BorderBrush="{DynamicResource DividerBrush}" BorderThickness="0,0,0,1" Margin="0,0,0,4">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="56" />
+                                <ColumnDefinition Width="2.5*" />
+                                <ColumnDefinition Width="1.5*" />
+                                <ColumnDefinition Width="1.8*" />
+                                <ColumnDefinition Width="1*" />
+                                <ColumnDefinition Width="70" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="#" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center" />
+                            <TextBlock Grid.Column="1" Text="TÍTULO" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" Margin="6,0,0,0" />
+                            <TextBlock Grid.Column="2" Text="ARTISTA" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" />
+                            <TextBlock Grid.Column="3" Text="ÁLBUM" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" />
+                            <TextBlock Grid.Column="4" Text="GÉNERO" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" />
+                            <TextBlock Grid.Column="5" Text="DURACIÓN" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Right" Margin="0,0,6,0" />
+                        </Grid>
+                    </Border>
+
+                    <!-- Tracks List -->
+                    <ListView x:Name="TracksListView"
+                              ItemsSource="{Binding Search.MatchingTracks}"
+                              Background="Transparent" BorderThickness="0"
+                              ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                              ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                              VirtualizingPanel.IsVirtualizing="True"
+                              VirtualizingPanel.VirtualizationMode="Recycling"
+                              VirtualizingPanel.ScrollUnit="Pixel"
+                              PreviewMouseWheel="OnTracksListViewPreviewMouseWheel"
+                              SelectionChanged="OnTrackItemSelectionChanged"
+                              MouseDoubleClick="OnTrackItemDoubleClick">
+                        <ListView.ItemContainerStyle>
+                            <Style TargetType="ListViewItem">
+                                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+                                <Setter Property="Background" Value="Transparent" />
+                                <Setter Property="Padding" Value="0" />
+                                <Setter Property="Margin" Value="0,2" />
+                                <Setter Property="BorderThickness" Value="0" />
+                                <Setter Property="ContextMenu" Value="{DynamicResource TrackContextMenu}" />
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="ListViewItem">
+                                            <Border x:Name="ItemBorder" CornerRadius="8" Background="{TemplateBinding Background}" Padding="6,4">
+                                                <ContentPresenter HorizontalAlignment="Stretch" />
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="ItemBorder" Property="Background" Value="{DynamicResource SurfaceCardHoverBrush}" />
+                                                </Trigger>
+                                                <Trigger Property="IsSelected" Value="True">
+                                                    <Setter TargetName="ItemBorder" Property="Background" Value="{DynamicResource SurfaceCardHoverBrush}" />
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </ListView.ItemContainerStyle>
+
+                        <ListView.ItemTemplate>
+                            <DataTemplate DataType="{x:Type models:Track}">
+                                <Grid HorizontalAlignment="Stretch">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="56" />
+                                        <ColumnDefinition Width="2.5*" />
+                                        <ColumnDefinition Width="1.5*" />
+                                        <ColumnDefinition Width="1.8*" />
+                                        <ColumnDefinition Width="1*" />
+                                        <ColumnDefinition Width="70" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <!-- Col 0: Artwork with hover play button -->
+                                    <Grid Grid.Column="0" Width="40" Height="40" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                        <Border CornerRadius="6" ClipToBounds="True" Background="#1C1C26">
+                                            <Image Source="{Binding CoverImageSource}" Stretch="UniformToFill" RenderOptions.BitmapScalingMode="HighQuality" />
+                                        </Border>
+                                        <Button x:Name="HoverSongPlayButton"
+                                                Background="#99000000" BorderThickness="0"
+                                                Width="40" Height="40" Cursor="Hand" Opacity="0"
+                                                Command="{Binding DataContext.Search.PlayTrackCommand, RelativeSource={RelativeSource AncestorType=ListView}}"
+                                                CommandParameter="{Binding}">
+                                            <Button.Template>
+                                                <ControlTemplate TargetType="Button">
+                                                    <Border CornerRadius="6" Background="{TemplateBinding Background}">
+                                                        <Path Data="M 4,2 L 16,10 L 4,18 Z" Fill="White" Stroke="{x:Null}" Width="14" Height="14" Margin="2,0,0,0" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                    </Border>
+                                                </ControlTemplate>
+                                            </Button.Template>
+                                        </Button>
+                                    </Grid>
+
+                                    <!-- Col 1: Title -->
+                                    <TextBlock Grid.Column="1" Text="{Binding Title}" FontSize="13" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Margin="6,0,10,0" />
+
+                                    <!-- Col 2: Artist -->
+                                    <TextBlock Grid.Column="2" Text="{Binding Artist}" FontSize="12"
+                                               Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Margin="0,0,10,0" />
+
+                                    <!-- Col 3: Album -->
+                                    <TextBlock Grid.Column="3" Text="{Binding Album}" FontSize="12"
+                                               Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Margin="0,0,10,0" />
+
+                                    <!-- Col 4: Genre Badge -->
+                                    <Border Grid.Column="4" Background="{DynamicResource SurfaceCardHoverBrush}" CornerRadius="4" Padding="6,2" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="0,0,10,0">
+                                        <TextBlock Text="{Binding Genre}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" />
+                                    </Border>
+
+                                    <!-- Col 5: Duration -->
+                                    <TextBlock Grid.Column="5" Text="{Binding DurationFormatted}" FontSize="12"
+                                               Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,6,0" />
+                                </Grid>
+
+                                <DataTemplate.Triggers>
+                                    <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=ListViewItem}}" Value="True">
+                                        <Setter TargetName="HoverSongPlayButton" Property="Opacity" Value="1.0" />
+                                    </DataTrigger>
+                                </DataTemplate.Triggers>
+                            </DataTemplate>
+                        </ListView.ItemTemplate>
+                    </ListView>
+                </StackPanel>
+
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</UserControl>
