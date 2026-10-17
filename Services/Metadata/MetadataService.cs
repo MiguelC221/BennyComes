@@ -48,140 +48,237 @@ public class MetadataService
             Directory.CreateDirectory(ArtworkCacheDir);
             string hash = GetAlbumArtHash(artist, album);
             string file = Path.Combine(ArtworkCacheDir, $"{hash}.jpg");
-            if (!File.Exists(file))
+            if (!Data.LibraryIndexDatabase.Instance.IsArtworkCached(file))
             {
-                byte[] dataToWrite = data;
-                // If JPEG, repair truncated end marker if missing
-                if (data.Length >= 2 && data[0] == 0xFF && data[1] == 0xD8)
-                {
-                    if (data[^2] != 0xFF || data[^1] != 0xD9)
-                    {
-                        dataToWrite = new byte[data.Length + 2];
-                        Buffer.BlockCopy(data, 0, dataToWrite, 0, data.Length);
-                        dataToWrite[^2] = 0xFF;
-                        dataToWrite[^1] = 0xD9;
-                    }
-                }
+                byte[] dataToWrite = CompressToThumbnailBytes(data, decodeWidth: 160, jpegQuality: 72);
 
                 string temp = Path.Combine(ArtworkCacheDir, $"{hash}_{Guid.NewGuid():N}.tmp");
                 File.WriteAllBytes(temp, dataToWrite);
                 File.Move(temp, file, overwrite: true);
+                Data.LibraryIndexDatabase.Instance.MarkArtworkCached(file);
             }
         }
         catch { }
     }
 
-    public async Task<Track> LoadTrackMetadataAsync(string filePath)
+    private static byte[] CompressToThumbnailBytes(byte[] rawData, int decodeWidth = 160, int jpegQuality = 72)
     {
-        return await Task.Run(() =>
+        try
         {
-            var fileInfo = new FileInfo(filePath);
-            var ext = fileInfo.Extension.TrimStart('.').ToUpperInvariant();
-            var track = new Track
+            byte[] fixedData = rawData;
+            if (rawData.Length >= 2 && rawData[0] == 0xFF && rawData[1] == 0xD8)
             {
-                FilePath = filePath,
-                FileFormat = ext,
-                DateAdded = fileInfo.CreationTimeUtc,
-                DateModified = fileInfo.LastWriteTimeUtc
-            };
-
-            try
-            {
-                using var tagFile = TagLib.File.Create(filePath);
-
-                track.Title = !string.IsNullOrWhiteSpace(tagFile.Tag.Title) 
-                    ? tagFile.Tag.Title 
-                    : Path.GetFileNameWithoutExtension(filePath);
-                
-                track.Artist = !string.IsNullOrWhiteSpace(tagFile.Tag.FirstPerformer) 
-                    ? tagFile.Tag.FirstPerformer 
-                    : (!string.IsNullOrWhiteSpace(tagFile.Tag.FirstAlbumArtist) ? tagFile.Tag.FirstAlbumArtist : "Unknown Artist");
-
-                track.Album = !string.IsNullOrWhiteSpace(tagFile.Tag.Album) 
-                    ? tagFile.Tag.Album 
-                    : "Single";
-
-                track.Year = tagFile.Tag.Year;
-                track.TrackNumber = tagFile.Tag.Track;
-                track.Genre = tagFile.Tag.FirstGenre ?? "Music";
-
-                if (tagFile.Properties != null)
+                if (rawData[^2] != 0xFF || rawData[^1] != 0xD9)
                 {
-                    track.Duration = tagFile.Properties.Duration;
-                    track.Bitrate = tagFile.Properties.AudioBitrate;
-                    track.SampleRate = tagFile.Properties.AudioSampleRate > 0 ? tagFile.Properties.AudioSampleRate : 44100;
-                    track.BitsPerSample = tagFile.Properties.BitsPerSample > 0 ? tagFile.Properties.BitsPerSample : 16;
-                    track.Channels = tagFile.Properties.AudioChannels > 0 ? tagFile.Properties.AudioChannels : 2;
+                    fixedData = new byte[rawData.Length + 2];
+                    Buffer.BlockCopy(rawData, 0, fixedData, 0, rawData.Length);
+                    fixedData[^2] = 0xFF;
+                    fixedData[^1] = 0xD9;
                 }
+            }
 
-                // 1. Verify and extract embedded cover
+            using var inStream = new MemoryStream(fixedData);
+            var bi = new BitmapImage();
+            bi.BeginInit();
+            bi.StreamSource = inStream;
+            bi.CacheOption = BitmapCacheOption.OnLoad;
+            bi.DecodePixelWidth = decodeWidth;
+            bi.EndInit();
+            bi.Freeze();
+
+            var encoder = new JpegBitmapEncoder { QualityLevel = jpegQuality };
+            encoder.Frames.Add(BitmapFrame.Create(bi));
+            using var outStream = new MemoryStream();
+            encoder.Save(outStream);
+            var compressed = outStream.ToArray();
+            if (compressed.Length > 64)
+            {
+                return compressed;
+            }
+        }
+        catch { }
+
+        return rawData;
+    }
+
+    public void ReleaseThumbnailsFromMemory()
+    {
+        _artCache.Clear();
+    }
+
+    /// <summary>
+    /// High-speed synchronous metadata extractor designed for parallel batch indexing.
+    /// Avoids per-file SQLite queries, skips decoding embedded pictures if the album cover already exists in ArtworkCache,
+    /// caches directory cover paths per folder, and releases byte[] buffers immediately after saving to disk.
+    /// </summary>
+    public Track ExtractTrackMetadataFast(string filePath, ConcurrentDictionary<string, string?>? folderArtPathCache = null)
+    {
+        var fileInfo = new FileInfo(filePath);
+        var ext = fileInfo.Extension.TrimStart('.').ToUpperInvariant();
+        var track = new Track
+        {
+            FilePath = filePath,
+            FileFormat = ext,
+            FileSize = fileInfo.Exists ? fileInfo.Length : 0,
+            DateAdded = fileInfo.Exists ? fileInfo.CreationTimeUtc : DateTime.UtcNow,
+            DateModified = fileInfo.Exists ? fileInfo.LastWriteTimeUtc : DateTime.UtcNow
+        };
+
+        try
+        {
+            using var tagFile = TagLib.File.Create(filePath);
+
+            track.Title = !string.IsNullOrWhiteSpace(tagFile.Tag.Title)
+                ? tagFile.Tag.Title
+                : Path.GetFileNameWithoutExtension(filePath);
+
+            track.Artist = !string.IsNullOrWhiteSpace(tagFile.Tag.FirstPerformer)
+                ? tagFile.Tag.FirstPerformer
+                : (!string.IsNullOrWhiteSpace(tagFile.Tag.FirstAlbumArtist) ? tagFile.Tag.FirstAlbumArtist : "Unknown Artist");
+
+            track.Album = !string.IsNullOrWhiteSpace(tagFile.Tag.Album)
+                ? tagFile.Tag.Album
+                : "Single";
+
+            track.Year = tagFile.Tag.Year;
+            track.TrackNumber = tagFile.Tag.Track;
+            track.Genre = tagFile.Tag.FirstGenre ?? "Music";
+
+            if (tagFile.Properties != null)
+            {
+                track.Duration = tagFile.Properties.Duration;
+                track.Bitrate = tagFile.Properties.AudioBitrate;
+                track.SampleRate = tagFile.Properties.AudioSampleRate > 0 ? tagFile.Properties.AudioSampleRate : 44100;
+                track.BitsPerSample = tagFile.Properties.BitsPerSample > 0 ? tagFile.Properties.BitsPerSample : 16;
+                track.Channels = tagFile.Properties.AudioChannels > 0 ? tagFile.Properties.AudioChannels : 2;
+            }
+
+            string artHash = GetAlbumArtHash(track.Artist, track.Album);
+            string expectedArtPath = Path.Combine(ArtworkCacheDir, $"{artHash}.jpg");
+
+            if (Data.LibraryIndexDatabase.Instance.IsArtworkCached(expectedArtPath))
+            {
+                track.ArtworkPath = expectedArtPath;
+            }
+            else
+            {
+                byte[]? artBytes = null;
                 if (tagFile.Tag.Pictures != null && tagFile.Tag.Pictures.Length > 0)
                 {
                     var pic = tagFile.Tag.Pictures[0];
-                    if (pic.Data != null && pic.Data.Data != null && pic.Data.Data.Length > 0)
+                    if (pic.Data?.Data != null && pic.Data.Data.Length > 0)
                     {
-                        track.AlbumArtData = pic.Data.Data;
+                        artBytes = pic.Data.Data;
+                    }
+                }
+
+                if (artBytes == null || artBytes.Length == 0)
+                {
+                    artBytes = TryFindLocalFolderArtFast(filePath, folderArtPathCache);
+                }
+
+                if (artBytes != null && artBytes.Length > 0)
+                {
+                    SaveArtToDiskCache(track.Artist, track.Album, artBytes);
+                    if (Data.LibraryIndexDatabase.Instance.IsArtworkCached(expectedArtPath))
+                    {
+                        track.ArtworkPath = expectedArtPath;
                     }
                 }
             }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"TagLib error reading {filePath}: {ex.Message}");
-                track.Title = Path.GetFileNameWithoutExtension(filePath);
-                track.Artist = "Unknown Artist";
-                track.Album = "Unknown Album";
-                track.Duration = TimeSpan.FromMinutes(3); // fallback
-                track.SampleRate = 44100;
-                track.BitsPerSample = 16;
-                track.Channels = 2;
-            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"TagLib error reading {filePath}: {ex.Message}");
+            track.Title = Path.GetFileNameWithoutExtension(filePath);
+            track.Artist = "Unknown Artist";
+            track.Album = "Unknown Album";
+            track.Duration = TimeSpan.FromMinutes(3);
+            track.SampleRate = 44100;
+            track.BitsPerSample = 16;
+            track.Channels = 2;
+        }
 
-            // 2. Fallback: Search local directory for cover/folder/front.jpg or png
-            if (track.AlbumArtData == null || track.AlbumArtData.Length == 0)
-            {
-                track.AlbumArtData = TryFindLocalFolderArt(filePath);
-            }
+        // Precompute sort and search fields on background worker thread
+        track.FirstLetterGroup = Helpers.AlphaGroupHelper.GetAlphaGroupKey(track.Title);
+        _ = track.SortTitle;
+        _ = track.GroupRank;
+        _ = track.SearchText;
+        track.AlbumArtData = null;
 
-            // 3. Cache thumbnail to disk
-            if (track.AlbumArtData != null && track.AlbumArtData.Length > 0)
-            {
-                SaveArtToDiskCache(track.Artist, track.Album, track.AlbumArtData);
-            }
-
-            return track;
-        });
+        return track;
     }
 
-    public static byte[]? TryFindLocalFolderArt(string audioFilePath)
+    public async Task<Track> LoadTrackMetadataAsync(string filePath, bool forceTagLib = false)
+    {
+        if (!forceTagLib)
+        {
+            try
+            {
+                var cached = await Data.LibraryDao.Instance.GetTrackByPathAsync(filePath);
+                if (cached != null)
+                {
+                    return cached;
+                }
+            }
+            catch { }
+        }
+
+        return await Task.Run(() => ExtractTrackMetadataFast(filePath));
+    }
+
+    private static byte[]? TryFindLocalFolderArtFast(string audioFilePath, ConcurrentDictionary<string, string?>? folderArtPathCache)
     {
         try
         {
             var dir = Path.GetDirectoryName(audioFilePath);
-            if (string.IsNullOrEmpty(dir) || !Directory.Exists(dir))
-                return null;
+            if (string.IsNullOrEmpty(dir)) return null;
 
-            string[] candidates = { "cover.jpg", "folder.jpg", "front.jpg", "albumart.jpg", "cover.png", "folder.png", "front.png" };
-            foreach (var name in candidates)
+            string? foundPath;
+            if (folderArtPathCache != null)
             {
-                var full = Path.Combine(dir, name);
-                if (File.Exists(full))
-                {
-                    return File.ReadAllBytes(full);
-                }
+                foundPath = folderArtPathCache.GetOrAdd(dir, static d => FindFolderArtFilePath(d));
+            }
+            else
+            {
+                foundPath = FindFolderArtFilePath(dir);
             }
 
-            // Check first available jpg or png in directory
-            var firstImg = Directory.EnumerateFiles(dir, "*.*")
-                .FirstOrDefault(f => f.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) ||
-                                     f.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase) ||
-                                     f.EndsWith(".png", StringComparison.OrdinalIgnoreCase));
-            if (firstImg != null)
+            if (!string.IsNullOrEmpty(foundPath) && File.Exists(foundPath))
             {
-                return File.ReadAllBytes(firstImg);
+                return File.ReadAllBytes(foundPath);
             }
         }
         catch { }
         return null;
+    }
+
+    private static string? FindFolderArtFilePath(string dir)
+    {
+        try
+        {
+            if (!Directory.Exists(dir)) return null;
+            string[] candidates = { "cover.jpg", "folder.jpg", "front.jpg", "albumart.jpg", "cover.png", "folder.png", "front.png" };
+            foreach (var name in candidates)
+            {
+                var full = Path.Combine(dir, name);
+                if (File.Exists(full)) return full;
+            }
+
+            return Directory.EnumerateFiles(dir, "*.*")
+                .FirstOrDefault(f => f.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) ||
+                                     f.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase) ||
+                                     f.EndsWith(".png", StringComparison.OrdinalIgnoreCase));
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    public static byte[]? TryFindLocalFolderArt(string audioFilePath)
+    {
+        return TryFindLocalFolderArtFast(audioFilePath, null);
     }
 
     private static readonly (Color, Color)[] PaletteGradients = new[]
@@ -292,7 +389,7 @@ public class MetadataService
         }
     }
 
-    public BitmapImage GetAlbumArtImage(Track? track, int decodeWidth = 300)
+    public BitmapImage GetAlbumArtImage(Track? track, int decodeWidth = 160)
     {
         if (track == null) return GetFallbackArt();
 
@@ -312,19 +409,19 @@ public class MetadataService
             if (track.AlbumArtData != null && track.AlbumArtData.Length > 0)
             {
                 SaveArtToDiskCache(track.Artist, track.Album, track.AlbumArtData);
+                track.AlbumArtData = null;
             }
             else if (!string.IsNullOrEmpty(track.FilePath) && File.Exists(track.FilePath))
             {
                 var onDemand = ExtractArtFromFileOrFolder(track.FilePath);
                 if (onDemand != null && onDemand.Length > 0)
                 {
-                    track.AlbumArtData = onDemand;
                     SaveArtToDiskCache(track.Artist, track.Album, onDemand);
                 }
             }
         }
 
-        // Load from disk cache
+        // Load compressed thumbnail from disk cache
         if (File.Exists(diskPath))
         {
             try
@@ -340,6 +437,11 @@ public class MetadataService
                 bi.EndInit();
                 bi.Freeze();
 
+                // Cap in-memory thumbnail dictionary so it never grows unbounded
+                if (_artCache.Count > 120)
+                {
+                    _artCache.Clear();
+                }
                 _artCache[memKey] = bi;
                 return bi;
             }
@@ -352,7 +454,6 @@ public class MetadataService
         // Placeholder
         int seed = Math.Abs(((track.Title ?? "") + (track.Artist ?? "")).GetHashCode());
         var placeholder = ProceduralPalette[seed % ProceduralPalette.Length];
-        _artCache[memKey] = placeholder;
         return placeholder;
     }
 
@@ -375,14 +476,44 @@ public class MetadataService
         return TryFindLocalFolderArt(filePath);
     }
 
+    /// <summary>
+    /// Decodes high-quality artwork directly from the audio file or folder ONLY for the currently playing track.
+    /// Does NOT store the high-res image in _artCache so it is immediately released from memory once the track finishes.
+    /// </summary>
     public BitmapImage GetHighResAlbumArt(Track? track)
     {
-        return GetAlbumArtImage(track, decodeWidth: 0); // Full resolution
+        if (track == null) return GetFallbackArt();
+
+        try
+        {
+            if (!string.IsNullOrEmpty(track.FilePath) && File.Exists(track.FilePath))
+            {
+                byte[]? rawBytes = ExtractArtFromFileOrFolder(track.FilePath);
+                if (rawBytes != null && rawBytes.Length > 100)
+                {
+                    // Ensure compressed thumbnail also exists on disk for library views
+                    SaveArtToDiskCache(track.Artist, track.Album, rawBytes);
+
+                    using var ms = new MemoryStream(rawBytes);
+                    var hiRes = new BitmapImage();
+                    hiRes.BeginInit();
+                    hiRes.StreamSource = ms;
+                    hiRes.CacheOption = BitmapCacheOption.OnLoad;
+                    hiRes.DecodePixelWidth = 640; // High quality for NowPlaying without wasting 4K uncompressed buffers
+                    hiRes.EndInit();
+                    hiRes.Freeze();
+                    return hiRes;
+                }
+            }
+        }
+        catch { }
+
+        return GetAlbumArtImage(track, decodeWidth: 160);
     }
 
     public BitmapImage GetBlurredBackgroundArt(Track? track)
     {
-        return GetAlbumArtImage(track, decodeWidth: 100);
+        return GetAlbumArtImage(track, decodeWidth: 96);
     }
 
     public static BitmapImage GenerateProceduralCover(string title, string artist)

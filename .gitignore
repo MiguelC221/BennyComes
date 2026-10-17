@@ -1,8 +1,55 @@
-@"
+# Build results & publish outputs
+[Bb]in/
+[Oo]bj/
+[Pp]ublish/
+publish/
+out/
+dist/
+installer_output/
+[Rr]elease/
+[Dd]ebug/
+
+# Executables, installers & debug symbols
+*.exe
+*.dll
+*.pdb
+*.msi
+*.msix
+*.appx
+*.cab
+*.zip
+*.7z
+*.tar.gz
+
+# Visual Studio / Rider / VS Code temporary files
+.vs/
+.idea/
+.vscode/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*_wpftmp.csproj
+*_wpftmp.*
+*.tmp
+
+# Local databases, logs & artist caches
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+*.log
+ArtistCache/
+IndexDB/
+Logs/
+DemoTracks/
+images_*/
+
+# OS generated files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+.DS_Storepublish/
 bin/
 obj/
-installer_output/
-.vs/
-*.user
-*_wpftmp.csproj
-"@ | Set-Content .gitignore -Encoding utf8

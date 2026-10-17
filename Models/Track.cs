@@ -40,7 +40,13 @@ public partial class Track : ObservableObject
     [ObservableProperty]
     private BitmapImage? _albumArtImage;
 
-    public BitmapImage CoverImageSource => AlbumArtImage ??= Services.Metadata.MetadataService.Instance.GetAlbumArtImage(this);
+    public BitmapImage CoverImageSource => AlbumArtImage ??= Services.Metadata.MetadataService.Instance.GetAlbumArtImage(this, decodeWidth: 120);
+
+    public void ReleaseArtFromMemory()
+    {
+        AlbumArtImage = null;
+        AlbumArtData = null;
+    }
 
     public string ArtistAndAlbum => string.IsNullOrWhiteSpace(Album) || Album == "Unknown Album"
         ? Artist
@@ -56,7 +62,48 @@ public partial class Track : ObservableObject
 
     public string BitDepthFormatted => $"{BitsPerSample}-bit";
 
+    public string ArtworkPath { get; set; } = string.Empty;
+    public string FirstLetterGroup { get; set; } = string.Empty;
     public string FileName => Path.GetFileName(FilePath);
+
+    public string AlphaGroup => !string.IsNullOrWhiteSpace(FirstLetterGroup)
+        ? FirstLetterGroup
+        : Helpers.AlphaGroupHelper.GetAlphaGroupKey(Title);
+
+    private string? _sortTitleSource;
+    private string _sortTitle = string.Empty;
+    private int _groupRank;
+    private string? _searchText;
+
+    private void EnsureSortCache()
+    {
+        if (ReferenceEquals(_sortTitleSource, Title)) return;
+        _sortTitleSource = Title;
+        _sortTitle = Helpers.AlphaGroupHelper.GetSortKey(Title);
+        var alpha = !string.IsNullOrWhiteSpace(FirstLetterGroup)
+            ? FirstLetterGroup
+            : Helpers.AlphaGroupHelper.GetAlphaGroupKey(Title);
+        _groupRank = Helpers.AlphaGroupHelper.GetGroupRank(alpha);
+    }
+
+    public void SetPrecomputedSortAndSearch(string? sortTitle, int groupRank, string? searchText)
+    {
+        if (!string.IsNullOrEmpty(sortTitle))
+        {
+            _sortTitle = sortTitle;
+            _groupRank = groupRank;
+            _sortTitleSource = Title;
+        }
+        if (!string.IsNullOrEmpty(searchText))
+        {
+            _searchText = searchText;
+        }
+    }
+
+    public string SortTitle { get { EnsureSortCache(); return _sortTitle; } }
+    public int GroupRank { get { EnsureSortCache(); return _groupRank; } }
+
+    public string SearchText => _searchText ??= Helpers.AlphaGroupHelper.NormalizeForSearch($"{Title} {Artist} {Album} {Genre}");
 
     public override bool Equals(object? obj)
     {

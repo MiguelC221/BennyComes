@@ -43,6 +43,24 @@ public class LibraryCacheService
     {
         if (IsLoaded) return;
         await ArtistSplitterService.Instance.LoadSettingsAsync();
+
+        // Fast-path: load precomputed Songs, Albums, and Artists concurrently from %LocalAppData%\BenyComes\IndexDB\
+        var (hasData, indexedTracks, indexedAlbums, indexedArtists, indexedGenres) =
+            await LibraryIndexDatabase.Instance.TryLoadAllParallelAsync();
+
+        if (hasData && indexedTracks.Count > 0)
+        {
+            CachedTracks = indexedTracks;
+            CachedAlbums = indexedAlbums;
+            CachedArtists = indexedArtists;
+            CachedGenres = indexedGenres;
+            IsLoaded = true;
+
+            _ = LoadRecentPlaysFromDbAsync();
+            LibraryCacheUpdated?.Invoke();
+            return;
+        }
+
         await ReloadFromDatabaseAsync();
     }
 
@@ -54,134 +72,7 @@ public class LibraryCacheService
             var genres = await _libraryDao.GetGenresAsync();
 
             var (albums, artists) = await Task.Run(() =>
-            {
-                // Build albums
-                var albumList = tracks
-                    .GroupBy(t => string.IsNullOrWhiteSpace(t.Album) ? "Desconocido" : t.Album)
-                    .Select(g =>
-                    {
-                        var first = g.First();
-                        string artHash = MetadataService.GetAlbumArtHash(first.Artist, g.Key);
-                        string artPath = Path.Combine(ArtworkCacheDir, $"{artHash}.jpg");
-
-                        return new AlbumModel
-                        {
-                            Name = g.Key,
-                            Artist = first.Artist,
-                            Year = first.Year,
-                            Genre = first.Genre,
-                            ArtworkPath = File.Exists(artPath) ? artPath : null,
-                            Tracks = g.OrderBy(t => t.TrackNumber).ToList()
-                        };
-                    })
-                    .OrderBy(a => a.Name)
-                    .ToList();
-
-                // Build artists with smart splitter
-                var artistTrackPairs = new List<(string ArtistName, Track Track)>();
-                foreach (var t in tracks)
-                {
-                    var splitNames = ArtistSplitterService.Instance.SplitArtists(t.Artist);
-                    foreach (var name in splitNames)
-                    {
-                        artistTrackPairs.Add((name, t));
-                    }
-                }
-
-                var artistList = artistTrackPairs
-                    .GroupBy(pair => pair.ArtistName, StringComparer.OrdinalIgnoreCase)
-                    .Select(g =>
-                    {
-                        var firstTrack = g.First().Track;
-                        string artHash = MetadataService.GetAlbumArtHash(firstTrack.Artist, firstTrack.Album);
-                        string artPath = Path.Combine(ArtworkCacheDir, $"{artHash}.jpg");
-
-                        var artistAlbums = albumList
-                            .Where(al => al.Artist.Equals(g.Key, StringComparison.OrdinalIgnoreCase) ||
-                                         g.Any(pair => string.Equals(pair.Track.Album, al.Name, StringComparison.OrdinalIgnoreCase)))
-                            .DistinctBy(al => al.Name)
-                            .ToList();
-
-                        return new ArtistModel
-                        {
-                            Name = g.Key,
-                            AvatarPath = File.Exists(artPath) ? artPath : null,
-                            Tracks = g.Select(p => p.Track).DistinctBy(t => t.Id).ToList(),
-                            Albums = artistAlbums
-                        };
-                    })
-                    .OrderBy(a => a.Name)
-                    .ToList();
-
-                return (albumList, artistList);
-            });
-
-            // Save grouped caches to SQLite asynchronously for durability
-            _ = Task.Run(async () =>
-            {
-                try
-                {
-                    using var conn = await _db.CreateConnectionAsync();
-                    using var trans = conn.BeginTransaction();
-                    using var cmd = conn.CreateCommand();
-                    cmd.Transaction = trans;
-
-                    cmd.CommandText = @"
-                        INSERT INTO cached_albums (name, artist, year, genre, track_count, artwork_path)
-                        VALUES ($name, $artist, $year, $genre, $trackCount, $artworkPath)
-                        ON CONFLICT(name, artist) DO UPDATE SET
-                            year = excluded.year,
-                            genre = excluded.genre,
-                            track_count = excluded.track_count,
-                            artwork_path = excluded.artwork_path;
-                    ";
-
-                    var pName = cmd.Parameters.Add("$name", SqliteType.Text);
-                    var pArtist = cmd.Parameters.Add("$artist", SqliteType.Text);
-                    var pYear = cmd.Parameters.Add("$year", SqliteType.Integer);
-                    var pGenre = cmd.Parameters.Add("$genre", SqliteType.Text);
-                    var pCount = cmd.Parameters.Add("$trackCount", SqliteType.Integer);
-                    var pArt = cmd.Parameters.Add("$artworkPath", SqliteType.Text);
-
-                    foreach (var a in albums)
-                    {
-                        pName.Value = a.Name;
-                        pArtist.Value = a.Artist;
-                        pYear.Value = (long)a.Year;
-                        pGenre.Value = a.Genre;
-                        pCount.Value = a.TrackCount;
-                        pArt.Value = a.ArtworkPath ?? "";
-                        await cmd.ExecuteNonQueryAsync();
-                    }
-
-                    cmd.CommandText = @"
-                        INSERT INTO cached_artists (name, track_count, album_count, avatar_path)
-                        VALUES ($name, $trackCount, $albumCount, $avatarPath)
-                        ON CONFLICT(name) DO UPDATE SET
-                            track_count = excluded.track_count,
-                            album_count = excluded.album_count,
-                            avatar_path = excluded.avatar_path;
-                    ";
-
-                    cmd.Parameters.Clear();
-                    var paName = cmd.Parameters.Add("$name", SqliteType.Text);
-                    var paTrackCount = cmd.Parameters.Add("$trackCount", SqliteType.Integer);
-                    var paAlbumCount = cmd.Parameters.Add("$albumCount", SqliteType.Integer);
-                    var paAvatar = cmd.Parameters.Add("$avatarPath", SqliteType.Text);
-
-                    foreach (var ar in artists)
-                    {
-                        paName.Value = ar.Name;
-                        paTrackCount.Value = ar.TrackCount;
-                        paAlbumCount.Value = ar.AlbumCount;
-                        paAvatar.Value = ar.AvatarPath ?? "";
-                        await cmd.ExecuteNonQueryAsync();
-                    }
-
-                    await trans.CommitAsync();
-                }
-                catch { }
-            });
+                LibraryIndexDatabase.Instance.BuildGroupsFromTracks(tracks));
 
             CachedTracks = tracks;
             CachedAlbums = albums;
@@ -189,14 +80,168 @@ public class LibraryCacheService
             CachedGenres = genres;
             IsLoaded = true;
 
-            await LoadRecentPlaysFromDbAsync();
+            // Persist partitioned index databases in %LocalAppData%\BenyComes\IndexDB\ + legacy cache tables
+            _ = Task.Run(async () =>
+            {
+                await LibraryIndexDatabase.Instance.SaveAllParallelAsync(tracks, albums, artists, replaceAll: true);
+                await SaveLegacyGroupedCachesAsync(albums, artists);
+            });
 
-            LibraryCacheUpdated?.Invoke();
+            await LoadRecentPlaysFromDbAsync();
+            NotifyLibraryCacheUpdated();
         }
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"Error loading library cache: {ex.Message}");
         }
+    }
+
+    /// <summary>
+    /// Integrates a newly indexed batch of tracks into memory and flushes progressively to the partitioned AppData
+    /// index databases (songs_index.db, albums_index.db, artists_index.db, search_index.db) while indexing is running.
+    /// </summary>
+    public async Task IntegrateIndexedBatchAsync(IReadOnlyList<Track> batchTracks, bool isFinalBatch)
+    {
+        if (batchTracks == null || batchTracks.Count == 0) return;
+
+        try
+        {
+            var (mergedTracks, albums, artists, genres) = await Task.Run(() =>
+            {
+                var trackMap = new Dictionary<string, Track>(CachedTracks.Count + batchTracks.Count, StringComparer.OrdinalIgnoreCase);
+                foreach (var existing in CachedTracks)
+                {
+                    if (!string.IsNullOrEmpty(existing.FilePath))
+                        trackMap[existing.FilePath] = existing;
+                }
+
+                foreach (var incoming in batchTracks)
+                {
+                    if (!string.IsNullOrEmpty(incoming.FilePath))
+                        trackMap[incoming.FilePath] = incoming;
+                }
+
+                var allTracks = trackMap.Values
+                    .OrderBy(t => t.GroupRank)
+                    .ThenBy(t => t.SortTitle, StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+
+                var (builtAlbums, builtArtists) = LibraryIndexDatabase.Instance.BuildGroupsFromTracks(allTracks);
+
+                var genreSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                foreach (var t in allTracks)
+                {
+                    if (!string.IsNullOrWhiteSpace(t.Genre))
+                        genreSet.Add(t.Genre);
+                }
+
+                var builtGenres = new List<string>(genreSet.Count + 1) { "Todos los géneros" };
+                builtGenres.AddRange(genreSet.OrderBy(g => g, StringComparer.OrdinalIgnoreCase));
+
+                return (allTracks, builtAlbums, builtArtists, builtGenres);
+            });
+
+            CachedTracks = mergedTracks;
+            CachedAlbums = albums;
+            CachedArtists = artists;
+            CachedGenres = genres;
+            IsLoaded = true;
+
+            // Flush batch progressively to %LocalAppData%\BenyComes\IndexDB\ across all 4 databases in parallel
+            var tracksToSave = isFinalBatch ? mergedTracks : batchTracks;
+            await LibraryIndexDatabase.Instance.SaveAllParallelAsync(tracksToSave, albums, artists, replaceAll: isFinalBatch);
+
+            if (isFinalBatch)
+            {
+                _ = Task.Run(() => SaveLegacyGroupedCachesAsync(albums, artists));
+                await LoadRecentPlaysFromDbAsync();
+            }
+
+            NotifyLibraryCacheUpdated();
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error integrating indexed batch: {ex.Message}");
+        }
+    }
+
+    private void NotifyLibraryCacheUpdated()
+    {
+        var app = Application.Current;
+        if (app != null && !app.Dispatcher.CheckAccess())
+        {
+            app.Dispatcher.InvokeAsync(() => LibraryCacheUpdated?.Invoke());
+        }
+        else
+        {
+            LibraryCacheUpdated?.Invoke();
+        }
+    }
+
+    private async Task SaveLegacyGroupedCachesAsync(IReadOnlyList<AlbumModel> albums, IReadOnlyList<ArtistModel> artists)
+    {
+        try
+        {
+            using var conn = await _db.CreateConnectionAsync();
+            using var trans = conn.BeginTransaction();
+            using var cmd = conn.CreateCommand();
+            cmd.Transaction = trans;
+
+            cmd.CommandText = @"
+                INSERT INTO cached_albums (name, artist, year, genre, track_count, artwork_path)
+                VALUES ($name, $artist, $year, $genre, $trackCount, $artworkPath)
+                ON CONFLICT(name, artist) DO UPDATE SET
+                    year = excluded.year,
+                    genre = excluded.genre,
+                    track_count = excluded.track_count,
+                    artwork_path = excluded.artwork_path;
+            ";
+
+            var pName = cmd.Parameters.Add("$name", SqliteType.Text);
+            var pArtist = cmd.Parameters.Add("$artist", SqliteType.Text);
+            var pYear = cmd.Parameters.Add("$year", SqliteType.Integer);
+            var pGenre = cmd.Parameters.Add("$genre", SqliteType.Text);
+            var pCount = cmd.Parameters.Add("$trackCount", SqliteType.Integer);
+            var pArt = cmd.Parameters.Add("$artworkPath", SqliteType.Text);
+
+            foreach (var a in albums)
+            {
+                pName.Value = a.Name;
+                pArtist.Value = a.Artist;
+                pYear.Value = (long)a.Year;
+                pGenre.Value = a.Genre;
+                pCount.Value = a.TrackCount;
+                pArt.Value = a.ArtworkPath ?? "";
+                await cmd.ExecuteNonQueryAsync();
+            }
+
+            cmd.CommandText = @"
+                INSERT INTO cached_artists (name, track_count, album_count, avatar_path)
+                VALUES ($name, $trackCount, $albumCount, $avatarPath)
+                ON CONFLICT(name) DO UPDATE SET
+                    track_count = excluded.track_count,
+                    album_count = excluded.album_count,
+                    avatar_path = excluded.avatar_path;
+            ";
+
+            cmd.Parameters.Clear();
+            var paName = cmd.Parameters.Add("$name", SqliteType.Text);
+            var paTrackCount = cmd.Parameters.Add("$trackCount", SqliteType.Integer);
+            var paAlbumCount = cmd.Parameters.Add("$albumCount", SqliteType.Integer);
+            var paAvatar = cmd.Parameters.Add("$avatarPath", SqliteType.Text);
+
+            foreach (var ar in artists)
+            {
+                paName.Value = ar.Name;
+                paTrackCount.Value = ar.TrackCount;
+                paAlbumCount.Value = ar.AlbumCount;
+                paAvatar.Value = ar.AvatarPath ?? "";
+                await cmd.ExecuteNonQueryAsync();
+            }
+
+            await trans.CommitAsync();
+        }
+        catch { }
     }
 
     public async Task LoadRecentPlaysFromDbAsync()
@@ -322,27 +367,56 @@ public class LibraryCacheService
 
     public List<Track> GetFilteredTracks(string sortKey, string genre, string search, bool isDescending = false)
     {
+        bool hasGenreFilter = !string.IsNullOrWhiteSpace(genre) && !genre.Equals("Todos los géneros", StringComparison.OrdinalIgnoreCase);
+        bool hasSearch = !string.IsNullOrWhiteSpace(search);
+        bool isDefaultSort = sortKey is not ("Álbum" or "Album" or "Duración" or "Duration" or "Fecha modificada" or "DateModified" or "Fecha de adición" or "DateAdded" or "Género musical" or "Genre");
+
+        // Zero-sort fast path: CachedTracks is already ordered by (GroupRank ASC, SortTitle ASC)
+        if (!hasGenreFilter && !hasSearch && isDefaultSort && !isDescending)
+        {
+            return new List<Track>(CachedTracks);
+        }
+
         IEnumerable<Track> query = CachedTracks;
 
-        if (!string.IsNullOrWhiteSpace(genre) && !genre.Equals("Todos los géneros", StringComparison.OrdinalIgnoreCase))
+        if (hasGenreFilter)
         {
             query = query.Where(t => !string.IsNullOrEmpty(t.Genre) && t.Genre.Equals(genre, StringComparison.OrdinalIgnoreCase));
         }
 
-        if (!string.IsNullOrWhiteSpace(search))
+        if (hasSearch)
         {
-            string s = search.Trim();
-            query = query.Where(t =>
-                (t.Title?.Contains(s, StringComparison.OrdinalIgnoreCase) ?? false) ||
-                (t.Artist?.Contains(s, StringComparison.OrdinalIgnoreCase) ?? false) ||
-                (t.Album?.Contains(s, StringComparison.OrdinalIgnoreCase) ?? false));
+            string normSearch = Helpers.AlphaGroupHelper.NormalizeForSearch(search);
+            var terms = normSearch.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            if (terms.Length == 1)
+            {
+                string term = terms[0];
+                query = query.Where(t => t.SearchText.Contains(term, StringComparison.Ordinal));
+            }
+            else if (terms.Length > 1)
+            {
+                query = query.Where(t =>
+                {
+                    var st = t.SearchText;
+                    for (int i = 0; i < terms.Length; i++)
+                    {
+                        if (!st.Contains(terms[i], StringComparison.Ordinal)) return false;
+                    }
+                    return true;
+                });
+            }
+        }
+
+        if (isDefaultSort && !isDescending)
+        {
+            return query.ToList();
         }
 
         var sorted = sortKey switch
         {
             "Álbum" or "Album" => isDescending
-                ? query.OrderByDescending(t => t.Album).ThenByDescending(t => t.TrackNumber)
-                : query.OrderBy(t => t.Album).ThenBy(t => t.TrackNumber),
+                ? query.OrderByDescending(t => t.Album, StringComparer.OrdinalIgnoreCase).ThenByDescending(t => t.TrackNumber)
+                : query.OrderBy(t => t.Album, StringComparer.OrdinalIgnoreCase).ThenBy(t => t.TrackNumber),
             "Duración" or "Duration" => isDescending
                 ? query.OrderBy(t => t.Duration)
                 : query.OrderByDescending(t => t.Duration),
@@ -353,11 +427,11 @@ public class LibraryCacheService
                 ? query.OrderBy(t => t.DateAdded)
                 : query.OrderByDescending(t => t.DateAdded),
             "Género musical" or "Genre" => isDescending
-                ? query.OrderByDescending(t => t.Genre).ThenByDescending(t => t.Title)
-                : query.OrderBy(t => t.Genre).ThenBy(t => t.Title),
+                ? query.OrderByDescending(t => t.Genre, StringComparer.OrdinalIgnoreCase).ThenByDescending(t => t.GroupRank).ThenByDescending(t => t.SortTitle, StringComparer.OrdinalIgnoreCase)
+                : query.OrderBy(t => t.Genre, StringComparer.OrdinalIgnoreCase).ThenBy(t => t.GroupRank).ThenBy(t => t.SortTitle, StringComparer.OrdinalIgnoreCase),
             _ => isDescending
-                ? query.OrderByDescending(t => t.Title)
-                : query.OrderBy(t => t.Title)
+                ? query.OrderByDescending(t => t.GroupRank).ThenByDescending(t => t.SortTitle, StringComparer.OrdinalIgnoreCase)
+                : query.OrderBy(t => t.GroupRank).ThenBy(t => t.SortTitle, StringComparer.OrdinalIgnoreCase)
         };
 
         return sorted.ToList();
@@ -365,35 +439,59 @@ public class LibraryCacheService
 
     public List<AlbumModel> GetFilteredAlbums(string sortKey, string genre, string search, bool isDescending = false)
     {
+        bool hasGenreFilter = !string.IsNullOrWhiteSpace(genre) && !genre.Equals("Todos los géneros", StringComparison.OrdinalIgnoreCase);
+        bool hasSearch = !string.IsNullOrWhiteSpace(search);
+
+        // Zero-sort fast path when ordered by Nombre (A-Z) ascending
+        if (!hasGenreFilter && !hasSearch && sortKey == "Nombre (A-Z)" && !isDescending)
+        {
+            return new List<AlbumModel>(CachedAlbums);
+        }
+
         IEnumerable<AlbumModel> query = CachedAlbums;
 
-        if (!string.IsNullOrWhiteSpace(genre) && !genre.Equals("Todos los géneros", StringComparison.OrdinalIgnoreCase))
+        if (hasGenreFilter)
         {
             query = query.Where(a => !string.IsNullOrEmpty(a.Genre) && a.Genre.Equals(genre, StringComparison.OrdinalIgnoreCase));
         }
 
-        if (!string.IsNullOrWhiteSpace(search))
+        if (hasSearch)
         {
-            string s = search.Trim();
-            query = query.Where(a =>
-                (a.Name?.Contains(s, StringComparison.OrdinalIgnoreCase) ?? false) ||
-                (a.Artist?.Contains(s, StringComparison.OrdinalIgnoreCase) ?? false));
+            string normSearch = Helpers.AlphaGroupHelper.NormalizeForSearch(search);
+            var terms = normSearch.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            if (terms.Length == 1)
+            {
+                string term = terms[0];
+                query = query.Where(a => a.SearchText.Contains(term, StringComparison.Ordinal));
+            }
+            else if (terms.Length > 1)
+            {
+                query = query.Where(a =>
+                {
+                    var st = a.SearchText;
+                    for (int i = 0; i < terms.Length; i++)
+                    {
+                        if (!st.Contains(terms[i], StringComparison.Ordinal)) return false;
+                    }
+                    return true;
+                });
+            }
         }
 
         var sorted = sortKey switch
         {
             "Nombre (A-Z)" => isDescending
-                ? query.OrderByDescending(a => a.Name)
-                : query.OrderBy(a => a.Name),
+                ? query.OrderByDescending(a => a.GroupRank).ThenByDescending(a => a.SortKey, StringComparer.OrdinalIgnoreCase)
+                : query.OrderBy(a => a.GroupRank).ThenBy(a => a.SortKey, StringComparer.OrdinalIgnoreCase),
             "Artista" => isDescending
-                ? query.OrderByDescending(a => a.Artist).ThenByDescending(a => a.Name)
-                : query.OrderBy(a => a.Artist).ThenBy(a => a.Name),
+                ? query.OrderByDescending(a => a.Artist, StringComparer.OrdinalIgnoreCase).ThenByDescending(a => a.Name, StringComparer.OrdinalIgnoreCase)
+                : query.OrderBy(a => a.Artist, StringComparer.OrdinalIgnoreCase).ThenBy(a => a.Name, StringComparer.OrdinalIgnoreCase),
             "Año" => isDescending
                 ? query.OrderBy(a => a.Year)
                 : query.OrderByDescending(a => a.Year),
             _ => isDescending
-                ? query.OrderBy(a => a.Tracks.Count > 0 ? a.Tracks.Max(t => t.DateAdded) : DateTime.MinValue)
-                : query.OrderByDescending(a => a.Tracks.Count > 0 ? a.Tracks.Max(t => t.DateAdded) : DateTime.MinValue)
+                ? query.OrderBy(a => a.LatestDateAdded)
+                : query.OrderByDescending(a => a.LatestDateAdded)
         };
 
         return sorted.ToList();
@@ -401,12 +499,43 @@ public class LibraryCacheService
 
     public List<ArtistModel> GetFilteredArtists(string sortKey, string search, bool isDescending = false)
     {
+        bool hasSearch = !string.IsNullOrWhiteSpace(search);
+        bool isDefaultSort = sortKey is not ("Cantidad de canciones" or "Cantidad de álbumes");
+
+        // Zero-sort fast path: CachedArtists is already ordered by (GroupRank ASC, SortKey ASC)
+        if (!hasSearch && isDefaultSort && !isDescending)
+        {
+            return new List<ArtistModel>(CachedArtists);
+        }
+
         IEnumerable<ArtistModel> query = CachedArtists;
 
-        if (!string.IsNullOrWhiteSpace(search))
+        if (hasSearch)
         {
-            string s = search.Trim();
-            query = query.Where(a => a.Name?.Contains(s, StringComparison.OrdinalIgnoreCase) ?? false);
+            string normSearch = Helpers.AlphaGroupHelper.NormalizeForSearch(search);
+            var terms = normSearch.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            if (terms.Length == 1)
+            {
+                string term = terms[0];
+                query = query.Where(a => a.SearchText.Contains(term, StringComparison.Ordinal));
+            }
+            else if (terms.Length > 1)
+            {
+                query = query.Where(a =>
+                {
+                    var st = a.SearchText;
+                    for (int i = 0; i < terms.Length; i++)
+                    {
+                        if (!st.Contains(terms[i], StringComparison.Ordinal)) return false;
+                    }
+                    return true;
+                });
+            }
+        }
+
+        if (isDefaultSort && !isDescending)
+        {
+            return query.ToList();
         }
 
         var sorted = sortKey switch
@@ -418,8 +547,8 @@ public class LibraryCacheService
                 ? query.OrderBy(a => a.AlbumCount)
                 : query.OrderByDescending(a => a.AlbumCount),
             _ => isDescending
-                ? query.OrderByDescending(a => a.Name)
-                : query.OrderBy(a => a.Name)
+                ? query.OrderByDescending(a => a.GroupRank).ThenByDescending(a => a.SortKey, StringComparer.OrdinalIgnoreCase)
+                : query.OrderBy(a => a.GroupRank).ThenBy(a => a.SortKey, StringComparer.OrdinalIgnoreCase)
         };
 
         return sorted.ToList();

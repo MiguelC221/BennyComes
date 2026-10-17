@@ -22,7 +22,8 @@ public class DatabaseContext
         {
             DataSource = dbPath,
             Mode = SqliteOpenMode.ReadWriteCreate,
-            Cache = SqliteCacheMode.Shared
+            Cache = SqliteCacheMode.Shared,
+            Pooling = true
         }.ToString();
 
         InitializeDatabase();
@@ -50,6 +51,9 @@ public class DatabaseContext
         command.CommandText = @"
             PRAGMA journal_mode = WAL;
             PRAGMA synchronous = NORMAL;
+            PRAGMA temp_store = MEMORY;
+            PRAGMA cache_size = -64000;
+            PRAGMA mmap_size = 268435456;
 
             CREATE TABLE IF NOT EXISTS tracks (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -133,6 +137,8 @@ public class DatabaseContext
             CREATE INDEX IF NOT EXISTS idx_tracks_file_path ON tracks(file_path);
             CREATE INDEX IF NOT EXISTS idx_tracks_artist ON tracks(artist);
             CREATE INDEX IF NOT EXISTS idx_tracks_album ON tracks(album);
+            CREATE INDEX IF NOT EXISTS idx_tracks_title ON tracks(title COLLATE NOCASE);
+            CREATE INDEX IF NOT EXISTS idx_tracks_first_letter ON tracks(first_letter_group);
         ";
 
         command.ExecuteNonQuery();
@@ -145,6 +151,8 @@ public class DatabaseContext
             "ALTER TABLE tracks ADD COLUMN album_artist TEXT NOT NULL DEFAULT '';",
             "ALTER TABLE tracks ADD COLUMN comments TEXT NOT NULL DEFAULT '';",
             "ALTER TABLE tracks ADD COLUMN file_size INTEGER NOT NULL DEFAULT 0;",
+            "ALTER TABLE tracks ADD COLUMN artwork_path TEXT NOT NULL DEFAULT '';",
+            "ALTER TABLE tracks ADD COLUMN first_letter_group TEXT NOT NULL DEFAULT '';",
             "ALTER TABLE playlists ADD COLUMN description TEXT NOT NULL DEFAULT '';",
             "ALTER TABLE playlists ADD COLUMN custom_cover_path TEXT NOT NULL DEFAULT '';"
         };

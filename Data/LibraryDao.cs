@@ -24,11 +24,11 @@ public class LibraryDao
             INSERT INTO tracks (
                 file_path, title, artist, album, year, track_number, genre,
                 duration_ms, bitrate, sample_rate, bits_per_sample, channels,
-                format, date_added, date_modified
+                format, date_added, date_modified, artwork_path, first_letter_group
             ) VALUES (
                 $filePath, $title, $artist, $album, $year, $trackNumber, $genre,
                 $durationMs, $bitrate, $sampleRate, $bitsPerSample, $channels,
-                $format, $dateAdded, $dateModified
+                $format, $dateAdded, $dateModified, $artworkPath, $firstLetterGroup
             )
             ON CONFLICT(file_path) DO UPDATE SET
                 title = excluded.title,
@@ -43,9 +43,16 @@ public class LibraryDao
                 bits_per_sample = excluded.bits_per_sample,
                 channels = excluded.channels,
                 format = excluded.format,
-                date_modified = excluded.date_modified
+                date_modified = excluded.date_modified,
+                artwork_path = excluded.artwork_path,
+                first_letter_group = excluded.first_letter_group
             RETURNING id;
         ";
+
+        if (string.IsNullOrWhiteSpace(track.FirstLetterGroup))
+        {
+            track.FirstLetterGroup = Helpers.AlphaGroupHelper.GetAlphaGroupKey(track.Title);
+        }
 
         cmd.Parameters.AddWithValue("$filePath", track.FilePath);
         cmd.Parameters.AddWithValue("$title", track.Title);
@@ -62,6 +69,8 @@ public class LibraryDao
         cmd.Parameters.AddWithValue("$format", track.FileFormat);
         cmd.Parameters.AddWithValue("$dateAdded", track.DateAdded.ToString("O"));
         cmd.Parameters.AddWithValue("$dateModified", track.DateModified.ToString("O"));
+        cmd.Parameters.AddWithValue("$artworkPath", track.ArtworkPath ?? "");
+        cmd.Parameters.AddWithValue("$firstLetterGroup", track.FirstLetterGroup ?? "");
 
         var result = await cmd.ExecuteScalarAsync();
         if (result != null && long.TryParse(result.ToString(), out var id))
@@ -84,11 +93,11 @@ public class LibraryDao
             INSERT INTO tracks (
                 file_path, title, artist, album, year, track_number, genre,
                 duration_ms, bitrate, sample_rate, bits_per_sample, channels,
-                format, date_added, date_modified
+                format, date_added, date_modified, file_size, artwork_path, first_letter_group
             ) VALUES (
                 $filePath, $title, $artist, $album, $year, $trackNumber, $genre,
                 $durationMs, $bitrate, $sampleRate, $bitsPerSample, $channels,
-                $format, $dateAdded, $dateModified
+                $format, $dateAdded, $dateModified, $fileSize, $artworkPath, $firstLetterGroup
             )
             ON CONFLICT(file_path) DO UPDATE SET
                 title = excluded.title,
@@ -103,7 +112,11 @@ public class LibraryDao
                 bits_per_sample = excluded.bits_per_sample,
                 channels = excluded.channels,
                 format = excluded.format,
-                date_modified = excluded.date_modified;
+                date_modified = excluded.date_modified,
+                file_size = excluded.file_size,
+                artwork_path = excluded.artwork_path,
+                first_letter_group = excluded.first_letter_group
+            RETURNING id;
         ";
 
         var pFilePath = cmd.Parameters.Add("$filePath", SqliteType.Text);
@@ -121,9 +134,17 @@ public class LibraryDao
         var pFormat = cmd.Parameters.Add("$format", SqliteType.Text);
         var pDateAdded = cmd.Parameters.Add("$dateAdded", SqliteType.Text);
         var pDateModified = cmd.Parameters.Add("$dateModified", SqliteType.Text);
+        var pFileSize = cmd.Parameters.Add("$fileSize", SqliteType.Integer);
+        var pArtworkPath = cmd.Parameters.Add("$artworkPath", SqliteType.Text);
+        var pFirstLetterGroup = cmd.Parameters.Add("$firstLetterGroup", SqliteType.Text);
 
         foreach (var track in tracks)
         {
+            if (string.IsNullOrWhiteSpace(track.FirstLetterGroup))
+            {
+                track.FirstLetterGroup = Helpers.AlphaGroupHelper.GetAlphaGroupKey(track.Title);
+            }
+
             pFilePath.Value = track.FilePath;
             pTitle.Value = track.Title ?? "Unknown Title";
             pArtist.Value = track.Artist ?? "Unknown Artist";
@@ -139,8 +160,19 @@ public class LibraryDao
             pFormat.Value = track.FileFormat ?? "FLAC";
             pDateAdded.Value = track.DateAdded.ToString("O");
             pDateModified.Value = track.DateModified.ToString("O");
+            pFileSize.Value = track.FileSize;
+            pArtworkPath.Value = track.ArtworkPath ?? "";
+            pFirstLetterGroup.Value = track.FirstLetterGroup ?? "";
 
-            await cmd.ExecuteNonQueryAsync();
+            var res = await cmd.ExecuteScalarAsync();
+            if (res is long id)
+            {
+                track.Id = id;
+            }
+            else if (res != null && long.TryParse(res.ToString(), out long parsedId))
+            {
+                track.Id = parsedId;
+            }
         }
 
         await trans.CommitAsync();
@@ -167,7 +199,7 @@ public class LibraryDao
         var list = new List<Track>();
         using var conn = await _db.CreateConnectionAsync();
         using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT * FROM tracks ORDER BY artist COLLATE NOCASE, album COLLATE NOCASE, track_number, title COLLATE NOCASE;";
+        cmd.CommandText = "SELECT * FROM tracks ORDER BY title COLLATE NOCASE, artist COLLATE NOCASE;";
 
         using var reader = await cmd.ExecuteReaderAsync();
         while (await reader.ReadAsync())
@@ -510,7 +542,25 @@ public class LibraryDao
         }
         catch { }
 
-        return new Track
+        string artworkPath = "";
+        try
+        {
+            int artOrd = reader.GetOrdinal("artwork_path");
+            if (artOrd >= 0 && !reader.IsDBNull(artOrd))
+                artworkPath = reader.GetString(artOrd);
+        }
+        catch { }
+
+        string firstLetterGroup = "";
+        try
+        {
+            int flgOrd = reader.GetOrdinal("first_letter_group");
+            if (flgOrd >= 0 && !reader.IsDBNull(flgOrd))
+                firstLetterGroup = reader.GetString(flgOrd);
+        }
+        catch { }
+
+        var track = new Track
         {
             Id = reader.GetInt64(reader.GetOrdinal("id")),
             FilePath = reader.GetString(reader.GetOrdinal("file_path")),
@@ -532,8 +582,17 @@ public class LibraryDao
             PlayCount = playCount,
             AlbumArtist = albumArtist,
             Comments = comments,
-            FileSize = fileSize
+            FileSize = fileSize,
+            ArtworkPath = artworkPath,
+            FirstLetterGroup = firstLetterGroup
         };
+
+        if (string.IsNullOrWhiteSpace(track.FirstLetterGroup))
+        {
+            track.FirstLetterGroup = Helpers.AlphaGroupHelper.GetAlphaGroupKey(track.Title);
+        }
+
+        return track;
     }
 
     public async Task SetTrackFavoriteAsync(long trackId, bool isFavorite)

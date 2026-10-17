@@ -33,14 +33,7 @@
                                        FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="30,4,0,0" />
                         </StackPanel>
 
-                        <StackPanel Grid.Column="1" Orientation="Horizontal">
-                            <ui:Button Appearance="Secondary" Padding="12,6" Margin="0,0,8,0"
-                                       Command="{Binding Settings.OpenLibraryFoldersModalCommand}">
-                                <StackPanel Orientation="Horizontal">
-                                    <ui:SymbolIcon Symbol="FolderOpen24" FontSize="15" Margin="0,0,6,0" />
-                                    <TextBlock Text="Administrar carpetas de música" FontWeight="SemiBold" FontSize="12" />
-                                </StackPanel>
-                            </ui:Button>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                             <ui:Button Appearance="Primary" Padding="14,7"
                                        Background="{Binding Theme.CurrentAccentBrush}"
                                        Command="{Binding Settings.AddFolderCommand}">
@@ -91,6 +84,16 @@
                             </DataTemplate>
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
+
+                    <!-- Base Button: Administrar carpetas de música -->
+                    <ui:Button Appearance="Secondary" Padding="12,7" Margin="0,12,0,0"
+                               HorizontalAlignment="Right"
+                               Command="{Binding Settings.OpenLibraryFoldersModalCommand}">
+                        <StackPanel Orientation="Horizontal">
+                            <ui:SymbolIcon Symbol="FolderOpen24" FontSize="15" Margin="0,0,6,0" />
+                            <TextBlock Text="Administrar carpetas de música" FontWeight="SemiBold" FontSize="12" />
+                        </StackPanel>
+                    </ui:Button>
                 </StackPanel>
             </Border>
 
@@ -202,26 +205,120 @@
             <!-- ============================================== -->
             <Border CornerRadius="12" Background="{DynamicResource SurfaceCardBrush}" BorderBrush="{DynamicResource SurfaceCardBorderBrush}" BorderThickness="1" Padding="20" Margin="0,0,0,20">
                 <StackPanel>
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
-                        <ui:SymbolIcon Symbol="SoundSource24" FontSize="20" Foreground="{Binding Theme.CurrentAccentBrush}" Margin="0,0,10,0" />
-                        <TextBlock Text="Personalización de Reproducción en Curso" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" />
-                    </StackPanel>
+                    <Grid Margin="0,0,0,14">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0">
+                            <StackPanel Orientation="Horizontal">
+                                <ui:SymbolIcon Symbol="SoundSource24" FontSize="20" Foreground="{Binding Theme.CurrentAccentBrush}" Margin="0,0,10,0" />
+                                <TextBlock Text="Personalización de Reproducción en Curso" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" />
+                            </StackPanel>
+                            <TextBlock Text="Ajusta el fondo animado con efecto Ken Burns, difuminado, oscurecimiento y visualizadores."
+                                       FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" Margin="30,2,0,0" />
+                        </StackPanel>
+
+                        <ui:Button Grid.Column="1" Appearance="Secondary" Padding="12,6"
+                                   Command="{Binding Settings.OpenCurrentArtistGalleryCommand}"
+                                   ToolTip="Abrir galería de fotos y selector del artista en reproducción">
+                            <StackPanel Orientation="Horizontal">
+                                <ui:SymbolIcon Symbol="ImageMultiple24" FontSize="14" Margin="0,0,6,0" />
+                                <TextBlock Text="Galería de fotos del artista" FontSize="12" FontWeight="SemiBold" />
+                            </StackPanel>
+                        </ui:Button>
+                    </Grid>
+
+                    <!-- Switch: Usar imágenes de artista en el fondo -->
+                    <Grid Margin="0,0,0,16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                            <TextBlock Text="Usar imágenes de artista en el fondo" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" />
+                            <TextBlock Text="Muestra la galería de fotos descargadas del artista con transición suave y efecto Ken Burns." FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,2,0,0" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Right">
+                            <TextBlock VerticalAlignment="Center" Margin="0,0,10,0" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Text" Value="Desactivado" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Settings.UseArtistBackground}" Value="True">
+                                                <Setter Property="Text" Value="Activado" />
+                                                <Setter Property="Foreground" Value="{Binding Theme.CurrentAccentBrush}" />
+                                                <Setter Property="FontWeight" Value="SemiBold" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                            <ui:ToggleSwitch IsChecked="{Binding Settings.UseArtistBackground, Mode=TwoWay}"
+                                             OffContent="" OnContent=""
+                                             VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Grid>
+
+                    <Separator Background="{DynamicResource DividerBrush}" Margin="0,0,0,16" />
 
                     <!-- Background Darkness Slider -->
                     <Grid Margin="0,0,0,16">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="200" />
+                            <ColumnDefinition Width="220" />
                         </Grid.ColumnDefinitions>
                         <StackPanel Grid.Column="0" VerticalAlignment="Center">
                             <TextBlock Text="Nivel de Oscurecimiento del Fondo" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" />
-                            <TextBlock Text="Controla la opacidad del velo oscuro sobre la portada desenfocada (0% a 100%)." FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,2,0,0" />
+                            <TextBlock Text="Controla la opacidad del velo oscuro sobre el fondo (0% a 100%)." FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,2,0,0" />
                         </StackPanel>
                         <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
                             <Slider Width="140" Minimum="0.0" Maximum="1.0"
                                     Value="{Binding Settings.NowPlayingBackgroundDarkness, Mode=TwoWay}"
                                     IsMoveToPointEnabled="True" VerticalAlignment="Center" />
                             <TextBlock Text="{Binding Settings.NowPlayingBackgroundDarkness, StringFormat='{}{0:P0}'}"
+                                       FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" Width="45" TextAlignment="Right" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Grid>
+
+                    <Separator Background="{DynamicResource DividerBrush}" Margin="0,0,0,16" />
+
+                    <!-- Background Blur Slider -->
+                    <Grid Margin="0,0,0,16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="220" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                            <TextBlock Text="Intensidad del Difuminado (Blur)" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" />
+                            <TextBlock Text="Aplica difuminado gaussiano cuando no hay fotos de artista o se usa la portada." FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,2,0,0" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                            <Slider Width="140" Minimum="0" Maximum="80"
+                                    Value="{Binding Settings.BackgroundBlurRadius, Mode=TwoWay}"
+                                    IsMoveToPointEnabled="True" VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding Settings.BackgroundBlurRadius, StringFormat='{}{0:F0} px'}"
+                                       FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" Width="45" TextAlignment="Right" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Grid>
+
+                    <Separator Background="{DynamicResource DividerBrush}" Margin="0,0,0,16" />
+
+                    <!-- Duración por imagen (segundos) -->
+                    <Grid Margin="0,0,0,16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="220" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                            <TextBlock Text="Duración por Imagen (Segundos)" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" />
+                            <TextBlock Text="Intervalo del efecto Ken Burns antes del crossfade a la siguiente imagen (15 a 60 s)." FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,2,0,0" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                            <Slider Width="140" Minimum="15" Maximum="60"
+                                    Value="{Binding Settings.ArtistImageIntervalSeconds, Mode=TwoWay}"
+                                    IsMoveToPointEnabled="True" VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding Settings.ArtistImageIntervalSeconds, StringFormat='{}{0} s'}"
                                        FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" Width="45" TextAlignment="Right" VerticalAlignment="Center" />
                         </StackPanel>
                     </Grid>
@@ -251,6 +348,256 @@
             </Border>
 
             <!-- ============================================== -->
+            <!-- SECTION 3.B: SERVICIOS EN LÍNEA (LAST.FM)     -->
+            <!-- ============================================== -->
+            <Border CornerRadius="12" Background="{DynamicResource SurfaceCardBrush}" BorderBrush="{DynamicResource SurfaceCardBorderBrush}" BorderThickness="1" Padding="20" Margin="0,0,0,20">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
+                        <ui:SymbolIcon Symbol="Globe24" FontSize="20" Foreground="{Binding Theme.CurrentAccentBrush}" Margin="0,0,10,0" />
+                        <TextBlock Text="Servicios en Línea (Last.fm)" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" />
+                    </StackPanel>
+
+                    <!-- Interruptor Maestro: Funciones en línea: Obtener metadatos con Last.fm -->
+                    <Grid Margin="0,0,0,16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                            <TextBlock Text="Funciones en línea: Obtener metadatos con Last.fm" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" />
+                            <TextBlock Text="Descarga biografías oficiales y fotos en alta resolución. Si está desactivado, se omiten las peticiones web y se usan únicamente las carátulas locales."
+                                       FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,2,0,0" TextWrapping="Wrap" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Right">
+                            <TextBlock VerticalAlignment="Center" Margin="0,0,10,0" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Text" Value="Desactivado" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Settings.IsLastFmEnabled}" Value="True">
+                                                <Setter Property="Text" Value="Activado" />
+                                                <Setter Property="Foreground" Value="{Binding Theme.CurrentAccentBrush}" />
+                                                <Setter Property="FontWeight" Value="SemiBold" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                            <ui:ToggleSwitch IsChecked="{Binding Settings.IsLastFmEnabled, Mode=TwoWay}"
+                                             OffContent="" OnContent=""
+                                             VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- Sub-option: Buscar y descargar fotos de artistas con Last.fm -->
+                    <Grid Margin="0,0,0,14">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                            <TextBlock Text="Buscar fotos de artistas con Last.fm" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" />
+                            <TextBlock Text="Obtiene retratos en alta definición en segundo plano para los artistas de tu biblioteca" FontSize="11" Foreground="{DynamicResource TextTertiaryBrush}" TextWrapping="Wrap" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Right">
+                            <TextBlock VerticalAlignment="Center" Margin="0,0,8,0" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Text" Value="Desactivado" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Settings.IsLastFmArtistImageSyncEnabled}" Value="True">
+                                                <Setter Property="Text" Value="Activado" />
+                                                <Setter Property="Foreground" Value="{Binding Theme.CurrentAccentBrush}" />
+                                                <Setter Property="FontWeight" Value="SemiBold" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                            <ui:ToggleSwitch IsChecked="{Binding Settings.IsLastFmArtistImageSyncEnabled, Mode=TwoWay}"
+                                             IsEnabled="{Binding Settings.IsLastFmEnabled}"
+                                             OffContent="" OnContent=""
+                                             VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Grid>
+
+                    <Separator Background="{DynamicResource DividerBrush}" Margin="0,0,0,16" />
+
+                    <!-- 1. Last.fm API Key Field & Test Button -->
+                    <TextBlock Text="API Key de Last.fm (Biografías y Metadatos)" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,6" />
+                    <Grid Margin="0,0,0,10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <ui:TextBox Grid.Column="0" Text="{Binding Settings.LastFmApiKey, UpdateSourceTrigger=PropertyChanged}"
+                                    PlaceholderText="Ingresa tu clave de API de Last.fm (32 caracteres hexadecimales)..."
+                                    Background="{DynamicResource SurfaceCardHoverBrush}" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,10,0" />
+                        <ui:Button Grid.Column="1" Appearance="Primary" Padding="16,6"
+                                   Background="{Binding Theme.CurrentAccentBrush}"
+                                   Command="{Binding Settings.TestAndSaveLastFmCommand}"
+                                   IsEnabled="{Binding Settings.IsTestingLastFm, Converter={StaticResource InverseBoolToVisConverter}}">
+                            <StackPanel Orientation="Horizontal">
+                                <ui:SymbolIcon Symbol="PlugConnected24" FontSize="14" Foreground="{Binding Theme.AccentForegroundBrush}" Margin="0,0,6,0" />
+                                <TextBlock Text="Probar y guardar" FontWeight="Bold" Foreground="{Binding Theme.AccentForegroundBrush}" FontSize="12" />
+                            </StackPanel>
+                        </ui:Button>
+                    </Grid>
+
+                    <!-- Last.fm Status Message Box -->
+                    <Border CornerRadius="8" Background="{DynamicResource SurfaceCardHoverBrush}" Padding="12,8" Margin="0,0,0,8"
+                            Visibility="{Binding Settings.LastFmStatusMessage, Converter={StaticResource StringToVisibilityConverter}}">
+                        <StackPanel Orientation="Horizontal">
+                            <ui:SymbolIcon Symbol="Info24" FontSize="15" Foreground="{Binding Theme.CurrentAccentBrush}" Margin="0,0,8,0" VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding Settings.LastFmStatusMessage}" FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" TextWrapping="Wrap" />
+                        </StackPanel>
+                    </Border>
+
+                    <TextBlock FontSize="11" Foreground="{DynamicResource TextTertiaryBrush}" Margin="2,0,0,16">
+                        <Run Text="¿No tienes una API key de Last.fm? Puedes crear tu clave personal gratuita en " />
+                        <Hyperlink Command="{Binding Settings.OpenLastFmApiSignupCommand}" Cursor="Hand">
+                            <Run Text="last.fm/api/account/create" Foreground="{Binding Theme.CurrentAccentBrush}" TextDecorations="Underline" />
+                        </Hyperlink>
+                    </TextBlock>
+
+                    <!-- 2. Fanart.tv API Key Field & Test Button -->
+                    <TextBlock Text="API Key de Fanart.tv (Fotos y Fondos HD de Artistas)" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,6" />
+                    <Grid Margin="0,0,0,10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <ui:TextBox Grid.Column="0" Text="{Binding Settings.FanartTvApiKey, UpdateSourceTrigger=PropertyChanged}"
+                                    PlaceholderText="Ingresa tu clave de API de Fanart.tv (opcional, complementa a Deezer)..."
+                                    Background="{DynamicResource SurfaceCardHoverBrush}" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,10,0" />
+                        <ui:Button Grid.Column="1" Appearance="Primary" Padding="16,6"
+                                   Background="{Binding Theme.CurrentAccentBrush}"
+                                   Command="{Binding Settings.TestAndSaveFanartTvCommand}"
+                                   IsEnabled="{Binding Settings.IsTestingFanartTv, Converter={StaticResource InverseBoolToVisConverter}}">
+                            <StackPanel Orientation="Horizontal">
+                                <ui:SymbolIcon Symbol="PlugConnected24" FontSize="14" Foreground="{Binding Theme.AccentForegroundBrush}" Margin="0,0,6,0" />
+                                <TextBlock Text="Probar y guardar" FontWeight="Bold" Foreground="{Binding Theme.AccentForegroundBrush}" FontSize="12" />
+                            </StackPanel>
+                        </ui:Button>
+                    </Grid>
+
+                    <!-- Fanart.tv Status Message Box -->
+                    <Border CornerRadius="8" Background="{DynamicResource SurfaceCardHoverBrush}" Padding="12,8" Margin="0,0,0,8"
+                            Visibility="{Binding Settings.FanartTvStatusMessage, Converter={StaticResource StringToVisibilityConverter}}">
+                        <StackPanel Orientation="Horizontal">
+                            <ui:SymbolIcon Symbol="Info24" FontSize="15" Foreground="{Binding Theme.CurrentAccentBrush}" Margin="0,0,8,0" VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding Settings.FanartTvStatusMessage}" FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" TextWrapping="Wrap" />
+                        </StackPanel>
+                    </Border>
+
+                    <TextBlock FontSize="11" Foreground="{DynamicResource TextTertiaryBrush}" Margin="2,0,0,0" TextWrapping="Wrap">
+                        <Run Text="¿Deseas obtener una API key de Fanart.tv? Créala gratis en " />
+                        <Hyperlink Command="{Binding Settings.OpenFanartTvApiSignupCommand}" Cursor="Hand">
+                            <Run Text="fanart.tv/get-an-api-key" Foreground="{Binding Theme.CurrentAccentBrush}" TextDecorations="Underline" />
+                        </Hyperlink>
+                        <Run Text=". Las APIs públicas de Deezer y MusicBrainz están integradas de forma nativa y no requieren clave." />
+                    </TextBlock>
+                </StackPanel>
+            </Border>
+
+            <!-- ============================================== -->
+            <!-- SECTION 3.B: ENRIQUECIMIENTO MASIVO ARTISTAS   -->
+            <!-- ============================================== -->
+            <Border CornerRadius="12" Background="{DynamicResource SurfaceCardBrush}" BorderBrush="{DynamicResource SurfaceCardBorderBrush}" BorderThickness="1" Padding="20" Margin="0,0,0,20">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                        <ui:SymbolIcon Symbol="ArrowDownload24" FontSize="20" Foreground="{Binding Theme.CurrentAccentBrush}" Margin="0,0,10,0" />
+                        <TextBlock Text="Enriquecimiento de Artistas en Segundo Plano" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" />
+                    </StackPanel>
+                    <TextBlock Text="Obtiene biografías oficiales mediante la API de Last.fm y fotos en alta definición (Fanart.tv y Deezer) para todos los artistas de tu colección sin ralentizar la app."
+                               FontSize="12" Foreground="{DynamicResource TextTertiaryBrush}" Margin="30,0,0,16" TextWrapping="Wrap" />
+
+                    <!-- Status & Controls -->
+                    <Grid Margin="0,0,0,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="Estado: " FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" />
+                                <TextBlock Text="{Binding Settings.ArtistEnrichment.StatusText}" FontSize="13" FontWeight="Bold" Foreground="{Binding Theme.CurrentAccentBrush}" />
+                            </StackPanel>
+                            <TextBlock Text="{Binding Settings.ArtistEnrichment.CurrentArtistName, StringFormat='Artista actual: {0}'}"
+                                       FontSize="11" Foreground="{DynamicResource TextTertiaryBrush}" Margin="0,2,0,0"
+                                       Visibility="{Binding Settings.ArtistEnrichment.IsRunning, Converter={StaticResource BoolToVisConverter}}" />
+                        </StackPanel>
+
+                        <!-- Action Buttons -->
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                            <!-- Iniciar / Actualizar todos -->
+                            <ui:Button Appearance="Primary" Padding="14,6" Margin="0,0,8,0"
+                                       Background="{Binding Theme.CurrentAccentBrush}"
+                                       Command="{Binding Settings.StartEnrichmentCommand}"
+                                       IsEnabled="{Binding Settings.ArtistEnrichment.IsRunning, Converter={StaticResource InverseBoolToVisConverter}}">
+                                <StackPanel Orientation="Horizontal">
+                                    <ui:SymbolIcon Symbol="ArrowSync24" FontSize="14" Foreground="{Binding Theme.AccentForegroundBrush}" Margin="0,0,6,0" />
+                                    <TextBlock Text="Actualizar información de todos los artistas" FontWeight="Bold" Foreground="{Binding Theme.AccentForegroundBrush}" FontSize="12" />
+                                </StackPanel>
+                            </ui:Button>
+
+                            <!-- Pausar -->
+                            <ui:Button Appearance="Secondary" Padding="10,6" Margin="0,0,8,0"
+                                       Command="{Binding Settings.PauseEnrichmentCommand}"
+                                       Visibility="{Binding Settings.ArtistEnrichment.IsRunning, Converter={StaticResource BoolToVisConverter}}">
+                                <StackPanel Orientation="Horizontal">
+                                    <ui:SymbolIcon Symbol="Pause24" FontSize="14" Margin="0,0,4,0" />
+                                    <TextBlock Text="Pausar" FontSize="12" />
+                                </StackPanel>
+                            </ui:Button>
+
+                            <!-- Reanudar -->
+                            <ui:Button Appearance="Secondary" Padding="10,6" Margin="0,0,8,0"
+                                       Command="{Binding Settings.ResumeEnrichmentCommand}"
+                                       Visibility="{Binding Settings.ArtistEnrichment.IsPaused, Converter={StaticResource BoolToVisConverter}}">
+                                <StackPanel Orientation="Horizontal">
+                                    <ui:SymbolIcon Symbol="Play24" FontSize="14" Margin="0,0,4,0" />
+                                    <TextBlock Text="Reanudar" FontSize="12" />
+                                </StackPanel>
+                            </ui:Button>
+
+                            <!-- Cancelar -->
+                            <ui:Button Appearance="Transparent" Padding="8,6"
+                                       Command="{Binding Settings.CancelEnrichmentCommand}"
+                                       Visibility="{Binding Settings.ArtistEnrichment.IsRunning, Converter={StaticResource BoolToVisConverter}}"
+                                       ToolTip="Cancelar cola actual">
+                                <ui:SymbolIcon Symbol="Dismiss24" FontSize="14" Foreground="#E81123" />
+                            </ui:Button>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- Progress Bar (visible when running or paused) -->
+                    <StackPanel Margin="0,4,0,0">
+                        <StackPanel.Style>
+                            <Style TargetType="StackPanel">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding Settings.ArtistEnrichment.IsRunning}" Value="True">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding Settings.ArtistEnrichment.IsPaused}" Value="True">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </StackPanel.Style>
+                        <ProgressBar Value="{Binding Settings.ArtistEnrichment.ProgressPercentage}" Minimum="0" Maximum="100" Height="6"
+                                     Foreground="{Binding Theme.CurrentAccentBrush}" Background="{DynamicResource SurfaceCardHoverBrush}" Margin="0,0,0,6" />
+                        <Grid>
+                            <TextBlock Text="{Binding Settings.ArtistEnrichment.ProcessedCount, StringFormat='{}{0} procesados'}" FontSize="11" Foreground="{DynamicResource TextTertiaryBrush}" HorizontalAlignment="Left" />
+                            <TextBlock Text="{Binding Settings.ArtistEnrichment.PendingCount, StringFormat='{}{0} pendientes'}" FontSize="11" Foreground="{DynamicResource TextTertiaryBrush}" HorizontalAlignment="Right" />
+                        </Grid>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- ============================================== -->
             <!-- SECTION 4: REPRODUCCIÓN Y AUDIO                -->
             <!-- ============================================== -->
             <Border CornerRadius="12" Background="{DynamicResource SurfaceCardBrush}" BorderBrush="{DynamicResource SurfaceCardBorderBrush}" BorderThickness="1" Padding="20" Margin="0,0,0,20">
@@ -270,10 +617,25 @@
                             <TextBlock Text="Reproducir automáticamente al iniciar BenyComes" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" />
                             <TextBlock Text="Cargar y reanudar automáticamente la última canción reproducida al abrir el reproductor." FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,2,0,0" />
                         </StackPanel>
-                        <ui:ToggleSwitch Grid.Column="1"
-                                         IsChecked="{Binding Settings.IsAutoplayOnStartup, Mode=TwoWay}"
-                                         OffContent="Desactivado" OnContent="Activado"
-                                         VerticalAlignment="Center" />
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Right">
+                            <TextBlock VerticalAlignment="Center" Margin="0,0,10,0" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Text" Value="Desactivado" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Settings.IsAutoplayOnStartup}" Value="True">
+                                                <Setter Property="Text" Value="Activado" />
+                                                <Setter Property="Foreground" Value="{Binding Theme.CurrentAccentBrush}" />
+                                                <Setter Property="FontWeight" Value="SemiBold" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                            <ui:ToggleSwitch IsChecked="{Binding Settings.IsAutoplayOnStartup, Mode=TwoWay}"
+                                             OffContent="" OnContent=""
+                                             VerticalAlignment="Center" />
+                        </StackPanel>
                     </Grid>
                 </StackPanel>
             </Border>
@@ -444,26 +806,183 @@
             </Border>
 
             <!-- ============================================== -->
-            <!-- SECTION 6: ACERCA DE LA APLICACIÓN             -->
+            <!-- SECTION 6: MANTENIMIENTO Y DIAGNÓSTICO         -->
+            <!-- ============================================== -->
+            <Border CornerRadius="12" Background="{DynamicResource SurfaceCardBrush}" BorderBrush="{DynamicResource SurfaceCardBorderBrush}" BorderThickness="1" Padding="20" Margin="0,0,0,20">
+                <StackPanel>
+                    <Grid Margin="0,0,0,14">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0">
+                            <StackPanel Orientation="Horizontal">
+                                <ui:SymbolIcon Symbol="Wrench24" FontSize="20" Foreground="{Binding Theme.CurrentAccentBrush}" Margin="0,0,10,0" />
+                                <TextBlock Text="Mantenimiento y Diagnóstico" FontSize="18" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" />
+                            </StackPanel>
+                            <TextBlock Text="Herramientas de diagnóstico de memoria, registro detallado y captura de errores del sistema."
+                                       FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,4,0,0" />
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- Debug Mode Switch -->
+                    <Grid Margin="0,0,0,16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                            <TextBlock Text="Modo Debug y Registro Detallado" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" />
+                            <TextBlock Text="Monitorea y registra periódicamente el consumo de memoria RAM (Working Set y GC Heap) en debug_log.txt para detectar fugas de memoria."
+                                       FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,2,0,0" TextWrapping="Wrap" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Right">
+                            <TextBlock VerticalAlignment="Center" Margin="0,0,10,0" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Text" Value="Desactivado" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Settings.IsDebugModeEnabled}" Value="True">
+                                                <Setter Property="Text" Value="Activado" />
+                                                <Setter Property="Foreground" Value="{Binding Theme.CurrentAccentBrush}" />
+                                                <Setter Property="FontWeight" Value="SemiBold" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                            <ui:ToggleSwitch IsChecked="{Binding Settings.IsDebugModeEnabled, Mode=TwoWay}"
+                                             OffContent="" OnContent=""
+                                             VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Grid>
+
+                    <Separator Background="{DynamicResource DividerBrush}" Margin="0,0,0,16" />
+
+                    <!-- Open Logs Folder Button -->
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                            <TextBlock Text="Registros y Reportes de Fallos" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" />
+                            <TextBlock Text="Accede directamente a la carpeta local donde se almacenan los logs de diagnóstico y reportes de crash (%LocalAppData%\BenyComes\Logs\)."
+                                       FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,2,0,0" TextWrapping="Wrap" />
+                        </StackPanel>
+                        <ui:Button Grid.Column="1" Appearance="Secondary" Padding="14,7"
+                                   Command="{Binding Settings.OpenLogsFolderCommand}"
+                                   ToolTip="Abrir carpeta de logs en el Explorador de Windows">
+                            <StackPanel Orientation="Horizontal">
+                                <ui:SymbolIcon Symbol="FolderOpen24" FontSize="16" Foreground="{Binding Theme.CurrentAccentBrush}" Margin="0,0,8,0" />
+                                <TextBlock Text="Abrir carpeta de registros (Logs)" FontWeight="SemiBold" FontSize="12" />
+                            </StackPanel>
+                        </ui:Button>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- ============================================== -->
+            <!-- SECTION 7: ACERCA DE BENNYCOMES, ACTUALIZACIONES Y LICENCIAS -->
             <!-- ============================================== -->
             <Border CornerRadius="12" Background="{DynamicResource SurfaceCardBrush}" BorderBrush="{DynamicResource SurfaceCardBorderBrush}" BorderThickness="1" Padding="20">
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
+                <StackPanel>
+                    <!-- App Brand & Version Info -->
+                    <Grid Margin="0,0,0,18">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
 
-                    <Border Grid.Column="0" Width="64" Height="64" CornerRadius="32" Background="{DynamicResource SurfaceCardHoverBrush}" Margin="0,0,20,0" VerticalAlignment="Center">
-                        <ui:SymbolIcon Symbol="MusicNote224" FontSize="32" Foreground="{Binding Theme.CurrentAccentBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                    </Border>
+                        <Border Grid.Column="0" Width="64" Height="64" CornerRadius="16" Background="{DynamicResource SurfaceCardHoverBrush}"
+                                BorderBrush="{DynamicResource SurfaceCardBorderBrush}" BorderThickness="1" Margin="0,0,18,0" VerticalAlignment="Center">
+                            <Grid>
+                                <ui:SymbolIcon Symbol="MusicNote224" FontSize="30" Foreground="{Binding Theme.CurrentAccentBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Grid>
+                        </Border>
 
-                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                        <TextBlock Text="BenyComes Music Player v1.0.0 (Release Final)" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" />
-                        <TextBlock Text="{Binding Settings.AppVersion}" FontSize="12" FontWeight="SemiBold" Foreground="{Binding Theme.CurrentAccentBrush}" Margin="0,2,0,6" />
-                        <TextBlock Text="{Binding Settings.AudioEngineInfo}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" Margin="0,0,0,4" />
-                        <TextBlock Text="{Binding Settings.TechnologiesInfo}" FontSize="11" Foreground="{DynamicResource TextTertiaryBrush}" TextWrapping="Wrap" />
-                    </StackPanel>
-                </Grid>
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="BennyComes" FontSize="22" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" />
+                                <Border CornerRadius="6" Padding="8,2" Margin="10,0,0,0" VerticalAlignment="Center"
+                                        Background="{Binding Theme.CurrentAccentBrush}">
+                                    <TextBlock Text="v1.1" FontSize="11" FontWeight="Bold" Foreground="{Binding Theme.AccentForegroundBrush}" />
+                                </Border>
+                            </StackPanel>
+                            <TextBlock Text="{Binding Settings.AppVersion}" FontSize="12" FontWeight="SemiBold" Foreground="{Binding Theme.CurrentAccentBrush}" Margin="0,3,0,5" />
+                            <TextBlock Text="{Binding Settings.AudioEngineInfo}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" Margin="0,0,0,3" />
+                            <TextBlock Text="{Binding Settings.TechnologiesInfo}" FontSize="11" Foreground="{DynamicResource TextTertiaryBrush}" TextWrapping="Wrap" />
+                        </StackPanel>
+                    </Grid>
+
+                    <Separator Background="{DynamicResource DividerBrush}" Margin="0,0,0,16" />
+
+                    <!-- Actualizaciones desde GitHub Releases -->
+                    <Grid Margin="0,0,0,16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,16,0">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <ui:SymbolIcon Symbol="ArrowSyncCircle24" FontSize="18" Foreground="{Binding Theme.CurrentAccentBrush}" Margin="0,0,8,0" />
+                                <TextBlock Text="Actualizaciones de la Aplicación (GitHub Releases)" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" />
+                            </StackPanel>
+                            <TextBlock Text="{Binding Settings.UpdateStatusMessage}"
+                                       FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,4,0,0" TextWrapping="Wrap" />
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                            <ui:Button Appearance="Primary" Padding="14,7" Margin="0,0,8,0"
+                                       Background="{Binding Theme.CurrentAccentBrush}"
+                                       Command="{Binding Settings.CheckForUpdatesCommand}"
+                                       IsEnabled="{Binding Settings.IsCheckingForUpdates, Converter={StaticResource InverseBoolConverter}}">
+                                <StackPanel Orientation="Horizontal">
+                                    <ui:SymbolIcon Symbol="ArrowSync24" FontSize="15" Foreground="{Binding Theme.AccentForegroundBrush}" Margin="0,0,6,0" />
+                                    <TextBlock Text="Buscar actualizaciones" FontWeight="Bold" FontSize="12" Foreground="{Binding Theme.AccentForegroundBrush}" />
+                                </StackPanel>
+                            </ui:Button>
+
+                            <ui:Button Appearance="Secondary" Padding="14,7"
+                                       Command="{Binding Settings.OpenGitHubReleasesCommand}"
+                                       ToolTip="Abrir https://github.com/MiguelC221/BennyComes/releases en el navegador">
+                                <StackPanel Orientation="Horizontal">
+                                    <ui:SymbolIcon Symbol="Globe24" FontSize="15" Foreground="{Binding Theme.CurrentAccentBrush}" Margin="0,0,6,0" />
+                                    <TextBlock Text="Ir a GitHub Releases" FontWeight="SemiBold" FontSize="12" />
+                                </StackPanel>
+                            </ui:Button>
+                        </StackPanel>
+                    </Grid>
+
+                    <Separator Background="{DynamicResource DividerBrush}" Margin="0,0,0,16" />
+
+                    <!-- Apartado de Licencias de Código Abierto -->
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,16,0">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <ui:SymbolIcon Symbol="DocumentText24" FontSize="18" Foreground="{Binding Theme.CurrentAccentBrush}" Margin="0,0,8,0" />
+                                <TextBlock Text="Licencias de Código Abierto" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" />
+                            </StackPanel>
+                            <TextBlock Text="Consulta las bibliotecas y proyectos de código abierto utilizados en el desarrollo de BennyComes y sus respectivos avisos de licencia."
+                                       FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,4,0,0" TextWrapping="Wrap" />
+                        </StackPanel>
+
+                        <ui:Button Grid.Column="1" Appearance="Secondary" Padding="16,8" VerticalAlignment="Center"
+                                   Command="{Binding Settings.OpenLicensesModalCommand}">
+                            <StackPanel Orientation="Horizontal">
+                                <ui:SymbolIcon Symbol="Certificate24" FontSize="16" Foreground="{Binding Theme.CurrentAccentBrush}" Margin="0,0,8,0" />
+                                <TextBlock Text="Ver licencias de código abierto" FontWeight="SemiBold" FontSize="12" />
+                            </StackPanel>
+                        </ui:Button>
+                    </Grid>
+                </StackPanel>
             </Border>
         </StackPanel>
     </ScrollViewer>

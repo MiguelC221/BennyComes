@@ -99,3 +99,62 @@ public class StringToVisibilityConverter : NullToVisibilityConverter
 {
 }
 
+public class InverseBoolConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        if (value is bool b)
+            return !b;
+        return true;
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        if (value is bool b)
+            return !b;
+        return false;
+    }
+}
+
+public class ScrollBarMinThumbViewportConverter : IMultiValueConverter
+{
+    public double MinThumbLength { get; set; } = 56.0;
+
+    public object Convert(object[] values, Type targetType, object parameter, CultureInfo culture)
+    {
+        if (values.Length >= 3 &&
+            values[0] is double viewportSize &&
+            values[1] is double maximum &&
+            values[2] is double trackLength)
+        {
+            if (trackLength <= MinThumbLength || maximum <= 0 || double.IsNaN(trackLength) || double.IsNaN(maximum))
+            {
+                return viewportSize;
+            }
+
+            double desiredMin = MinThumbLength;
+            if (parameter != null && double.TryParse(parameter.ToString(), out double pMin))
+            {
+                desiredMin = pMin;
+            }
+
+            double ratio = desiredMin / trackLength;
+            if (ratio >= 0.85)
+            {
+                ratio = 0.85;
+            }
+
+            double minViewport = (ratio * maximum) / (1.0 - ratio);
+            return Math.Max(viewportSize, minViewport);
+        }
+
+        return values.Length > 0 ? values[0] : 0.0;
+    }
+
+    public object[] ConvertBack(object value, Type[] targetTypes, object parameter, CultureInfo culture)
+    {
+        throw new NotImplementedException();
+    }
+}
+
+

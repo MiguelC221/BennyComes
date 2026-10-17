@@ -65,7 +65,7 @@ public partial class SearchViewModel : ObservableObject
     {
         _debounceTimer = new DispatcherTimer(DispatcherPriority.Background, Application.Current?.Dispatcher ?? Dispatcher.CurrentDispatcher)
         {
-            Interval = TimeSpan.FromMilliseconds(300)
+            Interval = TimeSpan.FromMilliseconds(60)
         };
         _debounceTimer.Tick += async (s, e) =>
         {
@@ -177,7 +177,7 @@ public partial class SearchViewModel : ObservableObject
         {
             var (tracks, artists, albums, totalT, totalAr, totalAl) = await Task.Run(async () =>
             {
-                // Ensure cache is loaded from SQLite if first time
+                // Ensure cache is loaded from partitioned IndexDB if first time
                 if (!_cache.IsLoaded)
                 {
                     await _cache.InitializeAsync();
@@ -185,42 +185,62 @@ public partial class SearchViewModel : ObservableObject
 
                 if (token.IsCancellationRequested) return (new List<Track>(), new List<ArtistModel>(), new List<AlbumModel>(), 0, 0, 0);
 
-                var terms = q.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                string normQuery = Helpers.AlphaGroupHelper.NormalizeForSearch(q);
+                var terms = normQuery.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                if (terms.Length == 0) return (new List<Track>(), new List<ArtistModel>(), new List<AlbumModel>(), 0, 0, 0);
 
-                // Filter Tracks: match Title, Artist, Album, Genre
-                var allFoundTracks = _cache.CachedTracks.Where(t =>
-                    terms.All(term =>
-                        (t.Title?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false) ||
-                        (t.Artist?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false) ||
-                        (t.Album?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false) ||
-                        (t.Genre?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false)
-                    )
-                ).ToList();
+                static bool MatchesAllTerms(string searchText, string[] queryTerms)
+                {
+                    if (string.IsNullOrEmpty(searchText)) return false;
+                    for (int i = 0; i < queryTerms.Length; i++)
+                    {
+                        if (!searchText.Contains(queryTerms[i], StringComparison.Ordinal))
+                            return false;
+                    }
+                    return true;
+                }
+
+                var cachedTracks = _cache.CachedTracks;
+                var allFoundTracks = new List<Track>(Math.Min(256, cachedTracks.Count));
+                for (int i = 0; i < cachedTracks.Count; i++)
+                {
+                    var t = cachedTracks[i];
+                    if (MatchesAllTerms(t.SearchText, terms))
+                    {
+                        allFoundTracks.Add(t);
+                    }
+                }
 
                 if (token.IsCancellationRequested) return (new List<Track>(), new List<ArtistModel>(), new List<AlbumModel>(), 0, 0, 0);
 
-                // Filter Artists: match Name
-                var allFoundArtists = _cache.CachedArtists.Where(a =>
-                    terms.All(term =>
-                        (a.Name?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false)
-                    )
-                ).ToList();
+                var cachedArtists = _cache.CachedArtists;
+                var allFoundArtists = new List<ArtistModel>(Math.Min(64, cachedArtists.Count));
+                for (int i = 0; i < cachedArtists.Count; i++)
+                {
+                    var a = cachedArtists[i];
+                    if (MatchesAllTerms(a.SearchText, terms))
+                    {
+                        allFoundArtists.Add(a);
+                    }
+                }
 
                 if (token.IsCancellationRequested) return (new List<Track>(), new List<ArtistModel>(), new List<AlbumModel>(), 0, 0, 0);
 
-                // Filter Albums: match Name, Artist, Genre
-                var allFoundAlbums = _cache.CachedAlbums.Where(al =>
-                    terms.All(term =>
-                        (al.Name?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false) ||
-                        (al.Artist?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false) ||
-                        (al.Genre?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false)
-                    )
-                ).ToList();
+                var cachedAlbums = _cache.CachedAlbums;
+                var allFoundAlbums = new List<AlbumModel>(Math.Min(64, cachedAlbums.Count));
+                for (int i = 0; i < cachedAlbums.Count; i++)
+                {
+                    var al = cachedAlbums[i];
+                    if (MatchesAllTerms(al.SearchText, terms))
+                    {
+                        allFoundAlbums.Add(al);
+                    }
+                }
 
                 // Cap results displayed in unified view to prevent UI thread freezing
-                var displayTracks = allFoundTracks.Take(100).ToList();
-                var displayArtists = allFoundArtists.Take(30).ToList();
-                var displayAlbums = allFoundAlbums.Take(30).ToList();
+                var displayTracks = allFoundTracks.Count > 100 ? allFoundTracks.GetRange(0, 100) : allFoundTracks;
+                var displayArtists = allFoundArtists.Count > 30 ? allFoundArtists.GetRange(0, 30) : allFoundArtists;
+                var displayAlbums = allFoundAlbums.Count > 30 ? allFoundAlbums.GetRange(0, 30) : allFoundAlbums;
 
                 return (displayTracks, displayArtists, displayAlbums, allFoundTracks.Count, allFoundArtists.Count, allFoundAlbums.Count);
             }, token);

@@ -89,9 +89,9 @@ public partial class AudioVisualizerService : ObservableObject
     {
         Mode = value switch
         {
-            "Barras de Espectro" => VisualizerMode.SpectrumBars,
-            "Onda Reactiva" => VisualizerMode.Waveform,
-            "Pulso de Carátula" => VisualizerMode.BassPulse,
+            "Barras de Espectro" or "Barras de espectro" => VisualizerMode.SpectrumBars,
+            "Onda Reactiva" or "Onda reactiva" => VisualizerMode.Waveform,
+            "Pulso de Carátula" or "Pulso de Bajos" or "Pulso de bajos" => VisualizerMode.BassPulse,
             "Ninguno" => VisualizerMode.None,
             _ => VisualizerMode.SpectrumBars
         };

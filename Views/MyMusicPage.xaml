@@ -5,10 +5,40 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
              xmlns:models="clr-namespace:BenyComes.Models"
+             xmlns:vm="clr-namespace:BenyComes.ViewModels"
              mc:Ignorable="d" 
              d:DesignHeight="750" d:DesignWidth="980">
 
     <UserControl.Resources>
+        <!-- Alpha Group Header Button Style -->
+        <Style x:Key="AlphaGroupHeaderButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="8,4" />
+            <Setter Property="Margin" Value="4,4,0,6" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="HorizontalAlignment" Value="Left" />
+            <Setter Property="ToolTip" Value="Abrir selector alfabético (JumpList)" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" CornerRadius="6" Padding="{TemplateBinding Padding}">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="{TemplateBinding Content}" FontSize="20" FontWeight="SemiBold"
+                                           Foreground="{Binding DataContext.Theme.CurrentAccentBrush, RelativeSource={RelativeSource AncestorType=UserControl}}" Margin="0,0,8,0" />
+                                <ui:SymbolIcon Symbol="ChevronDown24" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="{DynamicResource SurfaceCardHoverBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <!-- Card Hover Scale Style for Albums & Artists -->
         <Style x:Key="ScaleCardBorderStyle" TargetType="Border">
             <Setter Property="RenderTransformOrigin" Value="0.5,0.5" />
@@ -71,125 +101,213 @@
         <!-- ============================================================== -->
         <!-- ROW 0: PAGE TITLE                                              -->
         <!-- ============================================================== -->
-        <TextBlock Grid.Row="0" Text="Mi música"
-                   FontFamily="Segoe UI Variable Display, Segoe UI"
-                   FontSize="28" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,14" />
+        <Grid Grid.Row="0" Margin="0,0,0,14">
+            <Grid.Style>
+                <Style TargetType="Grid">
+                    <Setter Property="Visibility" Value="Visible" />
+                    <Style.Triggers>
+                        <!-- In Artist Detail, Row 0 is hidden (Artist detail has its own hero header) -->
+                        <DataTrigger Binding="{Binding MyMusic.SelectedArtistDetail, Converter={StaticResource NullToVisibilityConverter}}" Value="Visible">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Grid.Style>
+
+            <TextBlock FontFamily="Segoe UI Variable Display, Segoe UI"
+                       FontSize="28" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}">
+                <TextBlock.Style>
+                    <Style TargetType="TextBlock">
+                        <Setter Property="Text" Value="Mi música" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding MyMusic.SelectedAlbumDetail, Converter={StaticResource NullToVisibilityConverter}}" Value="Visible">
+                                <Setter Property="Text" Value="{Binding MyMusic.SelectedAlbumDetail.Name}" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </TextBlock.Style>
+            </TextBlock>
+        </Grid>
 
         <!-- ============================================================== -->
         <!-- ROW 1: MODERN SUB-TABS SELECTOR                                -->
         <!-- ============================================================== -->
         <Border Grid.Row="1" BorderBrush="{DynamicResource DividerBrush}" BorderThickness="0,0,0,1" Margin="0,0,0,16">
+            <Border.Style>
+                <Style TargetType="Border">
+                    <Setter Property="Visibility" Value="Visible" />
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding MyMusic.IsInDetailView}" Value="True">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Border.Style>
             <StackPanel Orientation="Horizontal">
                 <!-- Canciones Tab -->
-                <Button Background="Transparent" BorderThickness="0" FocusVisualStyle="{x:Null}" Margin="0,0,32,0" Padding="4,8" Cursor="Hand"
+                <Button Background="Transparent" BorderThickness="0" FocusVisualStyle="{x:Null}" Margin="0,0,12,0" Padding="0" Cursor="Hand"
                         PreviewMouseLeftButtonDown="OnSongsTabPreviewMouseDown" Click="OnSongsTabClick">
                     <Button.Template>
                         <ControlTemplate TargetType="Button">
-                            <StackPanel Orientation="Vertical">
-                                <TextBlock Text="Canciones" FontFamily="Segoe UI Variable Display, Segoe UI" FontSize="20">
-                                    <TextBlock.Style>
-                                        <Style TargetType="TextBlock">
-                                            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
-                                            <Setter Property="FontWeight" Value="Normal" />
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding MyMusic.SelectedTabIndex}" Value="0">
-                                                    <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
-                                                    <Setter Property="FontWeight" Value="SemiBold" />
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </TextBlock.Style>
-                                </TextBlock>
-                                <Border Height="3" CornerRadius="1.5" Margin="0,6,0,0"
-                                        Background="{Binding Theme.CurrentAccentBrush}">
-                                    <Border.Style>
-                                        <Style TargetType="Border">
-                                            <Setter Property="Visibility" Value="Hidden" />
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding MyMusic.SelectedTabIndex}" Value="0">
-                                                    <Setter Property="Visibility" Value="Visible" />
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </Border.Style>
-                                </Border>
-                            </StackPanel>
+                            <Border x:Name="TabHitBox" Background="Transparent" CornerRadius="8" Padding="14,8,14,6">
+                                <StackPanel Orientation="Vertical">
+                                    <TextBlock x:Name="TabText" Text="Canciones" FontFamily="Segoe UI Variable Display, Segoe UI" FontSize="20"
+                                               Foreground="{DynamicResource TextSecondaryBrush}" FontWeight="Normal" />
+                                    <Border x:Name="Indicator" Height="3" CornerRadius="1.5" Margin="0,6,0,0"
+                                            Background="{Binding Theme.CurrentAccentBrush}" Opacity="0"
+                                            RenderTransformOrigin="0.5,0.5">
+                                        <Border.RenderTransform>
+                                            <ScaleTransform ScaleX="0.2" ScaleY="1.0" />
+                                        </Border.RenderTransform>
+                                    </Border>
+                                </StackPanel>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="TabHitBox" Property="Background" Value="#0DFFFFFF" />
+                                    <Setter TargetName="TabText" Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+                                </Trigger>
+                                <DataTrigger Binding="{Binding MyMusic.SelectedTabIndex}" Value="0">
+                                    <Setter TargetName="TabText" Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+                                    <Setter TargetName="TabText" Property="FontWeight" Value="SemiBold" />
+                                    <DataTrigger.EnterActions>
+                                        <BeginStoryboard>
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetName="Indicator" Storyboard.TargetProperty="Opacity"
+                                                                 To="1.0" Duration="0:0:0.4" />
+                                                <DoubleAnimation Storyboard.TargetName="Indicator" Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
+                                                                 To="1.0" Duration="0:0:0.4">
+                                                    <DoubleAnimation.EasingFunction>
+                                                        <CubicEase EasingMode="EaseOut" />
+                                                    </DoubleAnimation.EasingFunction>
+                                                </DoubleAnimation>
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </DataTrigger.EnterActions>
+                                    <DataTrigger.ExitActions>
+                                        <BeginStoryboard>
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetName="Indicator" Storyboard.TargetProperty="Opacity"
+                                                                 To="0.0" Duration="0:0:0.3" />
+                                                <DoubleAnimation Storyboard.TargetName="Indicator" Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
+                                                                 To="0.2" Duration="0:0:0.3" />
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </DataTrigger.ExitActions>
+                                </DataTrigger>
+                            </ControlTemplate.Triggers>
                         </ControlTemplate>
                     </Button.Template>
                 </Button>
 
                 <!-- Artistas Tab -->
-                <Button Background="Transparent" BorderThickness="0" FocusVisualStyle="{x:Null}" Margin="0,0,32,0" Padding="4,8" Cursor="Hand"
+                <Button Background="Transparent" BorderThickness="0" FocusVisualStyle="{x:Null}" Margin="0,0,12,0" Padding="0" Cursor="Hand"
                         PreviewMouseLeftButtonDown="OnArtistsTabPreviewMouseDown" Click="OnArtistsTabClick">
                     <Button.Template>
                         <ControlTemplate TargetType="Button">
-                            <StackPanel Orientation="Vertical">
-                                <TextBlock Text="Artistas" FontFamily="Segoe UI Variable Display, Segoe UI" FontSize="20">
-                                    <TextBlock.Style>
-                                        <Style TargetType="TextBlock">
-                                            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
-                                            <Setter Property="FontWeight" Value="Normal" />
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding MyMusic.SelectedTabIndex}" Value="1">
-                                                    <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
-                                                    <Setter Property="FontWeight" Value="SemiBold" />
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </TextBlock.Style>
-                                </TextBlock>
-                                <Border Height="3" CornerRadius="1.5" Margin="0,6,0,0"
-                                        Background="{Binding Theme.CurrentAccentBrush}">
-                                    <Border.Style>
-                                        <Style TargetType="Border">
-                                            <Setter Property="Visibility" Value="Hidden" />
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding MyMusic.SelectedTabIndex}" Value="1">
-                                                    <Setter Property="Visibility" Value="Visible" />
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </Border.Style>
-                                </Border>
-                            </StackPanel>
+                            <Border x:Name="TabHitBox" Background="Transparent" CornerRadius="8" Padding="14,8,14,6">
+                                <StackPanel Orientation="Vertical">
+                                    <TextBlock x:Name="TabText" Text="Artistas" FontFamily="Segoe UI Variable Display, Segoe UI" FontSize="20"
+                                               Foreground="{DynamicResource TextSecondaryBrush}" FontWeight="Normal" />
+                                    <Border x:Name="Indicator" Height="3" CornerRadius="1.5" Margin="0,6,0,0"
+                                            Background="{Binding Theme.CurrentAccentBrush}" Opacity="0"
+                                            RenderTransformOrigin="0.5,0.5">
+                                        <Border.RenderTransform>
+                                            <ScaleTransform ScaleX="0.2" ScaleY="1.0" />
+                                        </Border.RenderTransform>
+                                    </Border>
+                                </StackPanel>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="TabHitBox" Property="Background" Value="#0DFFFFFF" />
+                                    <Setter TargetName="TabText" Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+                                </Trigger>
+                                <DataTrigger Binding="{Binding MyMusic.SelectedTabIndex}" Value="1">
+                                    <Setter TargetName="TabText" Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+                                    <Setter TargetName="TabText" Property="FontWeight" Value="SemiBold" />
+                                    <DataTrigger.EnterActions>
+                                        <BeginStoryboard>
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetName="Indicator" Storyboard.TargetProperty="Opacity"
+                                                                 To="1.0" Duration="0:0:0.4" />
+                                                <DoubleAnimation Storyboard.TargetName="Indicator" Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
+                                                                 To="1.0" Duration="0:0:0.4">
+                                                    <DoubleAnimation.EasingFunction>
+                                                        <CubicEase EasingMode="EaseOut" />
+                                                    </DoubleAnimation.EasingFunction>
+                                                </DoubleAnimation>
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </DataTrigger.EnterActions>
+                                    <DataTrigger.ExitActions>
+                                        <BeginStoryboard>
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetName="Indicator" Storyboard.TargetProperty="Opacity"
+                                                                 To="0.0" Duration="0:0:0.3" />
+                                                <DoubleAnimation Storyboard.TargetName="Indicator" Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
+                                                                 To="0.2" Duration="0:0:0.3" />
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </DataTrigger.ExitActions>
+                                </DataTrigger>
+                            </ControlTemplate.Triggers>
                         </ControlTemplate>
                     </Button.Template>
                 </Button>
 
                 <!-- Álbumes Tab -->
-                <Button Background="Transparent" BorderThickness="0" FocusVisualStyle="{x:Null}" Margin="0,0,32,0" Padding="4,8" Cursor="Hand"
+                <Button Background="Transparent" BorderThickness="0" FocusVisualStyle="{x:Null}" Margin="0,0,12,0" Padding="0" Cursor="Hand"
                         PreviewMouseLeftButtonDown="OnAlbumsTabPreviewMouseDown" Click="OnAlbumsTabClick">
                     <Button.Template>
                         <ControlTemplate TargetType="Button">
-                            <StackPanel Orientation="Vertical">
-                                <TextBlock Text="Álbumes" FontFamily="Segoe UI Variable Display, Segoe UI" FontSize="20">
-                                    <TextBlock.Style>
-                                        <Style TargetType="TextBlock">
-                                            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
-                                            <Setter Property="FontWeight" Value="Normal" />
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding MyMusic.SelectedTabIndex}" Value="2">
-                                                    <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
-                                                    <Setter Property="FontWeight" Value="SemiBold" />
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </TextBlock.Style>
-                                </TextBlock>
-                                <Border Height="3" CornerRadius="1.5" Margin="0,6,0,0"
-                                        Background="{Binding Theme.CurrentAccentBrush}">
-                                    <Border.Style>
-                                        <Style TargetType="Border">
-                                            <Setter Property="Visibility" Value="Hidden" />
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding MyMusic.SelectedTabIndex}" Value="2">
-                                                    <Setter Property="Visibility" Value="Visible" />
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </Border.Style>
-                                </Border>
-                            </StackPanel>
+                            <Border x:Name="TabHitBox" Background="Transparent" CornerRadius="8" Padding="14,8,14,6">
+                                <StackPanel Orientation="Vertical">
+                                    <TextBlock x:Name="TabText" Text="Álbumes" FontFamily="Segoe UI Variable Display, Segoe UI" FontSize="20"
+                                               Foreground="{DynamicResource TextSecondaryBrush}" FontWeight="Normal" />
+                                    <Border x:Name="Indicator" Height="3" CornerRadius="1.5" Margin="0,6,0,0"
+                                            Background="{Binding Theme.CurrentAccentBrush}" Opacity="0"
+                                            RenderTransformOrigin="0.5,0.5">
+                                        <Border.RenderTransform>
+                                            <ScaleTransform ScaleX="0.2" ScaleY="1.0" />
+                                        </Border.RenderTransform>
+                                    </Border>
+                                </StackPanel>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="TabHitBox" Property="Background" Value="#0DFFFFFF" />
+                                    <Setter TargetName="TabText" Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+                                </Trigger>
+                                <DataTrigger Binding="{Binding MyMusic.SelectedTabIndex}" Value="2">
+                                    <Setter TargetName="TabText" Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+                                    <Setter TargetName="TabText" Property="FontWeight" Value="SemiBold" />
+                                    <DataTrigger.EnterActions>
+                                        <BeginStoryboard>
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetName="Indicator" Storyboard.TargetProperty="Opacity"
+                                                                 To="1.0" Duration="0:0:0.4" />
+                                                <DoubleAnimation Storyboard.TargetName="Indicator" Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
+                                                                 To="1.0" Duration="0:0:0.4">
+                                                    <DoubleAnimation.EasingFunction>
+                                                        <CubicEase EasingMode="EaseOut" />
+                                                    </DoubleAnimation.EasingFunction>
+                                                </DoubleAnimation>
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </DataTrigger.EnterActions>
+                                    <DataTrigger.ExitActions>
+                                        <BeginStoryboard>
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetName="Indicator" Storyboard.TargetProperty="Opacity"
+                                                                 To="0.0" Duration="0:0:0.3" />
+                                                <DoubleAnimation Storyboard.TargetName="Indicator" Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
+                                                                 To="0.2" Duration="0:0:0.3" />
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </DataTrigger.ExitActions>
+                                </DataTrigger>
+                            </ControlTemplate.Triggers>
                         </ControlTemplate>
                     </Button.Template>
                 </Button>
@@ -229,6 +347,38 @@
                 </StackPanel>
             </ui:Button>
 
+            <!-- Artists Tab Quick Setting: Buscar artistas con Last.fm & Download Status -->
+            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="16,0,16,0">
+                <StackPanel.Style>
+                    <Style TargetType="StackPanel">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding MyMusic.SelectedTabIndex}" Value="1">
+                                <Setter Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </StackPanel.Style>
+
+                <Border Background="{DynamicResource SurfaceCardBrush}" BorderBrush="{DynamicResource SurfaceCardBorderBrush}" BorderThickness="1" CornerRadius="8" Padding="8,4" Margin="0,0,10,0">
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <ui:SymbolIcon Symbol="Globe24" FontSize="14" Foreground="{Binding Theme.CurrentAccentBrush}" Margin="0,0,6,0" VerticalAlignment="Center" />
+                        <TextBlock Text="Buscar artistas con Last.fm" FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" Margin="0,0,8,0" />
+                        <ui:ToggleSwitch IsChecked="{Binding MyMusic.IsLastFmArtistSyncEnabled, Mode=TwoWay}"
+                                         OffContent="" OnContent="" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Border>
+
+                <!-- Non-blocking Download notification chip -->
+                <Border Background="{DynamicResource SurfaceCardHoverBrush}" BorderBrush="{DynamicResource SurfaceCardBorderBrush}" BorderThickness="1" CornerRadius="8" Padding="8,4"
+                        Visibility="{Binding MyMusic.IsDownloadingArtistImages, Converter={StaticResource BoolToVisConverter}}">
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <ui:ProgressRing Width="12" Height="12" IsIndeterminate="True" Margin="0,0,6,0" Foreground="{Binding Theme.CurrentAccentBrush}" />
+                        <TextBlock Text="{Binding MyMusic.ArtistDownloadProgressText}" FontSize="11" Foreground="{Binding Theme.CurrentAccentBrush}" FontWeight="SemiBold" VerticalAlignment="Center" />
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+
             <!-- Filters (Right aligned) -->
             <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
                 <TextBlock Text="Ordenar por:" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,8,0" />
@@ -237,10 +387,21 @@
                           Margin="0,0,6,0" />
 
                 <!-- Ascending / Descending Sort Toggle Button -->
-                <ui:Button Appearance="Transparent" Width="32" Height="32" Padding="0" Margin="0,0,16,0"
+                <ui:Button Appearance="Transparent" Width="32" Height="32" Padding="0" Margin="0,0,8,0"
                            Command="{Binding MyMusic.ToggleSortDirectionCommand}"
                            ToolTip="{Binding MyMusic.SortDirectionTooltip}">
                     <ui:SymbolIcon Symbol="{Binding MyMusic.SortDirectionIcon}" FontSize="16" Foreground="{DynamicResource TextPrimaryBrush}" />
+                </ui:Button>
+
+                <!-- JumpList Index Button (A-Z) - Only visible when sorting alphabetically by name -->
+                <ui:Button Appearance="Transparent" Padding="6,4" Margin="0,0,14,0"
+                           Command="{Binding MyMusic.OpenJumpListCommand}"
+                           Visibility="{Binding MyMusic.IsNameSortActive, Converter={StaticResource BoolToVisConverter}}"
+                           ToolTip="Abrir selector alfabético (JumpList)">
+                    <StackPanel Orientation="Horizontal">
+                        <ui:SymbolIcon Symbol="TextBulletListSquare24" FontSize="16" Foreground="{Binding Theme.CurrentAccentBrush}" Margin="0,0,4,0" />
+                        <TextBlock Text="A-Z" FontSize="12" FontWeight="Bold" Foreground="{Binding Theme.CurrentAccentBrush}" VerticalAlignment="Center" />
+                    </StackPanel>
                 </ui:Button>
 
                 <TextBlock Text="Género:" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,8,0" />
@@ -314,12 +475,39 @@
                 </Grid>
 
                 <!-- Full-Width Virtualized Songs ListView -->
-                <ListView Grid.Row="1" ItemsSource="{Binding MyMusic.Songs}"
+                <ListView x:Name="SongsListView" Grid.Row="1" ItemsSource="{Binding MyMusic.Songs}"
                           Background="Transparent" BorderThickness="0"
-                          VirtualizingStackPanel.IsVirtualizing="True"
-                          VirtualizingStackPanel.VirtualizationMode="Recycling"
+                          VirtualizingPanel.IsVirtualizing="True"
+                          VirtualizingPanel.IsVirtualizingWhenGrouping="True"
+                          VirtualizingPanel.VirtualizationMode="Recycling"
+                          VirtualizingPanel.ScrollUnit="Pixel"
+                          VirtualizingPanel.CacheLengthUnit="Page"
+                          VirtualizingPanel.CacheLength="1,1"
+                          ScrollViewer.CanContentScroll="True"
+                          AlternationCount="2"
                           ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                           MouseDoubleClick="OnSongItemDoubleClick">
+
+                    <ListView.GroupStyle>
+                        <GroupStyle>
+                            <GroupStyle.ContainerStyle>
+                                <Style TargetType="{x:Type GroupItem}">
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="{x:Type GroupItem}">
+                                                <StackPanel Margin="0,12,0,6">
+                                                    <Button Style="{StaticResource AlphaGroupHeaderButtonStyle}"
+                                                            Content="{Binding Name}"
+                                                            Click="OnAlphaHeaderClick" />
+                                                    <ItemsPresenter />
+                                                </StackPanel>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Style>
+                            </GroupStyle.ContainerStyle>
+                        </GroupStyle>
+                    </ListView.GroupStyle>
 
                     <ListView.ItemContainerStyle>
                         <Style TargetType="ListViewItem">
@@ -343,10 +531,20 @@
                                             <Trigger Property="IsSelected" Value="True">
                                                 <Setter TargetName="ItemBorder" Property="Background" Value="{DynamicResource SurfaceCardHoverBrush}" />
                                             </Trigger>
+                                            <DataTrigger Binding="{Binding IsPlaying}" Value="True">
+                                                <Setter TargetName="ItemBorder" Property="Background" Value="#250078D4" />
+                                                <Setter TargetName="ItemBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                                                <Setter TargetName="ItemBorder" Property="BorderThickness" Value="1" />
+                                            </DataTrigger>
                                         </ControlTemplate.Triggers>
                                     </ControlTemplate>
                                 </Setter.Value>
                             </Setter>
+                            <Style.Triggers>
+                                <Trigger Property="ItemsControl.AlternationIndex" Value="1">
+                                    <Setter Property="Background" Value="#14FFFFFF" />
+                                </Trigger>
+                            </Style.Triggers>
                         </Style>
                     </ListView.ItemContainerStyle>
 
@@ -362,10 +560,15 @@
                                     <ColumnDefinition Width="70" />
                                 </Grid.ColumnDefinitions>
 
-                                <!-- Col 0: 40x40 Album Art with Hover Play Button -->
+                                <!-- Col 0: 40x40 Album Art with Hover Play Button & Playing Indicator -->
                                 <Grid Grid.Column="0" Width="40" Height="40" HorizontalAlignment="Center" VerticalAlignment="Center">
                                     <Border CornerRadius="6" ClipToBounds="True" Background="#1C1C26">
                                         <Image Source="{Binding CoverImageSource}" Stretch="UniformToFill" RenderOptions.BitmapScalingMode="HighQuality" />
+                                    </Border>
+
+                                    <!-- Playing animated indicator / badge overlay -->
+                                    <Border x:Name="PlayingBadge" Background="#B3000000" CornerRadius="6" Visibility="Collapsed">
+                                        <ui:SymbolIcon Symbol="Speaker224" FontSize="16" Foreground="{DynamicResource AccentBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                     </Border>
 
                                     <!-- Hover Play Overlay Button -->
@@ -385,7 +588,7 @@
                                 </Grid>
 
                                 <!-- Col 1: Song Title -->
-                                <TextBlock Grid.Column="1" Text="{Binding Title}" FontSize="13" FontWeight="SemiBold"
+                                <TextBlock x:Name="SongTitleText" Grid.Column="1" Text="{Binding Title}" FontSize="13" FontWeight="SemiBold"
                                            Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Margin="6,0,10,0" />
 
                                 <!-- Col 2: Artist -->
@@ -409,6 +612,11 @@
                             <DataTemplate.Triggers>
                                 <DataTrigger Binding="{Binding IsMouseOver, RelativeSource={RelativeSource AncestorType=ListViewItem}}" Value="True">
                                     <Setter TargetName="HoverPlayButton" Property="Opacity" Value="1.0" />
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding IsPlaying}" Value="True">
+                                    <Setter TargetName="SongTitleText" Property="Foreground" Value="{DynamicResource AccentBrush}" />
+                                    <Setter TargetName="SongTitleText" Property="FontWeight" Value="Bold" />
+                                    <Setter TargetName="PlayingBadge" Property="Visibility" Value="Visible" />
                                 </DataTrigger>
                             </DataTemplate.Triggers>
                         </DataTemplate>
@@ -452,10 +660,10 @@
                     </Style>
                 </Grid.Style>
 
-                <!-- 2.A ARTIST GRID (When no artist detail is open) -->
-                <ScrollViewer VerticalScrollBarVisibility="Auto" ScrollChanged="OnArtistsScrollChanged">
-                    <ScrollViewer.Style>
-                        <Style TargetType="ScrollViewer">
+                <!-- 2.A ARTIST GRID CONTAINER (When no artist detail is open) -->
+                <Grid>
+                    <Grid.Style>
+                        <Style TargetType="Grid">
                             <Setter Property="Visibility" Value="Visible" />
                             <Style.Triggers>
                                 <DataTrigger Binding="{Binding MyMusic.SelectedArtistDetail, Converter={StaticResource NullToVisibilityConverter}}" Value="Visible">
@@ -463,14 +671,54 @@
                                 </DataTrigger>
                             </Style.Triggers>
                         </Style>
-                    </ScrollViewer.Style>
+                    </Grid.Style>
 
-                    <ItemsControl ItemsSource="{Binding MyMusic.Artists}">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <!-- Banner no bloqueante de descarga de fotos de artistas -->
+                    <Border Grid.Row="0" Margin="0,0,0,12" Background="{DynamicResource SurfaceCardBrush}" BorderBrush="{DynamicResource SurfaceCardBorderBrush}" BorderThickness="1" CornerRadius="8" Padding="12,8"
+                            Visibility="{Binding MyMusic.IsDownloadingArtistImages, Converter={StaticResource BoolToVisConverter}}">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <ui:ProgressRing Width="16" Height="16" IsIndeterminate="True" Margin="0,0,10,0" Foreground="{Binding Theme.CurrentAccentBrush}" />
+                            <TextBlock Text="{Binding MyMusic.ArtistDownloadProgressText}" FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}" FontWeight="SemiBold" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Border>
+
+                    <ScrollViewer Grid.Row="1" x:Name="ArtistsScrollViewer" VerticalScrollBarVisibility="Auto" ScrollChanged="OnArtistsScrollChanged">
+                        <ItemsControl x:Name="ArtistsItemsControl" ItemsSource="{Binding MyMusic.Artists}">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
                                 <WrapPanel Orientation="Horizontal" />
                             </ItemsPanelTemplate>
                         </ItemsControl.ItemsPanel>
+                        <ItemsControl.GroupStyle>
+                            <GroupStyle>
+                                <GroupStyle.Panel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel Orientation="Horizontal" />
+                                    </ItemsPanelTemplate>
+                                </GroupStyle.Panel>
+                                <GroupStyle.ContainerStyle>
+                                    <Style TargetType="{x:Type GroupItem}">
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="{x:Type GroupItem}">
+                                                    <StackPanel Margin="0,8,0,16" Width="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=ItemsControl}}">
+                                                        <Button Style="{StaticResource AlphaGroupHeaderButtonStyle}"
+                                                                Content="{Binding Name}"
+                                                                Click="OnAlphaHeaderClick" />
+                                                        <ItemsPresenter />
+                                                    </StackPanel>
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </Style>
+                                </GroupStyle.ContainerStyle>
+                            </GroupStyle>
+                        </ItemsControl.GroupStyle>
                         <ItemsControl.ItemTemplate>
                             <DataTemplate DataType="{x:Type models:ArtistModel}">
                                 <Border Style="{StaticResource ScaleCardBorderStyle}" Width="176" Margin="0,0,20,24" CornerRadius="14"
@@ -509,13 +757,22 @@
                                     <StackPanel>
                                         <!-- Circular 160x160 Art Container with Hover Overlay -->
                                         <Grid Width="160" Height="160" HorizontalAlignment="Center">
-                                            <!-- Artist Cover Image (Circular) -->
-                                            <Border CornerRadius="80" ClipToBounds="True" Background="#1F1F28">
-                                                <Image Source="{Binding AvatarImageSource}" Stretch="UniformToFill" RenderOptions.BitmapScalingMode="HighQuality" />
-                                            </Border>
+                                            <!-- Circle Background & Silhouette Fallback -->
+                                            <Ellipse Width="160" Height="160" Fill="#1F1F28" />
+                                            <ui:SymbolIcon Symbol="Person24" FontSize="56" Foreground="{DynamicResource TextTertiaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
 
-                                            <!-- Hover Overlay with 0.2s Fade-In (Circular) -->
-                                            <Border x:Name="ArtistHoverOverlay" CornerRadius="80" Background="#66000000" Opacity="0">
+                                            <!-- Artist Cover Image (Circular Clipped) -->
+                                            <Image Source="{Binding AvatarImageSource}" Width="160" Height="160" Stretch="UniformToFill" RenderOptions.BitmapScalingMode="HighQuality">
+                                                <Image.Clip>
+                                                    <EllipseGeometry Center="80,80" RadiusX="80" RadiusY="80" />
+                                                </Image.Clip>
+                                            </Image>
+
+                                            <!-- Hover Overlay with 0.2s Fade-In (Circular Clipped) -->
+                                            <Border x:Name="ArtistHoverOverlay" Width="160" Height="160" Background="#66000000" Opacity="0">
+                                                <Border.Clip>
+                                                    <EllipseGeometry Center="80,80" RadiusX="80" RadiusY="80" />
+                                                </Border.Clip>
                                                 <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
                                                     <!-- Left Button: Play -->
                                                     <Button Width="44" Height="44" Cursor="Hand" ToolTip="Reproducir todo"
@@ -628,121 +885,663 @@
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
                 </ScrollViewer>
+                </Grid>
 
                 <!-- 2.B ARTIST DETAIL VIEW (When an artist card is clicked) -->
-                <Grid Visibility="{Binding MyMusic.SelectedArtistDetail, Converter={StaticResource NullToVisibilityConverter}}">
+                <Grid Visibility="{Binding MyMusic.SelectedArtistDetail, Converter={StaticResource NullToVisibilityConverter}}"
+                      PreviewMouseWheel="OnArtistDetailPreviewMouseWheel">
                     <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" /> <!-- Back Button & Header -->
-                        <RowDefinition Height="Auto" /> <!-- Column Headers -->
-                        <RowDefinition Height="*" />    <!-- Artist Track List -->
+                        <RowDefinition Height="Auto" /> <!-- Back Button, Artist Header & View Mode Toggle -->
+                        <RowDefinition Height="*" />    <!-- Content: Album-Grouped List View OR Album Covers Grid View -->
                     </Grid.RowDefinitions>
 
-                    <StackPanel Grid.Row="0" Margin="0,0,0,16">
-                        <!-- Back Button -->
-                        <ui:Button Appearance="Transparent" Padding="8,4" HorizontalAlignment="Left" Margin="0,0,0,12"
-                                   Command="{Binding MyMusic.CloseArtistDetailCommand}">
-                            <StackPanel Orientation="Horizontal">
-                                <ui:SymbolIcon Symbol="ArrowLeft24" FontSize="16" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,6,0" />
-                                <TextBlock Text="Volver a Artistas" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" />
-                            </StackPanel>
-                        </ui:Button>
+                    <Grid Grid.Row="0" Margin="0,0,0,10">
+                        <!-- FULL ARTIST HEADER (Smoothly compresses when IsArtistHeaderCompact is True) -->
+                        <StackPanel Margin="0,0,0,4" ClipToBounds="True">
+                            <StackPanel.Style>
+                                <Style TargetType="StackPanel">
+                                    <Setter Property="MaxHeight" Value="220" />
+                                    <Setter Property="Opacity" Value="1.0" />
+                                    <Setter Property="IsHitTestVisible" Value="True" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding MyMusic.IsArtistHeaderCompact}" Value="True">
+                                            <Setter Property="IsHitTestVisible" Value="False" />
+                                            <DataTrigger.EnterActions>
+                                                <BeginStoryboard>
+                                                    <Storyboard>
+                                                        <DoubleAnimation Storyboard.TargetProperty="MaxHeight" To="0" Duration="0:0:0.25">
+                                                            <DoubleAnimation.EasingFunction>
+                                                                <CubicEase EasingMode="EaseOut" />
+                                                            </DoubleAnimation.EasingFunction>
+                                                        </DoubleAnimation>
+                                                        <DoubleAnimation Storyboard.TargetProperty="Opacity" To="0.0" Duration="0:0:0.18" />
+                                                    </Storyboard>
+                                                </BeginStoryboard>
+                                            </DataTrigger.EnterActions>
+                                            <DataTrigger.ExitActions>
+                                                <BeginStoryboard>
+                                                    <Storyboard>
+                                                        <DoubleAnimation Storyboard.TargetProperty="MaxHeight" To="220" Duration="0:0:0.25">
+                                                            <DoubleAnimation.EasingFunction>
+                                                                <CubicEase EasingMode="EaseOut" />
+                                                            </DoubleAnimation.EasingFunction>
+                                                        </DoubleAnimation>
+                                                        <DoubleAnimation Storyboard.TargetProperty="Opacity" To="1.0" Duration="0:0:0.22" />
+                                                    </Storyboard>
+                                                </BeginStoryboard>
+                                            </DataTrigger.ExitActions>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </StackPanel.Style>
 
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-                            <Border Grid.Column="0" Width="100" Height="100" CornerRadius="50" ClipToBounds="True" Background="#26FFFFFF" Margin="0,0,20,0">
-                                <Image Source="{Binding MyMusic.SelectedArtistDetail.AvatarImageSource}" Stretch="UniformToFill" />
-                            </Border>
-                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                <TextBlock Text="{Binding MyMusic.SelectedArtistDetail.Name}" FontSize="24" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" />
-                                <TextBlock Text="{Binding MyMusic.SelectedArtistDetail.Subtitle}" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,4,0,10" />
-                                <ui:Button Appearance="Primary" HorizontalAlignment="Left" Padding="14,6"
+                            <!-- Back Button -->
+                            <ui:Button Appearance="Transparent" Padding="8,4" HorizontalAlignment="Left" Margin="0,0,0,12"
+                                       Command="{Binding MyMusic.CloseArtistDetailCommand}">
+                                <StackPanel Orientation="Horizontal">
+                                    <ui:SymbolIcon Symbol="ArrowLeft24" FontSize="16" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,6,0" />
+                                    <TextBlock Text="Volver a Artistas" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" />
+                                </StackPanel>
+                            </ui:Button>
+
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <!-- Big Artist Avatar (110x110) with Silhouette Fallback -->
+                                <Grid Grid.Column="0" Width="110" Height="110" Margin="0,0,22,0" VerticalAlignment="Top">
+                                    <Ellipse Width="110" Height="110" Fill="#1F1F28" />
+                                    <ui:SymbolIcon Symbol="Person24" FontSize="48" Foreground="{DynamicResource TextTertiaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                    <Image Source="{Binding MyMusic.SelectedArtistDetail.AvatarImageSource}" Width="110" Height="110" Stretch="UniformToFill" RenderOptions.BitmapScalingMode="HighQuality">
+                                        <Image.Clip>
+                                            <EllipseGeometry Center="55,55" RadiusX="55" RadiusY="55" />
+                                        </Image.Clip>
+                                    </Image>
+                                </Grid>
+
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding MyMusic.SelectedArtistDetail.Name}" FontSize="26" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" />
+                                    <TextBlock Text="{Binding MyMusic.SelectedArtistDetail.Subtitle}" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,4,0,8" />
+
+                                    <!-- Biography Excerpt + "Ver más" if available -->
+                                    <StackPanel Margin="0,0,0,10" Visibility="{Binding MyMusic.SelectedArtistDetail.HasBiography, Converter={StaticResource BoolToVisConverter}}">
+                                        <TextBlock Text="{Binding MyMusic.SelectedArtistDetail.BiographySummary}"
+                                                   FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"
+                                                   TextTrimming="CharacterEllipsis" TextWrapping="Wrap" MaxHeight="36" LineHeight="16" MaxWidth="750" HorizontalAlignment="Left" />
+                                        <ui:Button Appearance="Transparent" Padding="0,4,8,4" HorizontalAlignment="Left" Margin="0,2,0,0"
+                                                   Command="{Binding DataContext.OpenArtistBioCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                   CommandParameter="{Binding MyMusic.SelectedArtistDetail}"
+                                                   ToolTip="Leer biografía completa">
+                                            <TextBlock Text="Ver más información..." FontSize="11" FontWeight="SemiBold" Foreground="{Binding Theme.CurrentAccentBrush}" />
+                                        </ui:Button>
+                                    </StackPanel>
+
+                                    <!-- Action Buttons -->
+                                    <StackPanel Orientation="Horizontal">
+                                        <ui:Button Appearance="Primary" HorizontalAlignment="Left" Padding="14,6" Margin="0,0,10,0"
+                                                   Background="{Binding Theme.CurrentAccentBrush}"
+                                                   Command="{Binding DataContext.PlayArtistCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                   CommandParameter="{Binding MyMusic.SelectedArtistDetail}">
+                                            <StackPanel Orientation="Horizontal">
+                                                <ui:SymbolIcon Symbol="Play24" FontSize="14" Foreground="{Binding Theme.AccentForegroundBrush}" Margin="0,0,6,0" />
+                                                <TextBlock Text="Reproducir discografía" FontWeight="Bold" Foreground="{Binding Theme.AccentForegroundBrush}" FontSize="12" />
+                                            </StackPanel>
+                                        </ui:Button>
+
+                                        <!-- Cambiar / Actualizar foto y datos del artista -->
+                                        <ui:Button Appearance="Secondary" Padding="12,6"
+                                                   Click="OnAddMenuButtonClick"
+                                                   ToolTip="Administrar fotos y actualizar información del artista">
+                                            <ui:Button.ContextMenu>
+                                                <ContextMenu>
+                                                    <MenuItem Header="Abrir galería de fotos..."
+                                                              Command="{Binding DataContext.OpenArtistGalleryCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                              CommandParameter="{Binding MyMusic.SelectedArtistDetail.Name}">
+                                                        <MenuItem.Icon>
+                                                            <ui:SymbolIcon Symbol="Image24" />
+                                                        </MenuItem.Icon>
+                                                    </MenuItem>
+                                                    <MenuItem Header="Elegir foto local desde explorador..."
+                                                              Command="{Binding DataContext.ChangeArtistPhotoFromExplorerCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                              CommandParameter="{Binding MyMusic.SelectedArtistDetail}">
+                                                        <MenuItem.Icon>
+                                                            <ui:SymbolIcon Symbol="FolderOpen24" />
+                                                        </MenuItem.Icon>
+                                                    </MenuItem>
+                                                    <Separator />
+                                                    <MenuItem Header="Volver a consultar Last.fm"
+                                                              Command="{Binding DataContext.RedownloadArtistFromLastFmCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                              CommandParameter="{Binding MyMusic.SelectedArtistDetail}">
+                                                        <MenuItem.Icon>
+                                                            <ui:SymbolIcon Symbol="ArrowSync24" />
+                                                        </MenuItem.Icon>
+                                                    </MenuItem>
+                                                </ContextMenu>
+                                            </ui:Button.ContextMenu>
+                                            <StackPanel Orientation="Horizontal">
+                                                <ui:SymbolIcon Symbol="ImageEdit24" FontSize="14" Margin="0,0,6,0" />
+                                                <TextBlock Text="Foto y datos del artista" FontSize="12" FontWeight="SemiBold" />
+                                            </StackPanel>
+                                        </ui:Button>
+                                    </StackPanel>
+                                </StackPanel>
+
+                                <!-- Right: View Mode Switcher (Ver en Lista vs Ver Carátulas) -->
+                                <Border Grid.Column="2" VerticalAlignment="Bottom" HorizontalAlignment="Right"
+                                        CornerRadius="10" Background="{DynamicResource SurfaceCardBrush}"
+                                        BorderBrush="{DynamicResource SurfaceCardBorderBrush}" BorderThickness="1"
+                                        Padding="4">
+                                    <StackPanel Orientation="Horizontal">
+                                        <!-- Button: Ver en Lista (Agrupado por Álbum) -->
+                                        <Button Cursor="Hand"
+                                                Command="{Binding MyMusic.SetArtistViewModeCommand}"
+                                                CommandParameter="List"
+                                                ToolTip="Ver en lista agrupada por álbum">
+                                            <Button.Template>
+                                                <ControlTemplate TargetType="Button">
+                                                    <Border x:Name="ModeBorder" CornerRadius="7" Padding="12,6" Background="Transparent">
+                                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                            <ui:SymbolIcon x:Name="ModeIcon" Symbol="TextBulletListLtr24" FontSize="15" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,6,0" />
+                                                            <TextBlock x:Name="ModeText" Text="Ver en lista" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" />
+                                                        </StackPanel>
+                                                    </Border>
+                                                    <ControlTemplate.Triggers>
+                                                        <DataTrigger Binding="{Binding MyMusic.IsArtistAlbumsGridView}" Value="False">
+                                                            <Setter TargetName="ModeBorder" Property="Background" Value="{Binding Theme.CurrentAccentBrush}" />
+                                                            <Setter TargetName="ModeIcon" Property="Foreground" Value="{Binding Theme.AccentForegroundBrush}" />
+                                                            <Setter TargetName="ModeText" Property="Foreground" Value="{Binding Theme.AccentForegroundBrush}" />
+                                                            <Setter TargetName="ModeText" Property="FontWeight" Value="Bold" />
+                                                        </DataTrigger>
+                                                    </ControlTemplate.Triggers>
+                                                </ControlTemplate>
+                                            </Button.Template>
+                                        </Button>
+
+                                        <!-- Button: Ver Carátulas -->
+                                        <Button Cursor="Hand" Margin="4,0,0,0"
+                                                Command="{Binding MyMusic.SetArtistViewModeCommand}"
+                                                CommandParameter="Grid"
+                                                ToolTip="Ver carátulas de álbumes">
+                                            <Button.Template>
+                                                <ControlTemplate TargetType="Button">
+                                                    <Border x:Name="ModeBorder" CornerRadius="7" Padding="12,6" Background="Transparent">
+                                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                            <ui:SymbolIcon x:Name="ModeIcon" Symbol="Grid24" FontSize="15" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,6,0" />
+                                                            <TextBlock x:Name="ModeText" Text="Ver carátulas" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" />
+                                                        </StackPanel>
+                                                    </Border>
+                                                    <ControlTemplate.Triggers>
+                                                        <DataTrigger Binding="{Binding MyMusic.IsArtistAlbumsGridView}" Value="True">
+                                                            <Setter TargetName="ModeBorder" Property="Background" Value="{Binding Theme.CurrentAccentBrush}" />
+                                                            <Setter TargetName="ModeIcon" Property="Foreground" Value="{Binding Theme.AccentForegroundBrush}" />
+                                                            <Setter TargetName="ModeText" Property="Foreground" Value="{Binding Theme.AccentForegroundBrush}" />
+                                                            <Setter TargetName="ModeText" Property="FontWeight" Value="Bold" />
+                                                        </DataTrigger>
+                                                    </ControlTemplate.Triggers>
+                                                </ControlTemplate>
+                                            </Button.Template>
+                                        </Button>
+                                    </StackPanel>
+                                </Border>
+                            </Grid>
+                        </StackPanel>
+
+                        <!-- COMPACT STICKY BAR (Smoothly expands when IsArtistHeaderCompact is True) -->
+                        <Border CornerRadius="10" Background="{DynamicResource SurfaceCardBrush}" BorderBrush="{DynamicResource SurfaceCardBorderBrush}" BorderThickness="1" Padding="12,6" Margin="0,0,0,4" ClipToBounds="True">
+                            <Border.Style>
+                                <Style TargetType="Border">
+                                    <Setter Property="MaxHeight" Value="0" />
+                                    <Setter Property="Opacity" Value="0.0" />
+                                    <Setter Property="IsHitTestVisible" Value="False" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding MyMusic.IsArtistHeaderCompact}" Value="True">
+                                            <Setter Property="IsHitTestVisible" Value="True" />
+                                            <DataTrigger.EnterActions>
+                                                <BeginStoryboard>
+                                                    <Storyboard>
+                                                        <DoubleAnimation Storyboard.TargetProperty="MaxHeight" To="64" Duration="0:0:0.25">
+                                                            <DoubleAnimation.EasingFunction>
+                                                                <CubicEase EasingMode="EaseOut" />
+                                                            </DoubleAnimation.EasingFunction>
+                                                        </DoubleAnimation>
+                                                        <DoubleAnimation Storyboard.TargetProperty="Opacity" To="1.0" Duration="0:0:0.22" />
+                                                    </Storyboard>
+                                                </BeginStoryboard>
+                                            </DataTrigger.EnterActions>
+                                            <DataTrigger.ExitActions>
+                                                <BeginStoryboard>
+                                                    <Storyboard>
+                                                        <DoubleAnimation Storyboard.TargetProperty="MaxHeight" To="0" Duration="0:0:0.25">
+                                                            <DoubleAnimation.EasingFunction>
+                                                                <CubicEase EasingMode="EaseOut" />
+                                                            </DoubleAnimation.EasingFunction>
+                                                        </DoubleAnimation>
+                                                        <DoubleAnimation Storyboard.TargetProperty="Opacity" To="0.0" Duration="0:0:0.18" />
+                                                    </Storyboard>
+                                                </BeginStoryboard>
+                                            </DataTrigger.ExitActions>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Border.Style>
+
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <!-- Back Button (Compact) -->
+                                <ui:Button Grid.Column="0" Appearance="Transparent" Padding="6,4" VerticalAlignment="Center" Margin="0,0,10,0"
+                                           Command="{Binding MyMusic.CloseArtistDetailCommand}"
+                                           ToolTip="Volver a Artistas">
+                                    <ui:SymbolIcon Symbol="ArrowLeft24" FontSize="16" Foreground="{DynamicResource TextPrimaryBrush}" />
+                                </ui:Button>
+
+                                <!-- Small Circle Avatar (38x38) -->
+                                <Grid Grid.Column="1" Width="38" Height="38" Margin="0,0,12,0" VerticalAlignment="Center">
+                                    <Ellipse Width="38" Height="38" Fill="#1F1F28" />
+                                    <ui:SymbolIcon Symbol="Person24" FontSize="20" Foreground="{DynamicResource TextTertiaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                    <Image Source="{Binding MyMusic.SelectedArtistDetail.AvatarImageSource}" Width="38" Height="38" Stretch="UniformToFill" RenderOptions.BitmapScalingMode="HighQuality">
+                                        <Image.Clip>
+                                            <EllipseGeometry Center="19,19" RadiusX="19" RadiusY="19" />
+                                        </Image.Clip>
+                                    </Image>
+                                </Grid>
+
+                                <!-- Artist Name -->
+                                <TextBlock Grid.Column="2" Text="{Binding MyMusic.SelectedArtistDetail.Name}"
+                                           FontSize="16" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}"
+                                           VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,0,16,0" />
+
+                                <!-- Play Button (Compact) -->
+                                <ui:Button Grid.Column="3" Appearance="Primary" Padding="14,6" Margin="0,0,12,0" VerticalAlignment="Center"
                                            Background="{Binding Theme.CurrentAccentBrush}"
                                            Command="{Binding DataContext.PlayArtistCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                            CommandParameter="{Binding MyMusic.SelectedArtistDetail}">
                                     <StackPanel Orientation="Horizontal">
-                                        <ui:SymbolIcon Symbol="Play24" FontSize="14" Foreground="#0A0A0E" Margin="0,0,6,0" />
-                                        <TextBlock Text="Reproducir discografía" FontWeight="Bold" Foreground="#0A0A0E" FontSize="12" />
+                                        <ui:SymbolIcon Symbol="Play24" FontSize="13" Foreground="{Binding Theme.AccentForegroundBrush}" Margin="0,0,6,0" />
+                                        <TextBlock Text="Reproducir" FontWeight="Bold" Foreground="{Binding Theme.AccentForegroundBrush}" FontSize="12" />
                                     </StackPanel>
                                 </ui:Button>
-                            </StackPanel>
-                        </Grid>
-                    </StackPanel>
 
-                    <!-- Fixed Column Header Bar -->
-                    <Grid Grid.Row="1" Margin="10,0,10,8">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="40" />
-                            <ColumnDefinition Width="44" />
-                            <ColumnDefinition Width="2.5*" />
-                            <ColumnDefinition Width="1.5*" />
-                            <ColumnDefinition Width="70" />
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="#" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center" />
-                        <TextBlock Grid.Column="1" Text="" />
-                        <TextBlock Grid.Column="2" Text="TÍTULO" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}" Margin="6,0,0,0" />
-                        <TextBlock Grid.Column="3" Text="ÁLBUM" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}" />
-                        <TextBlock Grid.Column="4" Text="DURACIÓN" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Right" />
+                                <!-- View Mode Switcher (List vs Grid) in Compact bar -->
+                                <Border Grid.Column="4" VerticalAlignment="Center" HorizontalAlignment="Right"
+                                        CornerRadius="8" Background="#14FFFFFF" Padding="3">
+                                    <StackPanel Orientation="Horizontal">
+                                        <Button Cursor="Hand"
+                                                Command="{Binding MyMusic.SetArtistViewModeCommand}"
+                                                CommandParameter="List"
+                                                ToolTip="Ver en lista agrupada por álbum">
+                                            <Button.Template>
+                                                <ControlTemplate TargetType="Button">
+                                                    <Border x:Name="ModeBorder" CornerRadius="6" Padding="8,4" Background="Transparent">
+                                                        <ui:SymbolIcon x:Name="ModeIcon" Symbol="TextBulletListLtr24" FontSize="14" Foreground="{DynamicResource TextSecondaryBrush}" />
+                                                    </Border>
+                                                    <ControlTemplate.Triggers>
+                                                        <DataTrigger Binding="{Binding MyMusic.IsArtistAlbumsGridView}" Value="False">
+                                                            <Setter TargetName="ModeBorder" Property="Background" Value="{Binding Theme.CurrentAccentBrush}" />
+                                                            <Setter TargetName="ModeIcon" Property="Foreground" Value="{Binding Theme.AccentForegroundBrush}" />
+                                                        </DataTrigger>
+                                                    </ControlTemplate.Triggers>
+                                                </ControlTemplate>
+                                            </Button.Template>
+                                        </Button>
+                                        <Button Cursor="Hand" Margin="3,0,0,0"
+                                                Command="{Binding MyMusic.SetArtistViewModeCommand}"
+                                                CommandParameter="Grid"
+                                                ToolTip="Ver carátulas de álbumes">
+                                            <Button.Template>
+                                                <ControlTemplate TargetType="Button">
+                                                    <Border x:Name="ModeBorder" CornerRadius="6" Padding="8,4" Background="Transparent">
+                                                        <ui:SymbolIcon x:Name="ModeIcon" Symbol="Grid24" FontSize="14" Foreground="{DynamicResource TextSecondaryBrush}" />
+                                                    </Border>
+                                                    <ControlTemplate.Triggers>
+                                                        <DataTrigger Binding="{Binding MyMusic.IsArtistAlbumsGridView}" Value="True">
+                                                            <Setter TargetName="ModeBorder" Property="Background" Value="{Binding Theme.CurrentAccentBrush}" />
+                                                            <Setter TargetName="ModeIcon" Property="Foreground" Value="{Binding Theme.AccentForegroundBrush}" />
+                                                        </DataTrigger>
+                                                    </ControlTemplate.Triggers>
+                                                </ControlTemplate>
+                                            </Button.Template>
+                                        </Button>
+                                    </StackPanel>
+                                </Border>
+                            </Grid>
+                        </Border>
                     </Grid>
 
-                    <!-- Track list of the selected artist -->
-                    <ListView Grid.Row="2" ItemsSource="{Binding MyMusic.SelectedArtistDetail.Tracks}"
-                              Background="Transparent" BorderThickness="0"
-                              ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                              MouseDoubleClick="OnSongItemDoubleClick">
-                        <ListView.ItemContainerStyle>
-                            <Style TargetType="ListViewItem">
-                                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-                                <Setter Property="FocusVisualStyle" Value="{x:Null}" />
-                                <Setter Property="Background" Value="Transparent" />
-                                <Setter Property="Padding" Value="0" />
-                                <Setter Property="Margin" Value="0,2" />
-                                <Setter Property="BorderThickness" Value="0" />
-                                <Setter Property="ContextMenu" Value="{DynamicResource TrackContextMenu}" />
-                                <Setter Property="Template">
-                                    <Setter.Value>
-                                        <ControlTemplate TargetType="ListViewItem">
-                                            <Border x:Name="ItemBorder" CornerRadius="8" Background="{TemplateBinding Background}" Padding="6,4">
-                                                <ContentPresenter HorizontalAlignment="Stretch" />
-                                            </Border>
-                                            <ControlTemplate.Triggers>
-                                                <Trigger Property="IsMouseOver" Value="True">
-                                                    <Setter TargetName="ItemBorder" Property="Background" Value="{DynamicResource SurfaceCardHoverBrush}" />
-                                                </Trigger>
-                                                <Trigger Property="IsSelected" Value="True">
-                                                    <Setter TargetName="ItemBorder" Property="Background" Value="{DynamicResource SurfaceCardHoverBrush}" />
-                                                </Trigger>
-                                            </ControlTemplate.Triggers>
-                                        </ControlTemplate>
-                                    </Setter.Value>
-                                </Setter>
-                            </Style>
-                        </ListView.ItemContainerStyle>
-                        <ListView.ItemTemplate>
-                            <DataTemplate DataType="{x:Type models:Track}">
-                                <Grid HorizontalAlignment="Stretch">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="40" />
-                                        <ColumnDefinition Width="44" />
-                                        <ColumnDefinition Width="2.5*" />
-                                        <ColumnDefinition Width="1.5*" />
-                                        <ColumnDefinition Width="70" />
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Grid.Column="0" Text="{Binding TrackNumber}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                    <ui:Button Grid.Column="1" Appearance="Transparent" Padding="4" HorizontalAlignment="Center"
-                                               Command="{Binding DataContext.MyMusic.PlayTrackCommand, RelativeSource={RelativeSource AncestorType=ListView}}"
-                                               CommandParameter="{Binding}">
-                                        <ui:SymbolIcon Symbol="Play24" FontSize="14" Foreground="{Binding DataContext.Theme.CurrentAccentBrush, RelativeSource={RelativeSource AncestorType=ListView}}" />
-                                    </ui:Button>
-                                    <TextBlock Grid.Column="2" Text="{Binding Title}" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" Margin="6,0,10,0" TextTrimming="CharacterEllipsis" />
-                                    <TextBlock Grid.Column="3" Text="{Binding Album}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,10,0" TextTrimming="CharacterEllipsis" />
-                                    <TextBlock Grid.Column="4" Text="{Binding DurationFormatted}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,6,0" />
-                                </Grid>
-                            </DataTemplate>
-                        </ListView.ItemTemplate>
-                    </ListView>
+                    <!-- ============================================================== -->
+                    <!-- MODO 1: VISTA EN LISTA AGRUPADA POR ÁLBUM (ESTILO CEBRA)       -->
+                    <!-- ============================================================== -->
+                    <ScrollViewer x:Name="ArtistDetailListScrollViewer" Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                                  ScrollChanged="OnArtistDetailScrollChanged"
+                                  Visibility="{Binding MyMusic.IsArtistAlbumsGridView, Converter={StaticResource InverseBoolToVisConverter}}">
+                        <ItemsControl ItemsSource="{Binding MyMusic.SelectedArtistDetail.Albums}" Margin="0,0,0,180">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="{x:Type models:AlbumModel}">
+                                    <StackPanel Margin="0,0,0,28">
+                                        <!-- Top Album Header Line with Divider -->
+                                        <Grid Margin="0,0,0,10">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="0" Text="{Binding Name}" FontSize="14" FontWeight="Bold"
+                                                       Foreground="{Binding DataContext.Theme.CurrentAccentBrush, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                       Margin="0,0,12,0" VerticalAlignment="Center" />
+                                            <Border Grid.Column="1" Height="1" Background="{DynamicResource DividerBrush}" VerticalAlignment="Center" />
+                                        </Grid>
+
+                                        <!-- Two-Column Layout: Left = Album Cover & Details | Right = Zebra-Striped Track List -->
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="270" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+
+                                            <!-- Left Column: Album Art + Album Metadata Side-by-Side -->
+                                            <Grid Grid.Column="0" VerticalAlignment="Top" Margin="0,2,20,0">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="*" />
+                                                </Grid.ColumnDefinitions>
+
+                                                <!-- 110x110 Album Cover with Hover Play Overlay -->
+                                                <Border Grid.Column="0" Width="110" Height="110" CornerRadius="8" ClipToBounds="True"
+                                                        Background="#1C1C26" BorderBrush="{DynamicResource SurfaceCardBorderBrush}" BorderThickness="1"
+                                                        VerticalAlignment="Top" Cursor="Hand">
+                                                    <Border.InputBindings>
+                                                        <MouseBinding MouseAction="LeftClick"
+                                                                      Command="{Binding DataContext.PlayAlbumCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                      CommandParameter="{Binding}" />
+                                                    </Border.InputBindings>
+                                                    <Grid>
+                                                        <Image Source="{Binding CoverImageSource}" Width="110" Height="110" Stretch="UniformToFill" RenderOptions.BitmapScalingMode="HighQuality" />
+                                                        <Border x:Name="AlbumCoverHover" Background="#66000000" Opacity="0">
+                                                            <Border Width="38" Height="38" CornerRadius="19"
+                                                                    Background="{Binding DataContext.Theme.CurrentAccentBrush, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                    HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                                <Path Data="M 4,2 L 16,10 L 4,18 Z" Fill="{Binding DataContext.Theme.AccentForegroundBrush, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                      Width="14" Height="14" Margin="2,0,0,0" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                            </Border>
+                                                        </Border>
+                                                    </Grid>
+                                                    <Border.Triggers>
+                                                        <EventTrigger RoutedEvent="MouseEnter">
+                                                            <BeginStoryboard>
+                                                                <Storyboard>
+                                                                    <DoubleAnimation Storyboard.TargetName="AlbumCoverHover" Storyboard.TargetProperty="Opacity" To="1.0" Duration="0:0:0.15" />
+                                                                </Storyboard>
+                                                            </BeginStoryboard>
+                                                        </EventTrigger>
+                                                        <EventTrigger RoutedEvent="MouseLeave">
+                                                            <BeginStoryboard>
+                                                                <Storyboard>
+                                                                    <DoubleAnimation Storyboard.TargetName="AlbumCoverHover" Storyboard.TargetProperty="Opacity" To="0.0" Duration="0:0:0.15" />
+                                                                </Storyboard>
+                                                            </BeginStoryboard>
+                                                        </EventTrigger>
+                                                    </Border.Triggers>
+                                                </Border>
+
+                                                <!-- Album Metadata Next to Cover -->
+                                                <StackPanel Grid.Column="1" Margin="12,0,0,0" VerticalAlignment="Top">
+                                                    <TextBlock Text="{Binding Name}" FontSize="13" FontWeight="Bold"
+                                                               Foreground="{Binding DataContext.Theme.CurrentAccentBrush, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                               TextWrapping="Wrap" MaxHeight="38" TextTrimming="CharacterEllipsis" ToolTip="{Binding Name}" />
+                                                    <TextBlock Text="{Binding Artist}" FontSize="12" FontWeight="SemiBold"
+                                                               Foreground="{DynamicResource TextPrimaryBrush}"
+                                                               TextTrimming="CharacterEllipsis" Margin="0,4,0,0" />
+                                                    <TextBlock Text="{Binding Genre}" FontSize="11"
+                                                               Foreground="{DynamicResource TextSecondaryBrush}"
+                                                               TextTrimming="CharacterEllipsis" Margin="0,2,0,0" />
+                                                    <TextBlock FontSize="11" Foreground="{DynamicResource TextTertiaryBrush}" Margin="0,2,0,6">
+                                                        <TextBlock.Style>
+                                                            <Style TargetType="TextBlock">
+                                                                <Setter Property="Text" Value="{Binding Year}" />
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding Year}" Value="0">
+                                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </TextBlock.Style>
+                                                    </TextBlock>
+
+                                                    <ui:Button Appearance="Secondary" Padding="8,4" HorizontalAlignment="Left"
+                                                               Command="{Binding DataContext.PlayAlbumCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                               CommandParameter="{Binding}"
+                                                               ToolTip="Reproducir este álbum">
+                                                        <StackPanel Orientation="Horizontal">
+                                                            <ui:SymbolIcon Symbol="Play24" FontSize="11" Foreground="{Binding DataContext.Theme.CurrentAccentBrush, RelativeSource={RelativeSource AncestorType=Window}}" Margin="0,0,5,0" />
+                                                            <TextBlock Text="Reproducir" FontSize="11" FontWeight="SemiBold" />
+                                                        </StackPanel>
+                                                    </ui:Button>
+                                                </StackPanel>
+                                            </Grid>
+
+                                            <!-- Right Column: Album Tracks List with Zebra Striping & Standard Track Info Columns -->
+                                            <ListView Grid.Column="1" ItemsSource="{Binding Tracks}"
+                                                      AlternationCount="2"
+                                                      Background="Transparent" BorderThickness="0"
+                                                      ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                                      ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                                                      PreviewMouseWheel="OnInnerListViewPreviewMouseWheel"
+                                                      MouseDoubleClick="OnSongItemDoubleClick">
+                                                <ListView.ItemContainerStyle>
+                                                    <Style TargetType="ListViewItem">
+                                                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                                        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+                                                        <Setter Property="Background" Value="Transparent" />
+                                                        <Setter Property="Padding" Value="0" />
+                                                        <Setter Property="Margin" Value="0,1.5" />
+                                                        <Setter Property="BorderThickness" Value="0" />
+                                                        <Setter Property="ContextMenu" Value="{DynamicResource TrackContextMenu}" />
+                                                        <Setter Property="Template">
+                                                            <Setter.Value>
+                                                                <ControlTemplate TargetType="ListViewItem">
+                                                                    <Border x:Name="ItemBorder" CornerRadius="7" Background="{TemplateBinding Background}" Padding="8,6">
+                                                                        <ContentPresenter HorizontalAlignment="Stretch" />
+                                                                    </Border>
+                                                                    <ControlTemplate.Triggers>
+                                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                                            <Setter TargetName="ItemBorder" Property="Background" Value="{DynamicResource SurfaceCardHoverBrush}" />
+                                                                        </Trigger>
+                                                                        <Trigger Property="IsSelected" Value="True">
+                                                                            <Setter TargetName="ItemBorder" Property="Background" Value="{DynamicResource SurfaceCardHoverBrush}" />
+                                                                        </Trigger>
+                                                                        <DataTrigger Binding="{Binding IsPlaying}" Value="True">
+                                                                            <Setter TargetName="ItemBorder" Property="Background" Value="#250078D4" />
+                                                                            <Setter TargetName="ItemBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                                                                            <Setter TargetName="ItemBorder" Property="BorderThickness" Value="1" />
+                                                                        </DataTrigger>
+                                                                    </ControlTemplate.Triggers>
+                                                                </ControlTemplate>
+                                                            </Setter.Value>
+                                                        </Setter>
+                                                        <Style.Triggers>
+                                                            <Trigger Property="ItemsControl.AlternationIndex" Value="1">
+                                                                <Setter Property="Background" Value="#14FFFFFF" />
+                                                            </Trigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </ListView.ItemContainerStyle>
+                                                <ListView.ItemTemplate>
+                                                    <DataTemplate DataType="{x:Type models:Track}">
+                                                        <Grid HorizontalAlignment="Stretch">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="36" />
+                                                                <ColumnDefinition Width="38" />
+                                                                <ColumnDefinition Width="2.4*" />
+                                                                <ColumnDefinition Width="1.4*" />
+                                                                <ColumnDefinition Width="1.3*" />
+                                                                <ColumnDefinition Width="0.9*" />
+                                                                <ColumnDefinition Width="64" />
+                                                            </Grid.ColumnDefinitions>
+
+                                                            <!-- Track # -->
+                                                            <TextBlock Grid.Column="0" Text="{Binding TrackNumber}" FontSize="12"
+                                                                       Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+
+                                                            <!-- Play Button / Playing Speaker Indicator -->
+                                                            <Grid Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                                <ui:Button x:Name="ArtistPlayButton" Appearance="Transparent" Padding="4" HorizontalAlignment="Center"
+                                                                           Command="{Binding DataContext.MyMusic.PlayTrackCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                           CommandParameter="{Binding}">
+                                                                    <ui:SymbolIcon Symbol="Play24" FontSize="13" Foreground="{Binding DataContext.Theme.CurrentAccentBrush, RelativeSource={RelativeSource AncestorType=Window}}" />
+                                                                </ui:Button>
+                                                                <ui:SymbolIcon x:Name="ArtistPlayingSpeaker" Symbol="Speaker224" FontSize="15" Foreground="{DynamicResource AccentBrush}" Visibility="Collapsed" />
+                                                            </Grid>
+
+                                                            <!-- Song Title -->
+                                                            <TextBlock x:Name="ArtistSongTitle" Grid.Column="2" Text="{Binding Title}" FontWeight="SemiBold" FontSize="13"
+                                                                       Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" Margin="6,0,10,0" TextTrimming="CharacterEllipsis" />
+
+                                                            <!-- Artist -->
+                                                            <TextBlock Grid.Column="3" Text="{Binding Artist}" FontSize="12"
+                                                                       Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,10,0" TextTrimming="CharacterEllipsis" />
+
+                                                            <!-- Album -->
+                                                            <TextBlock Grid.Column="4" Text="{Binding Album}" FontSize="12"
+                                                                       Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,10,0" TextTrimming="CharacterEllipsis" />
+
+                                                            <!-- Genre Pill -->
+                                                            <Border Grid.Column="5" Background="{DynamicResource SurfaceCardHoverBrush}" CornerRadius="4" Padding="6,2" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="0,0,8,0">
+                                                                <TextBlock Text="{Binding Genre}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" />
+                                                            </Border>
+
+                                                            <!-- Duration -->
+                                                            <TextBlock Grid.Column="6" Text="{Binding DurationFormatted}" FontSize="12"
+                                                                       Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,4,0" />
+                                                        </Grid>
+
+                                                        <DataTemplate.Triggers>
+                                                            <DataTrigger Binding="{Binding IsPlaying}" Value="True">
+                                                                <Setter TargetName="ArtistSongTitle" Property="Foreground" Value="{DynamicResource AccentBrush}" />
+                                                                <Setter TargetName="ArtistSongTitle" Property="FontWeight" Value="Bold" />
+                                                                <Setter TargetName="ArtistPlayingSpeaker" Property="Visibility" Value="Visible" />
+                                                                <Setter TargetName="ArtistPlayButton" Property="Visibility" Value="Collapsed" />
+                                                            </DataTrigger>
+                                                        </DataTemplate.Triggers>
+                                                    </DataTemplate>
+                                                </ListView.ItemTemplate>
+                                            </ListView>
+                                        </Grid>
+                                    </StackPanel>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+
+                    <!-- ============================================================== -->
+                    <!-- MODO 2: VISTA EN CARÁTULAS DE ÁLBUMES DEL ARTISTA              -->
+                    <!-- ============================================================== -->
+                    <ScrollViewer x:Name="ArtistDetailGridScrollViewer" Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                                  ScrollChanged="OnArtistDetailScrollChanged"
+                                  Visibility="{Binding MyMusic.IsArtistAlbumsGridView, Converter={StaticResource BoolToVisConverter}}">
+                        <ItemsControl ItemsSource="{Binding MyMusic.SelectedArtistDetail.Albums}" Margin="0,0,0,180">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel Orientation="Horizontal" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate DataType="{x:Type models:AlbumModel}">
+                                    <Border Style="{StaticResource ScaleCardBorderStyle}" Width="176" Margin="0,0,20,24" CornerRadius="12"
+                                            Background="{DynamicResource SurfaceCardBrush}" BorderBrush="{DynamicResource SurfaceCardBorderBrush}" BorderThickness="1" Padding="8" Cursor="Hand">
+                                        <Border.ContextMenu>
+                                            <ContextMenu>
+                                                <MenuItem Header="Reproducir álbum"
+                                                          Command="{Binding DataContext.PlayAlbumCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                          CommandParameter="{Binding}">
+                                                    <MenuItem.Icon>
+                                                        <ui:SymbolIcon Symbol="Play24" />
+                                                    </MenuItem.Icon>
+                                                </MenuItem>
+                                                <MenuItem Header="Agregar a la cola de reproducción"
+                                                          Command="{Binding DataContext.MyMusic.AddAlbumToQueueCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                          CommandParameter="{Binding}">
+                                                    <MenuItem.Icon>
+                                                        <ui:SymbolIcon Symbol="Add24" />
+                                                    </MenuItem.Icon>
+                                                </MenuItem>
+                                                <Separator />
+                                                <MenuItem Header="Ver pistas del álbum"
+                                                          Command="{Binding DataContext.MyMusic.OpenAlbumDetailCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                          CommandParameter="{Binding}">
+                                                    <MenuItem.Icon>
+                                                        <ui:SymbolIcon Symbol="Album24" />
+                                                    </MenuItem.Icon>
+                                                </MenuItem>
+                                            </ContextMenu>
+                                        </Border.ContextMenu>
+                                        <Border.InputBindings>
+                                            <MouseBinding MouseAction="LeftClick"
+                                                          Command="{Binding DataContext.MyMusic.OpenAlbumDetailCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                          CommandParameter="{Binding}" />
+                                        </Border.InputBindings>
+                                        <StackPanel>
+                                            <Grid Width="160" Height="160" HorizontalAlignment="Center">
+                                                <Border CornerRadius="8" ClipToBounds="True" Background="#1C1C26">
+                                                    <Image Source="{Binding CoverImageSource}" Width="160" Height="160" Stretch="UniformToFill" RenderOptions.BitmapScalingMode="HighQuality" />
+                                                </Border>
+                                                <Border x:Name="AlbumCardHoverOverlay" CornerRadius="8" Background="#66000000" Opacity="0">
+                                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                        <Button Width="44" Height="44" Cursor="Hand" ToolTip="Reproducir álbum"
+                                                                Command="{Binding DataContext.PlayAlbumCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                CommandParameter="{Binding}">
+                                                            <Button.Template>
+                                                                <ControlTemplate TargetType="Button">
+                                                                    <Border x:Name="BtnBg" Width="44" Height="44" CornerRadius="22"
+                                                                            Background="#CC1E1E1E" BorderBrush="#40FFFFFF" BorderThickness="1">
+                                                                        <Path Data="M 4,2 L 16,10 L 4,18 Z" Fill="White" Width="16" Height="16" Margin="2,0,0,0" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                                    </Border>
+                                                                    <ControlTemplate.Triggers>
+                                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                                            <Setter TargetName="BtnBg" Property="Background" Value="{Binding DataContext.Theme.CurrentAccentBrush, RelativeSource={RelativeSource AncestorType=Window}}" />
+                                                                        </Trigger>
+                                                                    </ControlTemplate.Triggers>
+                                                                </ControlTemplate>
+                                                            </Button.Template>
+                                                        </Button>
+                                                    </StackPanel>
+                                                </Border>
+                                            </Grid>
+                                            <StackPanel Margin="0,8,0,0" Width="160">
+                                                <TextBlock Text="{Binding Name}" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"
+                                                           TextTrimming="CharacterEllipsis" ToolTip="{Binding Name}" />
+                                                <TextBlock Text="{Binding Subtitle}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"
+                                                           TextTrimming="CharacterEllipsis" Margin="0,2,0,0" ToolTip="{Binding Subtitle}" />
+                                            </StackPanel>
+                                        </StackPanel>
+                                        <Border.Triggers>
+                                            <EventTrigger RoutedEvent="MouseEnter">
+                                                <BeginStoryboard>
+                                                    <Storyboard>
+                                                        <DoubleAnimation Storyboard.TargetName="AlbumCardHoverOverlay" Storyboard.TargetProperty="Opacity" To="1.0" Duration="0:0:0.2" />
+                                                    </Storyboard>
+                                                </BeginStoryboard>
+                                            </EventTrigger>
+                                            <EventTrigger RoutedEvent="MouseLeave">
+                                                <BeginStoryboard>
+                                                    <Storyboard>
+                                                        <DoubleAnimation Storyboard.TargetName="AlbumCardHoverOverlay" Storyboard.TargetProperty="Opacity" To="0.0" Duration="0:0:0.2" />
+                                                    </Storyboard>
+                                                </BeginStoryboard>
+                                            </EventTrigger>
+                                        </Border.Triggers>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
                 </Grid>
             </Grid>
 
@@ -783,7 +1582,7 @@
                 </Grid.Style>
 
                 <!-- 3.A ALBUM GRID (When no album detail is open) -->
-                <ScrollViewer VerticalScrollBarVisibility="Auto" ScrollChanged="OnAlbumsScrollChanged">
+                <ScrollViewer x:Name="AlbumsScrollViewer" VerticalScrollBarVisibility="Auto" ScrollChanged="OnAlbumsScrollChanged">
                     <ScrollViewer.Style>
                         <Style TargetType="ScrollViewer">
                             <Setter Property="Visibility" Value="Visible" />
@@ -795,12 +1594,37 @@
                         </Style>
                     </ScrollViewer.Style>
 
-                    <ItemsControl ItemsSource="{Binding MyMusic.Albums}">
+                    <ItemsControl x:Name="AlbumsItemsControl" ItemsSource="{Binding MyMusic.Albums}">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
                                 <WrapPanel Orientation="Horizontal" />
                             </ItemsPanelTemplate>
                         </ItemsControl.ItemsPanel>
+                        <ItemsControl.GroupStyle>
+                            <GroupStyle>
+                                <GroupStyle.Panel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel Orientation="Horizontal" />
+                                    </ItemsPanelTemplate>
+                                </GroupStyle.Panel>
+                                <GroupStyle.ContainerStyle>
+                                    <Style TargetType="{x:Type GroupItem}">
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="{x:Type GroupItem}">
+                                                    <StackPanel Margin="0,8,0,16" Width="{Binding ActualWidth, RelativeSource={RelativeSource AncestorType=ItemsControl}}">
+                                                        <Button Style="{StaticResource AlphaGroupHeaderButtonStyle}"
+                                                                Content="{Binding Name}"
+                                                                Click="OnAlphaHeaderClick" />
+                                                        <ItemsPresenter />
+                                                    </StackPanel>
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </Style>
+                                </GroupStyle.ContainerStyle>
+                            </GroupStyle>
+                        </ItemsControl.GroupStyle>
                         <ItemsControl.ItemTemplate>
                             <DataTemplate DataType="{x:Type models:AlbumModel}">
                                 <Border Style="{StaticResource ScaleCardBorderStyle}" Width="176" Margin="0,0,20,24" CornerRadius="12"
@@ -992,7 +1816,29 @@
 
                             <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                 <TextBlock Text="{Binding MyMusic.SelectedAlbumDetail.Name}" FontSize="24" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" />
-                                <TextBlock Text="{Binding MyMusic.SelectedAlbumDetail.Artist}" FontSize="15" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,4,0,2" />
+                                <!-- Clickable Artist Name navigating to Artist Detail -->
+                                <Button Background="Transparent" BorderThickness="0" Padding="0,2" HorizontalAlignment="Left" Cursor="Hand" Margin="0,2,0,2"
+                                        Command="{Binding DataContext.NavigateToArtistCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                        CommandParameter="{Binding MyMusic.SelectedAlbumDetail.Artist}"
+                                        ToolTip="Ver discografía del artista">
+                                    <Button.Template>
+                                        <ControlTemplate TargetType="Button">
+                                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                <TextBlock x:Name="ArtistTxt" Text="{Binding MyMusic.SelectedAlbumDetail.Artist}"
+                                                           FontSize="15" FontWeight="SemiBold"
+                                                           Foreground="{Binding DataContext.Theme.CurrentAccentBrush, RelativeSource={RelativeSource AncestorType=Window}}" />
+                                                <ui:SymbolIcon x:Name="ArrowIcon" Symbol="ChevronRight16" FontSize="12" Margin="4,0,0,0" VerticalAlignment="Center"
+                                                               Foreground="{Binding DataContext.Theme.CurrentAccentBrush, RelativeSource={RelativeSource AncestorType=Window}}" Opacity="0.7" />
+                                            </StackPanel>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="ArtistTxt" Property="TextDecorations" Value="Underline" />
+                                                    <Setter TargetName="ArrowIcon" Property="Opacity" Value="1.0" />
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Button.Template>
+                                </Button>
                                 <TextBlock Text="{Binding MyMusic.SelectedAlbumDetail.Subtitle}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,12" />
 
                                 <ui:Button Appearance="Primary" HorizontalAlignment="Left" Padding="16,7"
@@ -1051,6 +1897,11 @@
                                                 <Trigger Property="IsSelected" Value="True">
                                                     <Setter TargetName="ItemBorder" Property="Background" Value="{DynamicResource SurfaceCardHoverBrush}" />
                                                 </Trigger>
+                                                <DataTrigger Binding="{Binding IsPlaying}" Value="True">
+                                                    <Setter TargetName="ItemBorder" Property="Background" Value="#250078D4" />
+                                                    <Setter TargetName="ItemBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                                                    <Setter TargetName="ItemBorder" Property="BorderThickness" Value="1" />
+                                                </DataTrigger>
                                             </ControlTemplate.Triggers>
                                         </ControlTemplate>
                                     </Setter.Value>
@@ -1068,15 +1919,28 @@
                                         <ColumnDefinition Width="70" />
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Grid.Column="0" Text="{Binding TrackNumber}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                    <ui:Button Grid.Column="1" Appearance="Transparent" Padding="4" HorizontalAlignment="Center"
-                                               Command="{Binding DataContext.MyMusic.PlayTrackCommand, RelativeSource={RelativeSource AncestorType=ListView}}"
-                                               CommandParameter="{Binding}">
-                                        <ui:SymbolIcon Symbol="Play24" FontSize="14" Foreground="{Binding DataContext.Theme.CurrentAccentBrush, RelativeSource={RelativeSource AncestorType=ListView}}" />
-                                    </ui:Button>
-                                    <TextBlock Grid.Column="2" Text="{Binding Title}" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" Margin="6,0,10,0" TextTrimming="CharacterEllipsis" />
+                                    <!-- Play Button / Playing Speaker Indicator -->
+                                    <Grid Grid.Column="1" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                        <ui:Button x:Name="AlbumTrackPlayBtn" Appearance="Transparent" Padding="4" HorizontalAlignment="Center"
+                                                   Command="{Binding DataContext.MyMusic.PlayTrackCommand, RelativeSource={RelativeSource AncestorType=ListView}}"
+                                                   CommandParameter="{Binding}">
+                                            <ui:SymbolIcon Symbol="Play24" FontSize="14" Foreground="{Binding DataContext.Theme.CurrentAccentBrush, RelativeSource={RelativeSource AncestorType=ListView}}" />
+                                        </ui:Button>
+                                        <ui:SymbolIcon x:Name="AlbumTrackPlayingSpeaker" Symbol="Speaker224" FontSize="15" Foreground="{DynamicResource AccentBrush}" Visibility="Collapsed" />
+                                    </Grid>
+                                    <TextBlock x:Name="AlbumTrackTitle" Grid.Column="2" Text="{Binding Title}" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" Margin="6,0,10,0" TextTrimming="CharacterEllipsis" />
                                     <TextBlock Grid.Column="3" Text="{Binding Artist}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,10,0" TextTrimming="CharacterEllipsis" />
                                     <TextBlock Grid.Column="4" Text="{Binding DurationFormatted}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,6,0" />
                                 </Grid>
+
+                                <DataTemplate.Triggers>
+                                    <DataTrigger Binding="{Binding IsPlaying}" Value="True">
+                                        <Setter TargetName="AlbumTrackTitle" Property="Foreground" Value="{DynamicResource AccentBrush}" />
+                                        <Setter TargetName="AlbumTrackTitle" Property="FontWeight" Value="Bold" />
+                                        <Setter TargetName="AlbumTrackPlayingSpeaker" Property="Visibility" Value="Visible" />
+                                        <Setter TargetName="AlbumTrackPlayBtn" Property="Visibility" Value="Collapsed" />
+                                    </DataTrigger>
+                                </DataTemplate.Triggers>
                             </DataTemplate>
                         </ListView.ItemTemplate>
                     </ListView>
@@ -1132,6 +1996,95 @@
                 </StackPanel>
             </Grid>
 
+        </Grid>
+
+        <!-- ============================================================== -->
+        <!-- JUMPLIST WINDOWS-STYLE MODAL SELECTOR (29 LETTERS)             -->
+        <!-- ============================================================== -->
+        <Grid Grid.Row="0" Grid.RowSpan="4" Margin="-28,-16,-28,-10"
+              Visibility="{Binding MyMusic.IsJumpListOpen, Converter={StaticResource BoolToVisConverter}}"
+              Background="#CC09090E" ClipToBounds="True">
+            <Grid.InputBindings>
+                <MouseBinding MouseAction="LeftClick" Command="{Binding MyMusic.CloseJumpListCommand}" />
+            </Grid.InputBindings>
+
+            <Border Width="440" MaxWidth="500" HorizontalAlignment="Center" VerticalAlignment="Center"
+                    Background="{DynamicResource SurfaceCardBrush}" BorderBrush="{DynamicResource SurfaceCardBorderBrush}"
+                    BorderThickness="1" CornerRadius="16" Padding="20">
+                <Border.Effect>
+                    <DropShadowEffect BlurRadius="32" ShadowDepth="8" Direction="270" Opacity="0.6" Color="#000000" />
+                </Border.Effect>
+                <Border.InputBindings>
+                    <!-- Stop click bubbling so clicking inside the card does not close it -->
+                    <MouseBinding MouseAction="LeftClick" Command="{x:Null}" />
+                </Border.InputBindings>
+                <StackPanel>
+                    <!-- Header -->
+                    <Grid Margin="0,0,0,16">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <ui:SymbolIcon Symbol="TextBulletListSquare24" FontSize="18" Foreground="{Binding Theme.CurrentAccentBrush}" Margin="0,0,8,0" />
+                            <TextBlock Text="Ir a letra o grupo" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" />
+                        </StackPanel>
+                        <ui:Button Appearance="Transparent" HorizontalAlignment="Right" Padding="6"
+                                   Command="{Binding MyMusic.CloseJumpListCommand}"
+                                   ToolTip="Cerrar">
+                            <ui:SymbolIcon Symbol="Dismiss24" FontSize="16" Foreground="{DynamicResource TextSecondaryBrush}" />
+                        </ui:Button>
+                    </Grid>
+
+                    <!-- 29 Letter Grid (6 columns) -->
+                    <ItemsControl ItemsSource="{Binding MyMusic.JumpListLetters}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <UniformGrid Columns="6" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate DataType="{x:Type vm:JumpListLetterItem}">
+                                <Button Margin="4" Width="48" Height="44" HorizontalAlignment="Center" VerticalAlignment="Center" Cursor="Hand"
+                                        Command="{Binding DataContext.MyMusic.SelectJumpLetterCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                        CommandParameter="{Binding Letter}"
+                                        IsEnabled="{Binding HasItems}">
+                                    <Button.Template>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border x:Name="BtnBorder" Width="48" Height="44" CornerRadius="8" BorderThickness="1.5"
+                                                    Background="Transparent"
+                                                    BorderBrush="Transparent">
+                                                <TextBlock x:Name="BtnText" Text="{Binding Letter}" FontSize="15" FontWeight="SemiBold"
+                                                           Foreground="{DynamicResource TextPrimaryBrush}"
+                                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <DataTrigger Binding="{Binding HasItems}" Value="True">
+                                                    <Setter TargetName="BtnBorder" Property="Background" Value="Transparent" />
+                                                    <Setter TargetName="BtnBorder" Property="BorderBrush" Value="Transparent" />
+                                                    <Setter TargetName="BtnText" Property="FontWeight" Value="SemiBold" />
+                                                    <Setter TargetName="BtnText" Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding HasItems}" Value="False">
+                                                    <Setter TargetName="BtnBorder" Property="Opacity" Value="0.25" />
+                                                    <Setter TargetName="BtnBorder" Property="Background" Value="Transparent" />
+                                                    <Setter TargetName="BtnBorder" Property="BorderBrush" Value="Transparent" />
+                                                    <Setter TargetName="BtnText" Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+                                                </DataTrigger>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="BtnBorder" Property="Background" Value="#25FFFFFF" />
+                                                    <Setter TargetName="BtnBorder" Property="BorderBrush" Value="{Binding DataContext.Theme.CurrentAccentBrush, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                                                    <Setter TargetName="BtnText" Property="Foreground" Value="#FFFFFF" />
+                                                    <Setter TargetName="BtnText" Property="FontWeight" Value="Bold" />
+                                                </Trigger>
+                                                <Trigger Property="IsEnabled" Value="False">
+                                                    <Setter Property="Cursor" Value="Arrow" />
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Button.Template>
+                                </Button>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
         </Grid>
     </Grid>
 </UserControl>

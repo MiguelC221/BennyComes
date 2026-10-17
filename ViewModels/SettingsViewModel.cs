@@ -49,7 +49,62 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     private string _selectedVisualizerMode = "Barras de Espectro";
 
-    public string AppVersion => "v1.0.0 (Release Final) - Build x64 Native (.NET 8.0)";
+    // Last.fm & Fanart.tv Online Services
+    [ObservableProperty]
+    private bool _isLastFmEnabled;
+
+    [ObservableProperty]
+    private string _lastFmApiKey = string.Empty;
+
+    [ObservableProperty]
+    private bool _isTestingLastFm;
+
+    [ObservableProperty]
+    private string _lastFmStatusMessage = string.Empty;
+
+    [ObservableProperty]
+    private bool _isLastFmStatusSuccess;
+
+    [ObservableProperty]
+    private string _fanartTvApiKey = string.Empty;
+
+    [ObservableProperty]
+    private bool _isTestingFanartTv;
+
+    [ObservableProperty]
+    private string _fanartTvStatusMessage = string.Empty;
+
+    [ObservableProperty]
+    private bool _isFanartTvStatusSuccess;
+
+    // Maintenance & Diagnostics (Debug Mode & Logs)
+    [ObservableProperty]
+    private bool _isDebugModeEnabled;
+
+    partial void OnIsDebugModeEnabledChanged(bool value)
+    {
+        Services.Diagnostics.DiagnosticLoggerService.Instance.IsDebugModeEnabled = value;
+    }
+
+    [RelayCommand]
+    public void OpenLogsFolder()
+    {
+        Services.Diagnostics.DiagnosticLoggerService.Instance.OpenLogsFolder();
+    }
+
+    // NowPlaying Personalization
+    [ObservableProperty]
+    private bool _useArtistBackground = true;
+
+    [ObservableProperty]
+    private double _backgroundBlurRadius = 35;
+
+    [ObservableProperty]
+    private int _artistImageIntervalSeconds = 35;
+
+    public const string CurrentVersionTag = "1.1";
+    public const string GitHubReleasesUrl = "https://github.com/MiguelC221/BennyComes/releases";
+    public string AppVersion => "v1.1 (Release Final) - Build x64 Native (.NET 8.0)";
     public string AudioEngineInfo => "NAudio CoreAudioApi (WASAPI Shared / Exclusive Bit-Perfect low-latency event-sync)";
     public string TechnologiesInfo => ".NET 8.0 • WPF-UI (Fluent Design 2) • TagLibSharp • Microsoft.Data.Sqlite (WAL)";
 
@@ -83,6 +138,39 @@ public partial class SettingsViewModel : ObservableObject
         string visMode = await _libraryDao.GetSettingAsync("visualizer_mode", "Barras de Espectro");
         SelectedVisualizerMode = visMode;
         AudioVisualizerService.Instance.SelectedVisualizerMode = visMode;
+
+        await Services.Online.LastFmService.Instance.InitializeAsync();
+        IsLastFmEnabled = Services.Online.LastFmService.Instance.IsEnabled;
+        LastFmApiKey = Services.Online.LastFmService.Instance.ApiKey;
+        FanartTvApiKey = Services.Online.LastFmService.Instance.FanartTvApiKey;
+
+        string syncVal = await _libraryDao.GetSettingAsync("sync_artists_lastfm", "false");
+        IsLastFmArtistImageSyncEnabled = bool.TryParse(syncVal, out var asb) && asb;
+
+        string useBg = await _libraryDao.GetSettingAsync("now_playing_use_artist_bg", "true");
+        UseArtistBackground = bool.TryParse(useBg, out var ub) ? ub : true;
+
+        string blurVal = await _libraryDao.GetSettingAsync("now_playing_blur_radius", "35");
+        if (double.TryParse(blurVal, System.Globalization.CultureInfo.InvariantCulture, out var br))
+            BackgroundBlurRadius = Math.Clamp(br, 0, 80);
+
+        string intVal = await _libraryDao.GetSettingAsync("now_playing_img_interval", "35");
+        if (int.TryParse(intVal, out var it))
+            ArtistImageIntervalSeconds = Math.Clamp(it, 15, 90);
+
+        IsDebugModeEnabled = Services.Diagnostics.DiagnosticLoggerService.Instance.IsDebugModeEnabled;
+    }
+
+    [ObservableProperty]
+    private bool _isLastFmArtistImageSyncEnabled;
+
+    partial void OnIsLastFmArtistImageSyncEnabledChanged(bool value)
+    {
+        _ = _libraryDao.SetSettingAsync("sync_artists_lastfm", value.ToString());
+        if (MainViewModel.Instance?.MyMusic != null)
+        {
+            MainViewModel.Instance.MyMusic.IsLastFmArtistSyncEnabled = value;
+        }
     }
 
     partial void OnIsAutoplayOnStartupChanged(bool value)
@@ -95,12 +183,175 @@ public partial class SettingsViewModel : ObservableObject
     {
         AudioVisualizerService.Instance.BackgroundDarkness = value;
         _ = _libraryDao.SetSettingAsync("now_playing_darkness", value.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        if (MainViewModel.Instance?.NowPlaying != null)
+        {
+            MainViewModel.Instance.NowPlaying.BackgroundDarkness = value;
+        }
     }
 
     partial void OnSelectedVisualizerModeChanged(string value)
     {
         AudioVisualizerService.Instance.SelectedVisualizerMode = value;
         _ = _libraryDao.SetSettingAsync("visualizer_mode", value);
+    }
+
+    partial void OnIsLastFmEnabledChanged(bool value)
+    {
+        Services.Online.LastFmService.Instance.IsEnabled = value;
+        _ = _libraryDao.SetSettingAsync("lastfm_enabled", value.ToString());
+    }
+
+    partial void OnLastFmApiKeyChanged(string value)
+    {
+        Services.Online.LastFmService.Instance.ApiKey = value.Trim();
+        _ = _libraryDao.SetSettingAsync("lastfm_api_key", value.Trim());
+    }
+
+    partial void OnFanartTvApiKeyChanged(string value)
+    {
+        Services.Online.LastFmService.Instance.FanartTvApiKey = value.Trim();
+        _ = _libraryDao.SetSettingAsync("fanarttv_api_key", value.Trim());
+    }
+
+    partial void OnUseArtistBackgroundChanged(bool value)
+    {
+        _ = _libraryDao.SetSettingAsync("now_playing_use_artist_bg", value.ToString());
+        if (MainViewModel.Instance?.NowPlaying != null)
+        {
+            MainViewModel.Instance.NowPlaying.UseArtistBackground = value;
+        }
+    }
+
+    partial void OnBackgroundBlurRadiusChanged(double value)
+    {
+        _ = _libraryDao.SetSettingAsync("now_playing_blur_radius", value.ToString(System.Globalization.CultureInfo.InvariantCulture));
+        if (MainViewModel.Instance?.NowPlaying != null)
+        {
+            MainViewModel.Instance.NowPlaying.BackgroundBlurRadius = value;
+        }
+    }
+
+    partial void OnArtistImageIntervalSecondsChanged(int value)
+    {
+        _ = _libraryDao.SetSettingAsync("now_playing_img_interval", value.ToString());
+        if (MainViewModel.Instance?.NowPlaying != null)
+        {
+            MainViewModel.Instance.NowPlaying.ArtistImageIntervalSeconds = value;
+        }
+    }
+
+    [RelayCommand]
+    public async Task TestAndSaveLastFmAsync()
+    {
+        if (string.IsNullOrWhiteSpace(LastFmApiKey))
+        {
+            LastFmStatusMessage = "Ingresa una clave de API de Last.fm antes de probar.";
+            IsLastFmStatusSuccess = false;
+            return;
+        }
+
+        IsTestingLastFm = true;
+        LastFmStatusMessage = "Conectando con Last.fm y validando clave...";
+        try
+        {
+            var (success, msg) = await Services.Online.LastFmService.Instance.TestApiKeyAsync(LastFmApiKey);
+            IsLastFmStatusSuccess = success;
+            LastFmStatusMessage = msg;
+            if (success)
+            {
+                IsLastFmEnabled = true;
+                await Services.Online.LastFmService.Instance.SaveSettingsAsync(true, LastFmApiKey);
+            }
+        }
+        finally
+        {
+            IsTestingLastFm = false;
+        }
+    }
+
+    [RelayCommand]
+    public void OpenLastFmApiSignup()
+    {
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("https://www.last.fm/api/account/create") { UseShellExecute = true });
+        }
+        catch { }
+    }
+
+    [RelayCommand]
+    public async Task TestAndSaveFanartTvAsync()
+    {
+        if (string.IsNullOrWhiteSpace(FanartTvApiKey))
+        {
+            FanartTvStatusMessage = "Ingresa una clave de API de Fanart.tv antes de probar.";
+            IsFanartTvStatusSuccess = false;
+            return;
+        }
+
+        IsTestingFanartTv = true;
+        FanartTvStatusMessage = "Conectando con Fanart.tv y validando clave...";
+        try
+        {
+            var (success, msg) = await Services.Online.LastFmService.Instance.TestFanartTvApiKeyAsync(FanartTvApiKey);
+            IsFanartTvStatusSuccess = success;
+            FanartTvStatusMessage = msg;
+            if (success)
+            {
+                await Services.Online.LastFmService.Instance.SaveFanartTvKeyAsync(FanartTvApiKey);
+            }
+        }
+        finally
+        {
+            IsTestingFanartTv = false;
+        }
+    }
+
+    [RelayCommand]
+    public void OpenFanartTvApiSignup()
+    {
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("https://fanart.tv/get-an-api-key/") { UseShellExecute = true });
+        }
+        catch { }
+    }
+
+    [RelayCommand]
+    public void OpenCurrentArtistGallery()
+    {
+        var artist = MainViewModel.Instance?.NowPlaying?.Artist;
+        if (!string.IsNullOrWhiteSpace(artist))
+        {
+            _ = MainViewModel.Instance?.OpenArtistGalleryAsync(artist);
+        }
+    }
+
+    // Background Artist Mass Enrichment Service
+    public Services.Online.ArtistEnrichmentService ArtistEnrichment => Services.Online.ArtistEnrichmentService.Instance;
+
+    [RelayCommand]
+    public async Task StartEnrichmentAsync()
+    {
+        await Services.Online.ArtistEnrichmentService.Instance.EnqueueAndStartAsync(force: false);
+    }
+
+    [RelayCommand]
+    public void PauseEnrichment()
+    {
+        Services.Online.ArtistEnrichmentService.Instance.Pause();
+    }
+
+    [RelayCommand]
+    public void ResumeEnrichment()
+    {
+        Services.Online.ArtistEnrichmentService.Instance.Resume();
+    }
+
+    [RelayCommand]
+    public void CancelEnrichment()
+    {
+        Services.Online.ArtistEnrichmentService.Instance.Cancel();
     }
 
     [RelayCommand]
@@ -163,7 +414,11 @@ public partial class SettingsViewModel : ObservableObject
         {
             await OnScanRequested.Invoke(LibraryFolders.ToList());
         }
-        await LibraryCacheService.Instance.ReloadFromDatabaseAsync();
+        else
+        {
+            await LibraryCacheService.Instance.ReloadFromDatabaseAsync();
+            _ = Services.Online.ArtistEnrichmentService.Instance.EnqueueAndStartAsync();
+        }
         OnLibraryUpdated?.Invoke();
     }
 
@@ -174,24 +429,18 @@ public partial class SettingsViewModel : ObservableObject
         IsScanning = true;
         ScanningStatus = $"Escaneando {Path.GetFileName(folderPath)}...";
 
-        await Task.Run(async () =>
+        try
         {
-            string[] extensions = { ".flac", ".ogg", ".wav", ".mp3", ".m4a", ".aac", ".opus", ".wma" };
-            var files = Directory.EnumerateFiles(folderPath, "*.*", SearchOption.AllDirectories)
-                .Where(f => extensions.Contains(Path.GetExtension(f).ToLowerInvariant()))
-                .ToList();
-
-            int count = 0;
-            foreach (var file in files)
+            if (OnScanRequested != null)
             {
-                count++;
-                var track = await MetadataService.Instance.LoadTrackMetadataAsync(file);
-                await _libraryDao.InsertOrUpdateTrackAsync(track);
+                await OnScanRequested.Invoke(new[] { folderPath });
             }
-        });
-
-        ScanningStatus = $"Escaneo completado en {Path.GetFileName(folderPath)}.";
-        IsScanning = false;
+        }
+        finally
+        {
+            ScanningStatus = $"Escaneo completado en {Path.GetFileName(folderPath)}.";
+            IsScanning = false;
+        }
     }
 
     partial void OnSelectedThemeChanged(string value)
@@ -378,4 +627,201 @@ public partial class SettingsViewModel : ObservableObject
             IsReindexingArtists = false;
         }
     }
+
+    // ==============================================================
+    // ACTUALIZACIONES (GITHUB RELEASES) Y LICENCIAS DE CÓDIGO ABIERTO
+    // ==============================================================
+    [ObservableProperty]
+    private bool _isCheckingForUpdates;
+
+    [ObservableProperty]
+    private bool _isUpdateAvailable;
+
+    [ObservableProperty]
+    private string _updateStatusMessage = "Versión actual: BennyComes v1.1 • Haz clic en 'Buscar actualizaciones' para consultar GitHub Releases.";
+
+    [ObservableProperty]
+    private string _latestReleaseTag = "v1.1";
+
+    private static readonly System.Net.Http.HttpClient _updateHttpClient = CreateUpdateHttpClient();
+
+    private static System.Net.Http.HttpClient CreateUpdateHttpClient()
+    {
+        var client = new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(10) };
+        client.DefaultRequestHeaders.UserAgent.ParseAdd("BennyComes-MusicPlayer/1.1");
+        client.DefaultRequestHeaders.Accept.ParseAdd("application/vnd.github+json");
+        return client;
+    }
+
+    [RelayCommand]
+    public async Task CheckForUpdatesAsync()
+    {
+        if (IsCheckingForUpdates) return;
+        IsCheckingForUpdates = true;
+        IsUpdateAvailable = false;
+        UpdateStatusMessage = "Consultando GitHub Releases (github.com/MiguelC221/BennyComes/releases)...";
+
+        try
+        {
+            using var response = await _updateHttpClient.GetAsync("https://api.github.com/repos/MiguelC221/BennyComes/releases/latest");
+            if (response.IsSuccessStatusCode)
+            {
+                string json = await response.Content.ReadAsStringAsync();
+                using var doc = System.Text.Json.JsonDocument.Parse(json);
+                var root = doc.RootElement;
+                string tagName = root.TryGetProperty("tag_name", out var tagProp) ? (tagProp.GetString() ?? "v1.1") : "v1.1";
+                string releaseName = root.TryGetProperty("name", out var nameProp) ? (nameProp.GetString() ?? tagName) : tagName;
+
+                LatestReleaseTag = tagName;
+                string cleanRemote = tagName.TrimStart('v', 'V').Trim();
+                if (Version.TryParse(NormalizeVersionString(cleanRemote), out var remoteVer) &&
+                    Version.TryParse(NormalizeVersionString(CurrentVersionTag), out var localVer))
+                {
+                    if (remoteVer > localVer)
+                    {
+                        IsUpdateAvailable = true;
+                        UpdateStatusMessage = $"¡Nueva versión disponible: {releaseName} ({tagName})! Haz clic en 'Ir a GitHub Releases' para descargarla.";
+                        return;
+                    }
+                }
+                else if (!string.Equals(cleanRemote, CurrentVersionTag, StringComparison.OrdinalIgnoreCase) &&
+                         !string.IsNullOrWhiteSpace(cleanRemote))
+                {
+                    IsUpdateAvailable = true;
+                    UpdateStatusMessage = $"Última versión publicada en GitHub: {releaseName} ({tagName}).";
+                    return;
+                }
+
+                UpdateStatusMessage = $"Estás utilizando la versión más reciente de BennyComes (v{CurrentVersionTag}).";
+            }
+            else if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+            {
+                UpdateStatusMessage = $"BennyComes v{CurrentVersionTag} está actualizado (aún no hay releases adicionales publicados en el repositorio).";
+            }
+            else
+            {
+                UpdateStatusMessage = $"No se pudo verificar automáticamente (HTTP {(int)response.StatusCode}). Puedes revisar manualmente en GitHub Releases.";
+            }
+        }
+        catch (Exception ex)
+        {
+            UpdateStatusMessage = $"Error al conectar con GitHub Releases: {ex.Message}";
+        }
+        finally
+        {
+            IsCheckingForUpdates = false;
+        }
+    }
+
+    private static string NormalizeVersionString(string raw)
+    {
+        var parts = raw.Split('-', '+')[0].Split('.');
+        return parts.Length switch
+        {
+            1 => $"{parts[0]}.0.0",
+            2 => $"{parts[0]}.{parts[1]}.0",
+            _ => string.Join(".", parts.Take(3))
+        };
+    }
+
+    [RelayCommand]
+    public void OpenGitHubReleases()
+    {
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(GitHubReleasesUrl)
+            {
+                UseShellExecute = true
+            });
+        }
+        catch { }
+    }
+
+    [RelayCommand]
+    public void OpenLicensesModal()
+    {
+        MainViewModel.Instance?.OpenLicensesModal();
+    }
+
+    [RelayCommand]
+    public void OpenLicenseUrl(string? url)
+    {
+        if (string.IsNullOrWhiteSpace(url)) return;
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url)
+            {
+                UseShellExecute = true
+            });
+        }
+        catch { }
+    }
+
+    public List<OpenSourceLicenseItem> OpenSourceLicenses { get; } = new()
+    {
+        new OpenSourceLicenseItem
+        {
+            Name = "WPF-UI (Lepo.co)",
+            Version = "4.3.0",
+            LicenseType = "MIT License",
+            RepositoryUrl = "https://github.com/lepoco/wpfui",
+            Copyright = "Copyright (c) 2021-2025 Leszek Pomianowski and WPF UI Contributors.",
+            LicenseText = "Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the \"Software\"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the MIT License conditions."
+        },
+        new OpenSourceLicenseItem
+        {
+            Name = "NAudio & NAudio.Vorbis",
+            Version = "2.2.1 / 1.5.0",
+            LicenseType = "MIT License / MS-PL",
+            RepositoryUrl = "https://github.com/naudio/NAudio",
+            Copyright = "Copyright (c) 2020 Mark Heath & Contributors.",
+            LicenseText = "Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the \"Software\"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, subject to the MIT License conditions."
+        },
+        new OpenSourceLicenseItem
+        {
+            Name = "CSCore - .NET Sound Library",
+            Version = "1.2.1.2",
+            LicenseType = "Microsoft Public License (Ms-PL)",
+            RepositoryUrl = "https://github.com/filoe/cscore",
+            Copyright = "Copyright (c) Florian R. (filoe).",
+            LicenseText = "This license governs use of the accompanying software. If you use the software, you accept this license. Subject to the terms of this license, each contributor grants you a non-exclusive, worldwide, royalty-free copyright and patent license under the Microsoft Public License (Ms-PL)."
+        },
+        new OpenSourceLicenseItem
+        {
+            Name = "TagLibSharp (taglib-sharp)",
+            Version = "2.3.0",
+            LicenseType = "LGPL-2.1 License",
+            RepositoryUrl = "https://github.com/mono/taglib-sharp",
+            Copyright = "Copyright (c) 2006-2023 Brian Nickel, Gabriel Burt, and Mono Project Contributors.",
+            LicenseText = "This library is free software; you can redistribute it and/or modify it under the terms of the GNU Lesser General Public License as published by the Free Software Foundation; either version 2.1 of the License, or (at your option) any later version."
+        },
+        new OpenSourceLicenseItem
+        {
+            Name = "CommunityToolkit.Mvvm",
+            Version = "8.4.2",
+            LicenseType = "MIT License",
+            RepositoryUrl = "https://github.com/CommunityToolkit/dotnet",
+            Copyright = "Copyright (c) .NET Foundation and Contributors.",
+            LicenseText = "Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the \"Software\"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, subject to the MIT License conditions."
+        },
+        new OpenSourceLicenseItem
+        {
+            Name = "Microsoft.Data.Sqlite & .NET 8 Runtime",
+            Version = "10.0.13 / 8.0",
+            LicenseType = "MIT License",
+            RepositoryUrl = "https://github.com/dotnet/efcore",
+            Copyright = "Copyright (c) Microsoft Corporation / .NET Foundation and Contributors.",
+            LicenseText = "Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the \"Software\"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, subject to the MIT License conditions."
+        }
+    };
+}
+
+public class OpenSourceLicenseItem
+{
+    public string Name { get; set; } = string.Empty;
+    public string Version { get; set; } = string.Empty;
+    public string LicenseType { get; set; } = string.Empty;
+    public string RepositoryUrl { get; set; } = string.Empty;
+    public string Copyright { get; set; } = string.Empty;
+    public string LicenseText { get; set; } = string.Empty;
 }

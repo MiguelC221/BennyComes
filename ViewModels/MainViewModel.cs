@@ -50,6 +50,8 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private bool _isEqualizerOpen = false;
 
+    public Track? CurrentTrack => _audio?.CurrentTrack ?? NowPlaying?.CurrentTrack;
+
     [ObservableProperty]
     private Playlist? _selectedPlaylistForDetail;
 
@@ -224,6 +226,135 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
+    private record struct NavigationStateEntry(
+        string ViewName,
+        int MyMusicTabIndex,
+        ArtistModel? ArtistDetail,
+        AlbumModel? AlbumDetail,
+        Playlist? PlaylistDetail
+    );
+
+    private readonly Stack<NavigationStateEntry> _navigationHistory = new();
+    private bool _isRestoringNavigation;
+    private Track? _lastHighResArtTrack;
+
+    [ObservableProperty]
+    private bool _canGoBack;
+
+    public void PushCurrentNavigationState()
+    {
+        if (_isRestoringNavigation) return;
+
+        var entry = new NavigationStateEntry(
+            CurrentView,
+            MyMusic.SelectedTabIndex,
+            MyMusic.SelectedArtistDetail,
+            MyMusic.SelectedAlbumDetail,
+            SelectedPlaylistForDetail
+        );
+
+        if (_navigationHistory.Count == 0 || !_navigationHistory.Peek().Equals(entry))
+        {
+            _navigationHistory.Push(entry);
+        }
+        UpdateCanGoBack();
+    }
+
+    public void RecordTabChangeForHistory(int oldTabIndex)
+    {
+        if (_isRestoringNavigation || CurrentView != "MyMusic") return;
+
+        var entry = new NavigationStateEntry(
+            "MyMusic",
+            oldTabIndex,
+            MyMusic.SelectedArtistDetail,
+            MyMusic.SelectedAlbumDetail,
+            SelectedPlaylistForDetail
+        );
+
+        if (_navigationHistory.Count == 0 || !_navigationHistory.Peek().Equals(entry))
+        {
+            _navigationHistory.Push(entry);
+        }
+        UpdateCanGoBack();
+    }
+
+    private void ClearNavigationHistory()
+    {
+        _navigationHistory.Clear();
+        CanGoBack = false;
+    }
+
+    private void UpdateCanGoBack()
+    {
+        if (CurrentView == "Home")
+        {
+            _navigationHistory.Clear();
+            CanGoBack = false;
+        }
+        else
+        {
+            CanGoBack = _navigationHistory.Count > 0;
+        }
+    }
+
+    [RelayCommand]
+    public void GoBack()
+    {
+        if (_navigationHistory.Count == 0 || CurrentView == "Home")
+        {
+            ClearNavigationHistory();
+            return;
+        }
+
+        _isRestoringNavigation = true;
+        try
+        {
+            var prev = _navigationHistory.Pop();
+            IsNowPlayingActive = false;
+
+            if (prev.ViewName == "Home")
+            {
+                CurrentView = "Home";
+                MyMusic.SelectedAlbumDetail = null;
+                MyMusic.SelectedArtistDetail = null;
+                MyMusic.ReleaseUnusedThumbnailsFromMemory(leavingMyMusicEntirely: true);
+                ClearNavigationHistory();
+                _ = Home.LoadHomeDataAsync();
+                return;
+            }
+
+            bool wasMyMusic = CurrentView == "MyMusic";
+            CurrentView = prev.ViewName;
+
+            if (prev.ViewName == "MyMusic")
+            {
+                MyMusic.SelectedTabIndex = prev.MyMusicTabIndex;
+                MyMusic.SelectedArtistDetail = prev.ArtistDetail;
+                MyMusic.SelectedAlbumDetail = prev.AlbumDetail;
+                MyMusic.ReleaseUnusedThumbnailsFromMemory(leavingMyMusicEntirely: false);
+            }
+            else
+            {
+                if (wasMyMusic)
+                {
+                    MyMusic.ReleaseUnusedThumbnailsFromMemory(leavingMyMusicEntirely: true);
+                }
+
+                if (prev.ViewName == "PlaylistDetail" && prev.PlaylistDetail != null)
+                {
+                    SelectedPlaylistForDetail = prev.PlaylistDetail;
+                }
+            }
+
+            UpdateCanGoBack();
+        }
+        finally
+        {
+            _isRestoringNavigation = false;
+        }
+    }
+
     public void ForceUiPlaybackUpdate(Track? currentTrack, bool isPlaying)
     {
         var app = Application.Current;
@@ -233,16 +364,30 @@ public partial class MainViewModel : ObservableObject
         {
             if (currentTrack != null)
             {
+                bool trackChanged = !ReferenceEquals(_lastHighResArtTrack, currentTrack);
+                if (trackChanged && _lastHighResArtTrack != null)
+                {
+                    // Release previous track's high-res artwork from memory as soon as it finishes/changes
+                    _lastHighResArtTrack.ReleaseArtFromMemory();
+                    NowPlaying.AlbumArt = null;
+                    NowPlaying.BackgroundImage = null;
+                }
+                _lastHighResArtTrack = currentTrack;
+
                 NowPlaying.CurrentTrack = currentTrack;
+                OnPropertyChanged(nameof(CurrentTrack));
                 NowPlaying.Title = string.IsNullOrWhiteSpace(currentTrack.Title) ? "Canción desconocida" : currentTrack.Title;
                 NowPlaying.Artist = string.IsNullOrWhiteSpace(currentTrack.Artist) ? "Artista desconocido" : currentTrack.Artist;
                 NowPlaying.Album = currentTrack.Album ?? "";
                 NowPlaying.ArtistAndAlbum = currentTrack.ArtistAndAlbum;
 
-                var art = MetadataService.Instance.GetHighResAlbumArt(currentTrack);
-                NowPlaying.AlbumArt = art;
-                NowPlaying.BackgroundImage = MetadataService.Instance.GetBlurredBackgroundArt(currentTrack);
-                ThemeService.Instance.OnTrackArtChanged(art);
+                if (trackChanged || NowPlaying.AlbumArt == null)
+                {
+                    var art = MetadataService.Instance.GetHighResAlbumArt(currentTrack);
+                    NowPlaying.AlbumArt = art;
+                    NowPlaying.BackgroundImage = MetadataService.Instance.GetBlurredBackgroundArt(currentTrack);
+                    ThemeService.Instance.OnTrackArtChanged(art);
+                }
 
                 NowPlaying.TotalDurationSeconds = Math.Max(1, currentTrack.Duration.TotalSeconds);
                 NowPlaying.TotalTimeText = currentTrack.DurationFormatted;
@@ -250,6 +395,7 @@ public partial class MainViewModel : ObservableObject
 
             IsPlaying = isPlaying;
             NowPlaying.IsPlaying = isPlaying;
+            MyMusic.SyncPlayingTrack(currentTrack, isPlaying);
 
             if (isPlaying)
             {
@@ -292,15 +438,38 @@ public partial class MainViewModel : ObservableObject
             return;
         }
 
+        if (viewName == "Home")
+        {
+            // Rule: Navigation history ALWAYS clears when clicking or arriving at Inicio (Home)
+            ClearNavigationHistory();
+        }
+        else if (CurrentView != viewName || MyMusic.IsInDetailView)
+        {
+            PushCurrentNavigationState();
+        }
+
+        bool leavingMyMusic = CurrentView == "MyMusic" && viewName != "MyMusic";
+
         IsNowPlayingActive = false;
         CurrentView = viewName;
+        UpdateCanGoBack();
+
+        if (leavingMyMusic)
+        {
+            MyMusic.SelectedAlbumDetail = null;
+            MyMusic.SelectedArtistDetail = null;
+            MyMusic.ReleaseUnusedThumbnailsFromMemory(leavingMyMusicEntirely: true);
+        }
 
         if (viewName == "Home")
         {
+            ClearNavigationHistory();
             _ = Home.LoadHomeDataAsync();
         }
         else if (viewName == "MyMusic")
         {
+            MyMusic.SelectedAlbumDetail = null;
+            MyMusic.SelectedArtistDetail = null;
             _ = MyMusic.RefreshDataAsync();
         }
         else if (viewName == "RecentPlays")
@@ -346,6 +515,13 @@ public partial class MainViewModel : ObservableObject
     public async Task OpenPlaylistDetailAsync(Playlist? playlist)
     {
         if (playlist == null) return;
+        PushCurrentNavigationState();
+
+        if (CurrentView == "MyMusic")
+        {
+            MyMusic.ReleaseUnusedThumbnailsFromMemory(leavingMyMusicEntirely: true);
+        }
+
         SelectedPlaylistForDetail = playlist;
 
         var tracks = await PlaylistDao.Instance.GetPlaylistTracksAsync(playlist.Id);
@@ -362,6 +538,7 @@ public partial class MainViewModel : ObservableObject
 
         CurrentView = "PlaylistDetail";
         IsNowPlayingActive = false;
+        UpdateCanGoBack();
     }
 
     [RelayCommand]
@@ -378,8 +555,14 @@ public partial class MainViewModel : ObservableObject
         }
         if (CurrentView != "Search" && !string.IsNullOrWhiteSpace(value))
         {
+            PushCurrentNavigationState();
+            if (CurrentView == "MyMusic")
+            {
+                MyMusic.ReleaseUnusedThumbnailsFromMemory(leavingMyMusicEntirely: true);
+            }
             CurrentView = "Search";
             IsNowPlayingActive = false;
+            UpdateCanGoBack();
         }
     }
 
@@ -444,40 +627,69 @@ public partial class MainViewModel : ObservableObject
 
     public async Task ScanDirectoriesOrFilesAsync(IEnumerable<string> paths)
     {
-        string[] extensions = { ".flac", ".ogg", ".wav", ".mp3", ".m4a", ".aac", ".opus", ".wma" };
-        var filesToProcess = new List<string>();
-
-        foreach (var path in paths)
+        var extSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
-            if (File.Exists(path) && extensions.Contains(Path.GetExtension(path).ToLowerInvariant()))
+            ".flac", ".ogg", ".wav", ".mp3", ".m4a", ".aac", ".opus", ".wma"
+        };
+
+        var filesToProcess = await Task.Run(() =>
+        {
+            var list = new List<string>(512);
+            var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var enumOptions = new EnumerationOptions
             {
-                filesToProcess.Add(path);
-            }
-            else if (Directory.Exists(path))
+                IgnoreInaccessible = true,
+                RecurseSubdirectories = true
+            };
+
+            foreach (var path in paths)
             {
-                try
+                if (File.Exists(path) && extSet.Contains(Path.GetExtension(path)))
                 {
-                    var files = Directory.EnumerateFiles(path, "*.*", SearchOption.AllDirectories)
-                        .Where(f => extensions.Contains(Path.GetExtension(f).ToLowerInvariant()));
-                    filesToProcess.AddRange(files);
+                    if (seen.Add(path)) list.Add(path);
                 }
-                catch { }
+                else if (Directory.Exists(path))
+                {
+                    try
+                    {
+                        foreach (var file in Directory.EnumerateFiles(path, "*.*", enumOptions))
+                        {
+                            if (extSet.Contains(Path.GetExtension(file)) && seen.Add(file))
+                            {
+                                list.Add(file);
+                            }
+                        }
+                    }
+                    catch { }
+                }
             }
-        }
+            return list;
+        });
 
         if (filesToProcess.Count == 0) return;
 
         IsScanningOverlayVisible = true;
-        ScanOverlayTitle = "Sincronizando tu biblioteca musical y carátulas...";
+        ScanOverlayTitle = "Indexando música, álbumes, artistas y buscador en AppData...";
         ScanOverlayCountText = $"Preparando {filesToProcess.Count} pistas...";
         ScanOverlayCurrentFile = "";
         ScanOverlayProgress = 0.0;
 
-        bool wasEmpty = _audio.Queue.Count == 0;
-        var newTracks = new List<Track>(filesToProcess.Count);
+        var allScannedTracks = new List<Track>(filesToProcess.Count);
 
         await Task.Run(async () =>
         {
+            LibraryIndexDatabase.Instance.WarmupArtworkDirectoryCache();
+
+            // Pre-map already indexed tracks in memory to skip unchanged files instantly
+            var existingMap = new Dictionary<string, Track>(_cache.CachedTracks.Count, StringComparer.OrdinalIgnoreCase);
+            foreach (var ct in _cache.CachedTracks)
+            {
+                if (!string.IsNullOrEmpty(ct.FilePath))
+                    existingMap[ct.FilePath] = ct;
+            }
+
+            var folderArtCache = new System.Collections.Concurrent.ConcurrentDictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+
             var progress = new Progress<ScanProgressReport>(r =>
             {
                 ScanOverlayCountText = r.StatusText;
@@ -486,39 +698,121 @@ public partial class MainViewModel : ObservableObject
             });
 
             int total = filesToProcess.Count;
-            int current = 0;
+            int processedCount = 0;
+            const int batchSize = 60;
+            var chunks = filesToProcess.Chunk(batchSize).ToList();
+            int maxDegree = Math.Clamp(Environment.ProcessorCount, 2, 6);
 
-            foreach (var file in filesToProcess)
+            for (int cIdx = 0; cIdx < chunks.Count; cIdx++)
             {
-                current++;
-                var track = await MetadataService.Instance.LoadTrackMetadataAsync(file);
-                newTracks.Add(track);
+                var chunk = chunks[cIdx];
+                bool isFinalBatch = (cIdx == chunks.Count - 1);
+                var chunkResults = new Track[chunk.Length];
+                var changedMask = new bool[chunk.Length];
 
-                if (current % 2 == 0 || current == total)
+                Parallel.For(0, chunk.Length, new ParallelOptions { MaxDegreeOfParallelism = maxDegree }, i =>
                 {
-                    ((IProgress<ScanProgressReport>)progress).Report(new ScanProgressReport
-                    {
-                        Current = current,
-                        Total = total,
-                        CurrentFile = Path.GetFileName(file)
-                    });
-                }
-            }
+                    string file = chunk[i];
+                    Track? track = null;
+                    bool isUnchanged = false;
 
-            // High-speed SQLite batch insert inside transaction
-            await _libraryDao.InsertOrUpdateTracksBatchAsync(newTracks);
+                    if (existingMap.TryGetValue(file, out var cachedTrack) && cachedTrack.Id > 0)
+                    {
+                        try
+                        {
+                            var fi = new FileInfo(file);
+                            if (fi.Exists &&
+                                Math.Abs((fi.LastWriteTimeUtc - cachedTrack.DateModified).TotalSeconds) < 2.0 &&
+                                (cachedTrack.FileSize == 0 || cachedTrack.FileSize == fi.Length))
+                            {
+                                track = cachedTrack;
+                                isUnchanged = true;
+                            }
+                        }
+                        catch { }
+                    }
+
+                    if (track == null)
+                    {
+                        track = MetadataService.Instance.ExtractTrackMetadataFast(file, folderArtCache);
+                        if (cachedTrack != null)
+                        {
+                            track.Id = cachedTrack.Id;
+                            track.IsFavorite = cachedTrack.IsFavorite;
+                            track.PlayCount = cachedTrack.PlayCount;
+                        }
+                    }
+
+                    chunkResults[i] = track;
+                    changedMask[i] = !isUnchanged;
+
+                    int cur = System.Threading.Interlocked.Increment(ref processedCount);
+                    if (cur % 3 == 0 || cur == total)
+                    {
+                        ((IProgress<ScanProgressReport>)progress).Report(new ScanProgressReport
+                        {
+                            Current = cur,
+                            Total = total,
+                            CurrentFile = Path.GetFileName(file)
+                        });
+                    }
+                });
+
+                var batchTracksToPersist = new List<Track>(chunk.Length);
+                var batchAllTracks = new List<Track>(chunk.Length);
+
+                for (int i = 0; i < chunkResults.Length; i++)
+                {
+                    var tr = chunkResults[i];
+                    if (tr != null)
+                    {
+                        batchAllTracks.Add(tr);
+                        allScannedTracks.Add(tr);
+                        if (changedMask[i])
+                        {
+                            batchTracksToPersist.Add(tr);
+                        }
+                    }
+                }
+
+                // 1. Persist new/modified tracks to primary SQLite DB in batch transaction (populates track.Id)
+                if (batchTracksToPersist.Count > 0)
+                {
+                    await _libraryDao.InsertOrUpdateTracksBatchAsync(batchTracksToPersist);
+                }
+
+                // 2. Progressively update partitioned AppData IndexDB (Songs, Albums, Artists, Search) while indexing!
+                await _cache.IntegrateIndexedBatchAsync(batchAllTracks, isFinalBatch);
+            }
         });
 
-        foreach (var t in newTracks)
+        if (_audio.Queue.Count == 0 && allScannedTracks.Count > 0)
         {
-            _audio.AddToQueue(t, playImmediately: false);
+            foreach (var t in allScannedTracks.Take(50))
+            {
+                _audio.AddToQueue(t, playImmediately: false);
+            }
+        }
+        else
+        {
+            var existingQueuePaths = _audio.Queue.Select(q => q.FilePath).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            foreach (var t in allScannedTracks)
+            {
+                if (!existingQueuePaths.Contains(t.FilePath) && _audio.Queue.Count < 200)
+                {
+                    _audio.AddToQueue(t, playImmediately: false);
+                }
+            }
         }
 
-        // Reload memory and SQLite cache for instant switching
-        await LibraryCacheService.Instance.ReloadFromDatabaseAsync();
+        await MyMusic.RefreshDataAsync();
         await RecentPlays.LoadRecentAsync();
+        await Home.LoadHomeDataAsync();
 
         IsScanningOverlayVisible = false;
+
+        // Auto-enqueue pending artists for background enrichment
+        _ = Services.Online.ArtistEnrichmentService.Instance.EnqueueAndStartAsync();
     }
 
     [RelayCommand]
@@ -586,19 +880,53 @@ public partial class MainViewModel : ObservableObject
 
     private async Task InitializeDataAsync()
     {
+        // 1. Load pre-indexed Songs, Albums, Artists, and Search instantaneously from %LocalAppData%\BenyComes\IndexDB\
         await _cache.InitializeAsync();
+
+        // 2. Populate UI views immediately so Artists, Albums, Songs, and Home appear with 0ms perceived latency
+        await MyMusic.RefreshDataAsync();
+        _ = RecentPlays.LoadRecentAsync();
+        _ = Home.LoadHomeDataAsync();
+
+        var existing = _cache.CachedTracks.ToList();
+
+        // Limpieza de pistas de demostración para mantener la biblioteca 100% limpia
+        try
+        {
+            var demoTracks = existing.Where(t =>
+                t.FilePath.Contains("DemoTracks", StringComparison.OrdinalIgnoreCase) ||
+                t.Artist.Contains("BenyComes Acoustic Lab", StringComparison.OrdinalIgnoreCase) ||
+                t.Album.Contains("Hi-Res Reference", StringComparison.OrdinalIgnoreCase)).ToList();
+
+            if (demoTracks.Count > 0)
+            {
+                foreach (var dt in demoTracks)
+                {
+                    await _libraryDao.DeleteTrackAsync(dt.Id);
+                    try { if (File.Exists(dt.FilePath)) File.Delete(dt.FilePath); } catch { }
+                }
+                existing.RemoveAll(t => demoTracks.Contains(t));
+                await _cache.ReloadFromDatabaseAsync();
+                await MyMusic.RefreshDataAsync();
+                await Home.LoadHomeDataAsync();
+            }
+        }
+        catch { }
 
         string lastFile = await _libraryDao.GetSettingAsync("last_played_file", "");
         string posStr = await _libraryDao.GetSettingAsync("last_played_position", "0");
         string queueStr = await _libraryDao.GetSettingAsync("last_queue_files", "");
         double.TryParse(posStr, System.Globalization.NumberStyles.Any, System.Globalization.CultureInfo.InvariantCulture, out double lastSecs);
 
-        var existing = await _libraryDao.GetAllTracksAsync();
-
         if (!string.IsNullOrWhiteSpace(queueStr))
         {
             var paths = queueStr.Split('|', StringSplitOptions.RemoveEmptyEntries);
-            var trackMap = existing.ToDictionary(t => t.FilePath, StringComparer.OrdinalIgnoreCase);
+            var trackMap = new Dictionary<string, Track>(existing.Count, StringComparer.OrdinalIgnoreCase);
+            foreach (var tr in existing)
+            {
+                if (!string.IsNullOrEmpty(tr.FilePath))
+                    trackMap[tr.FilePath] = tr;
+            }
 
             foreach (var p in paths)
             {
@@ -619,10 +947,6 @@ public partial class MainViewModel : ObservableObject
             {
                 _audio.AddToQueue(t, playImmediately: false);
             }
-        }
-        else
-        {
-            await GenerateDemoTracksAsync();
         }
 
         // Check if there is a last played track to resume
@@ -667,10 +991,6 @@ public partial class MainViewModel : ObservableObject
             }
         }
 
-        await MyMusic.RefreshDataAsync();
-        await RecentPlays.LoadRecentAsync();
-        await Home.LoadHomeDataAsync();
-
         string onboardingDone = await _libraryDao.GetSettingAsync("onboarding_completed", "false");
         var configuredFolders = await _libraryDao.GetLibraryFoldersAsync();
         if (onboardingDone != "true" || (configuredFolders.Count == 0 && existing.Count == 0))
@@ -682,6 +1002,17 @@ public partial class MainViewModel : ObservableObject
             }
             IsOnboardingVisible = true;
         }
+
+        // 10-second non-blocking delay before starting background enrichment on app startup
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(10000);
+                await Services.Online.ArtistEnrichmentService.Instance.EnqueueAndStartAsync();
+            }
+            catch { }
+        });
     }
 
     // Global Tile & Navigation Commands
@@ -715,15 +1046,34 @@ public partial class MainViewModel : ObservableObject
     public void NavigateToAlbum(string? albumName)
     {
         if (string.IsNullOrWhiteSpace(albumName)) return;
+        PushCurrentNavigationState();
+
         var album = _cache.CachedAlbums.FirstOrDefault(a => a.Name.Equals(albumName, StringComparison.OrdinalIgnoreCase))
                  ?? _cache.CachedAlbums.FirstOrDefault(a => a.Name.Contains(albumName, StringComparison.OrdinalIgnoreCase));
 
-        CurrentView = "MyMusic";
-        IsNowPlayingActive = false;
-        MyMusic.SelectedTabIndex = 2; // Álbumes
-        if (album != null)
+        _isRestoringNavigation = true;
+        try
         {
-            MyMusic.OpenAlbumDetail(album);
+            CurrentView = "MyMusic";
+            IsNowPlayingActive = false;
+            MyMusic.SelectedTabIndex = 2; // Álbumes
+            if (album != null)
+            {
+                if (album.Tracks.Count == 0)
+                {
+                    album.Tracks = _cache.CachedTracks
+                        .Where(t => string.Equals(t.Album, album.Name, StringComparison.OrdinalIgnoreCase))
+                        .OrderBy(t => t.TrackNumber == 0 ? uint.MaxValue : t.TrackNumber)
+                        .ThenBy(t => t.Title, StringComparer.OrdinalIgnoreCase)
+                        .ToList();
+                }
+                MyMusic.SelectedAlbumDetail = album;
+            }
+            UpdateCanGoBack();
+        }
+        finally
+        {
+            _isRestoringNavigation = false;
         }
     }
 
@@ -731,15 +1081,37 @@ public partial class MainViewModel : ObservableObject
     public void NavigateToArtist(string? artistName)
     {
         if (string.IsNullOrWhiteSpace(artistName)) return;
-        var artist = _cache.CachedArtists.FirstOrDefault(a => a.Name.Equals(artistName, StringComparison.OrdinalIgnoreCase))
-                  ?? _cache.CachedArtists.FirstOrDefault(a => a.Name.Contains(artistName, StringComparison.OrdinalIgnoreCase));
+        PushCurrentNavigationState();
 
-        CurrentView = "MyMusic";
-        IsNowPlayingActive = false;
-        MyMusic.SelectedTabIndex = 1; // Artistas
+        var artist = _cache.CachedArtists.FirstOrDefault(a => a.Name.Equals(artistName, StringComparison.OrdinalIgnoreCase))
+                  ?? _cache.CachedArtists.FirstOrDefault(a => a.Name.Contains(artistName, StringComparison.OrdinalIgnoreCase))
+                  ?? new ArtistModel { Name = artistName.Trim() };
+
+        _isRestoringNavigation = true;
+        try
+        {
+            CurrentView = "MyMusic";
+            IsNowPlayingActive = false;
+            MyMusic.SelectedAlbumDetail = null;
+            MyMusic.SelectedTabIndex = 1; // Artistas
+            UpdateCanGoBack();
+        }
+        finally
+        {
+            _isRestoringNavigation = false;
+        }
+
         if (artist != null)
         {
-            MyMusic.OpenArtistDetail(artist);
+            _isRestoringNavigation = true;
+            try
+            {
+                MyMusic.OpenArtistDetail(artist);
+            }
+            finally
+            {
+                _isRestoringNavigation = false;
+            }
         }
     }
 
@@ -795,6 +1167,7 @@ public partial class MainViewModel : ObservableObject
         {
             await _libraryDao.DeleteTrackAsync(track.Id);
             _audio.Queue.Remove(track);
+            await _cache.ReloadFromDatabaseAsync();
             await MyMusic.RefreshDataAsync();
             await RecentPlays.LoadRecentAsync();
             await Home.LoadHomeDataAsync();
@@ -936,14 +1309,24 @@ public partial class MainViewModel : ObservableObject
     private ImageSource? _editPlaylistCoverPreview;
 
     [RelayCommand]
-    public void OpenEditPlaylistDialog()
+    public void OpenEditPlaylistDialog(Playlist? playlist = null)
     {
-        if (SelectedPlaylistForDetail == null) return;
-        EditPlaylistName = SelectedPlaylistForDetail.Name;
-        EditPlaylistDescription = SelectedPlaylistForDetail.Description;
-        EditPlaylistCoverPath = SelectedPlaylistForDetail.CustomCoverPath;
-        EditPlaylistCoverPreview = SelectedPlaylistForDetail.CoverImage;
+        playlist ??= SelectedPlaylistForDetail;
+        if (playlist == null) return;
+        SelectedPlaylistForDetail = playlist;
+        EditPlaylistName = playlist.Name;
+        EditPlaylistDescription = playlist.Description;
+        EditPlaylistCoverPath = playlist.CustomCoverPath;
+        EditPlaylistCoverPreview = playlist.CoverImage;
         IsEditPlaylistDialogVisible = true;
+    }
+
+    [RelayCommand]
+    public async Task PlayPlaylistDirectAsync(Playlist? playlist)
+    {
+        if (playlist == null) return;
+        await OpenPlaylistDetailAsync(playlist);
+        PlayAllPlaylist();
     }
 
     [RelayCommand]
@@ -1365,6 +1748,16 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     public void ShowTrackProperties(Track? track)
     {
+        track ??= _audio.CurrentTrack ?? NowPlaying.CurrentTrack;
+        if (track == null) return;
+        SelectedTrackForProperties = track;
+        IsTrackPropertiesModalOpen = true;
+    }
+
+    [RelayCommand]
+    public void ShowCurrentTrackProperties()
+    {
+        var track = _audio.CurrentTrack ?? NowPlaying.CurrentTrack;
         if (track == null) return;
         SelectedTrackForProperties = track;
         IsTrackPropertiesModalOpen = true;
@@ -1396,6 +1789,385 @@ public partial class MainViewModel : ObservableObject
         {
             System.Diagnostics.Debug.WriteLine($"Failed to open explorer: {ex.Message}");
         }
+    }
+
+    // ==============================================================
+    // ARTIST PHOTO GALLERY & BIO MODALS
+    // ==============================================================
+    [ObservableProperty]
+    private bool _isArtistGalleryModalOpen;
+
+    [ObservableProperty]
+    private string _galleryArtistName = string.Empty;
+
+    public ObservableCollection<string> GalleryAvailableArtists { get; } = new();
+
+    [ObservableProperty]
+    private string _selectedGalleryArtist = string.Empty;
+
+    [ObservableProperty]
+    private bool _hasMultipleGalleryArtists;
+
+    partial void OnSelectedGalleryArtistChanged(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value) || value.Equals(GalleryArtistName, StringComparison.OrdinalIgnoreCase))
+            return;
+
+        GalleryArtistName = value;
+        _ = LoadGalleryPhotosAsync(value);
+
+        if (NowPlaying.CollaborationArtists.Contains(value) && NowPlaying.SelectedCollaborationArtist != value)
+        {
+            NowPlaying.SelectedCollaborationArtist = value;
+        }
+    }
+
+    [ObservableProperty]
+    private bool _isGalleryLoading;
+
+    public ObservableCollection<ArtistPhotoItem> GalleryPhotos { get; } = new();
+
+    [ObservableProperty]
+    private bool _isArtistBioModalOpen;
+
+    [ObservableProperty]
+    private string _bioModalArtistName = string.Empty;
+
+    [ObservableProperty]
+    private string _bioModalSummary = string.Empty;
+
+    [ObservableProperty]
+    private string _bioModalContent = string.Empty;
+
+    [ObservableProperty]
+    private BitmapImage? _bioModalAvatar;
+
+    [RelayCommand]
+    public async Task OpenArtistGalleryAsync(string? artistName)
+    {
+        string? rawTrackArtist = AudioPlayerService.Instance.CurrentTrack?.Artist ?? NowPlaying.Artist;
+
+        // If artistName is not explicitly given, try selected collaboration artist or current track artist
+        if (string.IsNullOrWhiteSpace(artistName))
+        {
+            if (!string.IsNullOrWhiteSpace(NowPlaying.SelectedCollaborationArtist) && !NowPlaying.SelectedCollaborationArtist.Equals("Todos", StringComparison.OrdinalIgnoreCase))
+            {
+                artistName = NowPlaying.SelectedCollaborationArtist;
+            }
+            else
+            {
+                artistName = rawTrackArtist;
+            }
+        }
+
+        if (string.IsNullOrWhiteSpace(artistName) || artistName.Equals("Unknown Artist", StringComparison.OrdinalIgnoreCase))
+        {
+            ShowToast("Galería de artista", "No hay ningún artista seleccionado.", true, 3000);
+            return;
+        }
+
+        // Split artists to detect collaborations
+        string stringToSplit = !string.IsNullOrWhiteSpace(rawTrackArtist) && rawTrackArtist.Contains(artistName, StringComparison.OrdinalIgnoreCase)
+            ? rawTrackArtist
+            : artistName;
+
+        var split = ArtistSplitterService.Instance.SplitArtists(stringToSplit);
+
+        GalleryAvailableArtists.Clear();
+        if (split.Count > 1)
+        {
+            foreach (var a in split)
+            {
+                if (!GalleryAvailableArtists.Contains(a))
+                    GalleryAvailableArtists.Add(a);
+            }
+            HasMultipleGalleryArtists = true;
+
+            var match = GalleryAvailableArtists.FirstOrDefault(a => a.Equals(artistName, StringComparison.OrdinalIgnoreCase));
+            SelectedGalleryArtist = match ?? GalleryAvailableArtists[0];
+        }
+        else
+        {
+            GalleryAvailableArtists.Add(artistName);
+            HasMultipleGalleryArtists = false;
+            SelectedGalleryArtist = artistName;
+        }
+
+        GalleryArtistName = SelectedGalleryArtist;
+        IsArtistGalleryModalOpen = true;
+        await LoadGalleryPhotosAsync(GalleryArtistName);
+    }
+
+    public void OpenArtistGallery(string? artistName = null) => _ = OpenArtistGalleryAsync(artistName);
+
+    [RelayCommand]
+    public void CloseArtistGallery()
+    {
+        IsArtistGalleryModalOpen = false;
+    }
+
+    public async Task LoadGalleryPhotosAsync(string artistName)
+    {
+        IsGalleryLoading = true;
+        GalleryPhotos.Clear();
+
+        try
+        {
+            var info = await Services.Online.LastFmService.Instance.GetArtistInfoAsync(artistName);
+            string artistDir = Services.Online.LastFmService.Instance.GetArtistDirectory(artistName);
+            string primaryTxt = Path.Combine(artistDir, "primary.txt");
+            string primaryPath = File.Exists(primaryTxt) ? File.ReadAllText(primaryTxt).Trim() : "";
+            var omittedSet = Services.Online.LastFmService.Instance.GetOmittedImages(artistDir);
+
+            var allImages = Services.Online.LastFmService.Instance.GetLocalArtistImages(artistDir, includeOmitted: true);
+            var activeImages = Services.Online.LastFmService.Instance.GetLocalArtistImages(artistDir, includeOmitted: false);
+            if (activeImages.Count > 0 && (string.IsNullOrEmpty(primaryPath) || omittedSet.Contains(Path.GetFileName(primaryPath))))
+            {
+                primaryPath = activeImages[0];
+            }
+
+            foreach (var imgPath in allImages)
+            {
+                var bi = LoadImagePreview(imgPath);
+                bool isOmitted = omittedSet.Contains(Path.GetFileName(imgPath));
+                GalleryPhotos.Add(new ArtistPhotoItem
+                {
+                    FilePath = imgPath,
+                    IsPrimary = !isOmitted && string.Equals(imgPath, primaryPath, StringComparison.OrdinalIgnoreCase),
+                    IsOmitted = isOmitted,
+                    IsIncludedInRotation = !isOmitted,
+                    ImagePreview = bi
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[Gallery] Error loading photos: {ex.Message}");
+        }
+        finally
+        {
+            IsGalleryLoading = false;
+        }
+    }
+
+    [RelayCommand]
+    public async Task SetPrimaryArtistPhotoAsync(ArtistPhotoItem? item)
+    {
+        if (item == null || string.IsNullOrWhiteSpace(GalleryArtistName)) return;
+
+        await Services.Online.LastFmService.Instance.SetPrimaryArtistImageAsync(GalleryArtistName, item.FilePath);
+
+        item.IsOmitted = false;
+        foreach (var p in GalleryPhotos)
+        {
+            p.IsPrimary = p == item;
+        }
+
+        // Invalidate in cache & models
+        var artistModel = MyMusic.Artists.FirstOrDefault(a => a.Name.Equals(GalleryArtistName, StringComparison.OrdinalIgnoreCase));
+        artistModel?.RefreshAvatar(item.FilePath);
+
+        if (MyMusic.SelectedArtistDetail != null && MyMusic.SelectedArtistDetail.Name.Equals(GalleryArtistName, StringComparison.OrdinalIgnoreCase))
+        {
+            MyMusic.SelectedArtistDetail.RefreshAvatar(item.FilePath);
+        }
+
+        _ = NowPlaying.RefreshArtistBackgroundAsync(GalleryArtistName);
+        ShowToast("Foto principal", $"Foto establecida como principal para {GalleryArtistName}.", false, 2500);
+    }
+
+    [RelayCommand]
+    public async Task ToggleOmitArtistPhotoAsync(ArtistPhotoItem? item)
+    {
+        if (item == null || string.IsNullOrWhiteSpace(GalleryArtistName)) return;
+
+        bool isNowOmitted = await Services.Online.LastFmService.Instance.ToggleOmitArtistImageAsync(GalleryArtistName, item.FilePath);
+        item.IsOmitted = isNowOmitted;
+
+        if (isNowOmitted && item.IsPrimary)
+        {
+            item.IsPrimary = false;
+            var nextActive = GalleryPhotos.FirstOrDefault(p => !p.IsOmitted);
+            if (nextActive != null)
+            {
+                await Services.Online.LastFmService.Instance.SetPrimaryArtistImageAsync(GalleryArtistName, nextActive.FilePath);
+                nextActive.IsPrimary = true;
+            }
+        }
+
+        var artistModel = MyMusic.Artists.FirstOrDefault(a => a.Name.Equals(GalleryArtistName, StringComparison.OrdinalIgnoreCase));
+        artistModel?.RefreshAvatar();
+
+        if (MyMusic.SelectedArtistDetail != null && MyMusic.SelectedArtistDetail.Name.Equals(GalleryArtistName, StringComparison.OrdinalIgnoreCase))
+        {
+            MyMusic.SelectedArtistDetail.RefreshAvatar();
+        }
+
+        _ = NowPlaying.RefreshArtistBackgroundAsync(GalleryArtistName);
+        ShowToast(
+            isNowOmitted ? "Foto omitida" : "Foto incluida",
+            isNowOmitted ? "La imagen ya no se mostrará en el fondo ni como avatar." : "La imagen se ha vuelto a incluir en la galería.",
+            false,
+            2500
+        );
+    }
+
+    [RelayCommand]
+    public async Task AddLocalArtistPhotoAsync()
+    {
+        if (string.IsNullOrWhiteSpace(GalleryArtistName)) return;
+
+        var ofd = new Microsoft.Win32.OpenFileDialog
+        {
+            Title = $"Seleccionar foto para {GalleryArtistName}",
+            Filter = "Imágenes (*.jpg;*.jpeg;*.png;*.webp)|*.jpg;*.jpeg;*.png;*.webp|Todos los archivos (*.*)|*.*"
+        };
+
+        if (ofd.ShowDialog() == true && File.Exists(ofd.FileName))
+        {
+            string? copied = await Services.Online.LastFmService.Instance.AddCustomArtistImageAsync(GalleryArtistName, ofd.FileName);
+            if (!string.IsNullOrEmpty(copied))
+            {
+                await LoadGalleryPhotosAsync(GalleryArtistName);
+                var artistModel = MyMusic.Artists.FirstOrDefault(a => a.Name.Equals(GalleryArtistName, StringComparison.OrdinalIgnoreCase));
+                artistModel?.RefreshAvatar(copied);
+                if (MyMusic.SelectedArtistDetail != null && MyMusic.SelectedArtistDetail.Name.Equals(GalleryArtistName, StringComparison.OrdinalIgnoreCase))
+                {
+                    MyMusic.SelectedArtistDetail.RefreshAvatar(copied);
+                }
+                _ = NowPlaying.RefreshArtistBackgroundAsync(GalleryArtistName);
+                ShowToast("Foto añadida", "Imagen agregada a la galería del artista con éxito.", false, 2500);
+            }
+        }
+    }
+
+    [RelayCommand]
+    public async Task RefreshGalleryFromLastFmAsync()
+    {
+        if (string.IsNullOrWhiteSpace(GalleryArtistName)) return;
+        IsGalleryLoading = true;
+        ShowToast("Descargando", $"Consultando nuevas imágenes y biografía para {GalleryArtistName}...", false, 3000);
+
+        try
+        {
+            var info = await Services.Online.LastFmService.Instance.GetArtistInfoAsync(GalleryArtistName, forceRefresh: true);
+            await LoadGalleryPhotosAsync(GalleryArtistName);
+
+            var artistModel = MyMusic.Artists.FirstOrDefault(a => a.Name.Equals(GalleryArtistName, StringComparison.OrdinalIgnoreCase));
+            if (artistModel != null)
+            {
+                artistModel.BiographySummary = info.BioSummary;
+                artistModel.BiographyFull = info.BioFull;
+                artistModel.HasBiography = !string.IsNullOrWhiteSpace(info.BioSummary);
+                artistModel.RefreshAvatar();
+            }
+
+            if (MyMusic.SelectedArtistDetail != null && MyMusic.SelectedArtistDetail.Name.Equals(GalleryArtistName, StringComparison.OrdinalIgnoreCase))
+            {
+                MyMusic.SelectedArtistDetail.BiographySummary = info.BioSummary;
+                MyMusic.SelectedArtistDetail.BiographyFull = info.BioFull;
+                MyMusic.SelectedArtistDetail.HasBiography = !string.IsNullOrWhiteSpace(info.BioSummary);
+                MyMusic.SelectedArtistDetail.RefreshAvatar();
+            }
+
+            _ = NowPlaying.RefreshArtistBackgroundAsync(GalleryArtistName);
+            ShowToast("Galería actualizada", $"Se obtuvieron {GalleryPhotos.Count} fotos para {GalleryArtistName}.", false, 3000);
+        }
+        catch (Exception ex)
+        {
+            ShowToast("Error", $"No se pudieron descargar imágenes: {ex.Message}", true, 3000);
+        }
+        finally
+        {
+            IsGalleryLoading = false;
+        }
+    }
+
+    [RelayCommand]
+    public async Task OpenArtistBioAsync(ArtistModel? artist)
+    {
+        artist ??= MyMusic.SelectedArtistDetail;
+        if (artist == null) return;
+
+        BioModalArtistName = artist.Name;
+        BioModalAvatar = artist.AvatarImageSource;
+        IsArtistBioModalOpen = true;
+
+        if (string.IsNullOrWhiteSpace(artist.BiographyFull))
+        {
+            var info = await Services.Online.LastFmService.Instance.GetArtistInfoAsync(artist.Name);
+            artist.BiographySummary = info.BioSummary;
+            artist.BiographyFull = string.IsNullOrWhiteSpace(info.BioFull) ? info.BioSummary : info.BioFull;
+            artist.HasBiography = !string.IsNullOrWhiteSpace(artist.BiographySummary);
+        }
+
+        BioModalSummary = artist.BiographySummary;
+        BioModalContent = string.IsNullOrWhiteSpace(artist.BiographyFull)
+            ? (string.IsNullOrWhiteSpace(artist.BiographySummary) ? "No hay biografía disponible para este artista. Puedes configurarla activando Last.fm en Ajustes." : artist.BiographySummary)
+            : artist.BiographyFull;
+    }
+
+    [RelayCommand]
+    public void CloseArtistBio()
+    {
+        IsArtistBioModalOpen = false;
+    }
+
+    [RelayCommand]
+    public async Task ChangeArtistPhotoFromExplorerAsync(ArtistModel? artist)
+    {
+        artist ??= MyMusic.SelectedArtistDetail;
+        if (artist == null) return;
+
+        var ofd = new Microsoft.Win32.OpenFileDialog
+        {
+            Title = $"Seleccionar foto para {artist.Name}",
+            Filter = "Imágenes (*.jpg;*.jpeg;*.png;*.webp)|*.jpg;*.jpeg;*.png;*.webp|Todos los archivos (*.*)|*.*"
+        };
+
+        if (ofd.ShowDialog() == true && File.Exists(ofd.FileName))
+        {
+            string? copied = await Services.Online.LastFmService.Instance.AddCustomArtistImageAsync(artist.Name, ofd.FileName);
+            if (!string.IsNullOrEmpty(copied))
+            {
+                artist.RefreshAvatar(copied);
+                ShowToast("Foto de artista", $"Foto de {artist.Name} actualizada correctamente.", false, 2500);
+            }
+        }
+    }
+
+    [RelayCommand]
+    public async Task RedownloadArtistFromLastFmAsync(ArtistModel? artist)
+    {
+        artist ??= MyMusic.SelectedArtistDetail;
+        if (artist == null) return;
+
+        ShowToast("Last.fm", $"Buscando información e imágenes para {artist.Name}...", false, 3000);
+        var info = await Services.Online.LastFmService.Instance.GetArtistInfoAsync(artist.Name, forceRefresh: true);
+
+        artist.BiographySummary = info.BioSummary;
+        artist.BiographyFull = info.BioFull;
+        artist.HasBiography = !string.IsNullOrWhiteSpace(info.BioSummary);
+        artist.RefreshAvatar();
+
+        ShowToast("Last.fm", $"Información de {artist.Name} actualizada con éxito.", false, 3000);
+    }
+
+    private static BitmapImage? LoadImagePreview(string path)
+    {
+        try
+        {
+            if (!File.Exists(path)) return null;
+            var bi = new BitmapImage();
+            bi.BeginInit();
+            bi.UriSource = new Uri(path, UriKind.Absolute);
+            bi.CacheOption = BitmapCacheOption.OnLoad;
+            bi.DecodePixelWidth = 200;
+            bi.EndInit();
+            bi.Freeze();
+            return bi;
+        }
+        catch { return null; }
     }
 
     // 3-Dots Action Menu & Equalizer Commands
@@ -1498,5 +2270,21 @@ public partial class MainViewModel : ObservableObject
     public void CloseEqualizer()
     {
         IsEqualizerOpen = false;
+    }
+
+    // Open-Source Licenses Modal
+    [ObservableProperty]
+    private bool _isLicensesModalOpen;
+
+    [RelayCommand]
+    public void OpenLicensesModal()
+    {
+        IsLicensesModalOpen = true;
+    }
+
+    [RelayCommand]
+    public void CloseLicensesModal()
+    {
+        IsLicensesModalOpen = false;
     }
 }

@@ -27,7 +27,11 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
 
         RestoreWindowBounds();
 
-        Loaded += (s, e) => App.LogMessage("MainWindow Loaded event fired");
+        Loaded += (s, e) =>
+        {
+            App.LogMessage("MainWindow Loaded event fired");
+            SetupTrackChangeFadeAnimation();
+        };
         Closing += (s, e) =>
         {
             App.LogMessage($"MainWindow Closing event fired, Cancel={e.Cancel}");
@@ -39,6 +43,32 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
             catch { }
         };
         Closed += (s, e) => App.LogMessage("MainWindow Closed event fired");
+    }
+
+    private void SetupTrackChangeFadeAnimation()
+    {
+        Services.Audio.AudioPlayerService.Instance.TrackChanged += (s, track) =>
+        {
+            Dispatcher.InvokeAsync(() =>
+            {
+                if (MiniPlayerBigButton != null)
+                {
+                    var fadeOut = new System.Windows.Media.Animation.DoubleAnimation(1.0, 0.0, TimeSpan.FromMilliseconds(500))
+                    {
+                        EasingFunction = new System.Windows.Media.Animation.CubicEase { EasingMode = System.Windows.Media.Animation.EasingMode.EaseOut }
+                    };
+                    fadeOut.Completed += (s, ev) =>
+                    {
+                        var fadeIn = new System.Windows.Media.Animation.DoubleAnimation(0.0, 1.0, TimeSpan.FromMilliseconds(500))
+                        {
+                            EasingFunction = new System.Windows.Media.Animation.CubicEase { EasingMode = System.Windows.Media.Animation.EasingMode.EaseOut }
+                        };
+                        MiniPlayerBigButton.BeginAnimation(OpacityProperty, fadeIn);
+                    };
+                    MiniPlayerBigButton.BeginAnimation(OpacityProperty, fadeOut);
+                }
+            });
+        };
     }
 
     private sealed class WindowBoundsState
@@ -101,8 +131,22 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         }
     }
 
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern bool ReleaseCapture();
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern IntPtr SendMessage(IntPtr hWnd, int Msg, IntPtr wParam, IntPtr lParam);
+
+    private const int WM_NCLBUTTONDOWN = 0xA1;
+    private const int HTCAPTION = 0x2;
+
     private void OnTitleBarMouseDown(object sender, MouseButtonEventArgs e)
     {
+        if (e.OriginalSource is DependencyObject dep && FindVisualParent<System.Windows.Controls.Primitives.ButtonBase>(dep) != null)
+        {
+            return;
+        }
+
         if (e.ChangedButton == MouseButton.Left)
         {
             if (e.ClickCount == 2)
@@ -111,7 +155,38 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
             }
             else
             {
-                DragMove();
+                if (WindowState == WindowState.Maximized)
+                {
+                    // Obtener la posición del cursor respecto a la ventana antes de restaurar
+                    Point curPoint = e.GetPosition(this);
+                    double percentX = Math.Clamp(curPoint.X / Math.Max(1.0, ActualWidth), 0.05, 0.95);
+
+                    // Restaurar ventana
+                    WindowState = WindowState.Normal;
+
+                    // Posicionar la ventana centrada proporcionalmente bajo el cursor
+                    double targetLeft = curPoint.X - (ActualWidth * percentX);
+                    Left = Math.Max(0, targetLeft);
+                    Top = Math.Max(0, curPoint.Y - 18);
+                }
+
+                try
+                {
+                    var source = PresentationSource.FromVisual(this) as System.Windows.Interop.HwndSource;
+                    if (source != null)
+                    {
+                        ReleaseCapture();
+                        SendMessage(source.Handle, WM_NCLBUTTONDOWN, (IntPtr)HTCAPTION, IntPtr.Zero);
+                    }
+                    else
+                    {
+                        DragMove();
+                    }
+                }
+                catch
+                {
+                    try { DragMove(); } catch { }
+                }
             }
         }
     }
@@ -150,6 +225,15 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
     private void OnTrackContextMenuOpened(object sender, RoutedEventArgs e)
     {
         if (sender is ContextMenu cm && cm.DataContext is Models.Track track)
+        {
+            ViewModel.SelectedTrackForContext = track;
+        }
+    }
+
+    private void OnMiniPlayerContextMenuOpened(object sender, RoutedEventArgs e)
+    {
+        var track = ViewModel?.CurrentTrack ?? Services.Audio.AudioPlayerService.Instance.CurrentTrack;
+        if (ViewModel != null && track != null)
         {
             ViewModel.SelectedTrackForContext = track;
         }
@@ -373,5 +457,34 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
             }
         }
         return IntPtr.Zero;
+    }
+
+    private void OnPlaylistContextMenuOpened(object sender, RoutedEventArgs e)
+    {
+        if (sender is ContextMenu cm && cm.PlacementTarget is FrameworkElement fe && fe.DataContext != null)
+        {
+            cm.DataContext = fe.DataContext;
+        }
+    }
+
+    private void OnPlaylistMoreOptionsClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is FrameworkElement fe && fe.ContextMenu != null)
+        {
+            fe.ContextMenu.DataContext = fe.DataContext;
+            fe.ContextMenu.PlacementTarget = fe;
+            fe.ContextMenu.IsOpen = true;
+            e.Handled = true;
+        }
+    }
+
+    private static T? FindVisualParent<T>(DependencyObject? child) where T : DependencyObject
+    {
+        while (child != null)
+        {
+            if (child is T parent) return parent;
+            child = System.Windows.Media.VisualTreeHelper.GetParent(child);
+        }
+        return null;
     }
 }
