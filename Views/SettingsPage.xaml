@@ -879,6 +879,34 @@
                             </StackPanel>
                         </ui:Button>
                     </Grid>
+
+                    <Separator Background="{DynamicResource DividerBrush}" Margin="0,16,0,16" />
+
+                    <!-- Emergency Reset (Borrar todo y empezar desde cero) -->
+                    <Border CornerRadius="8" Background="#1AE81123" BorderBrush="#4DE81123" BorderThickness="1" Padding="14,12">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,16,0">
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                                    <ui:SymbolIcon Symbol="Warning24" FontSize="16" Foreground="#FFE81123" Margin="0,0,8,0" VerticalAlignment="Center" />
+                                    <TextBlock Text="Zona de Emergencia: Restablecer y Empezar de Cero" FontSize="14" FontWeight="Bold" Foreground="#FFFF5555" VerticalAlignment="Center" />
+                                </StackPanel>
+                                <TextBlock Text="Borra de manera irreversible toda la base de datos de música, canciones, álbumes, favoritos, caché de fotos/biografías de artistas y configuraciones locales. La aplicación se reiniciará completamente limpia desde 0."
+                                           FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" />
+                            </StackPanel>
+                            <ui:Button Grid.Column="1" Appearance="Danger" Padding="16,8" VerticalAlignment="Center"
+                                       Command="{Binding Settings.EmergencyFactoryResetCommand}"
+                                       ToolTip="Elimina toda la información y reinicia la aplicación desde cero">
+                                <StackPanel Orientation="Horizontal">
+                                    <ui:SymbolIcon Symbol="Delete24" FontSize="16" Margin="0,0,8,0" />
+                                    <TextBlock Text="Borrar todo y reiniciar" FontWeight="Bold" FontSize="12" />
+                                </StackPanel>
+                            </ui:Button>
+                        </Grid>
+                    </Border>
                 </StackPanel>
             </Border>
 

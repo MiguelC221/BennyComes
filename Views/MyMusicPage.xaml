@@ -971,97 +971,121 @@
                                 </StackPanel>
                             </ui:Button>
 
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-
-                                <!-- Big Artist Avatar (110x110) with Silhouette Fallback -->
-                                <Grid Grid.Column="0" Width="110" Height="110" Margin="0,0,22,0" VerticalAlignment="Top">
-                                    <Ellipse Width="110" Height="110" Fill="#1F1F28" />
-                                    <ui:SymbolIcon Symbol="Person24" FontSize="48" Foreground="{DynamicResource TextTertiaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                    <Image Source="{Binding MyMusic.SelectedArtistDetail.AvatarImageSource}" Width="110" Height="110" Stretch="UniformToFill" RenderOptions.BitmapScalingMode="HighQuality">
-                                        <Image.Clip>
-                                            <EllipseGeometry Center="55,55" RadiusX="55" RadiusY="55" />
-                                        </Image.Clip>
+                            <!-- Ambient Hero Banner Container for Artist -->
+                            <Border CornerRadius="16" Margin="0,0,0,10" ClipToBounds="True" Background="#161620" BorderBrush="{DynamicResource SurfaceCardBorderBrush}" BorderThickness="1">
+                                <Grid>
+                                    <!-- Background Layer 0: Ambient Artist Image with Heavy Blur -->
+                                    <Image Source="{Binding MyMusic.SelectedArtistDetail.AvatarImageSource}"
+                                           Stretch="UniformToFill" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                           Opacity="0.32">
+                                        <Image.Effect>
+                                            <BlurEffect Radius="65" />
+                                        </Image.Effect>
                                     </Image>
-                                </Grid>
 
-                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                    <TextBlock Text="{Binding MyMusic.SelectedArtistDetail.Name}" FontSize="26" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" />
-                                    <TextBlock Text="{Binding MyMusic.SelectedArtistDetail.Subtitle}" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,4,0,8" />
+                                    <!-- Background Layer 1: High-Contrast Dark Gradient Scrim -->
+                                    <Border>
+                                        <Border.Background>
+                                            <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                                <GradientStop Color="#D90E0E14" Offset="0.0" />
+                                                <GradientStop Color="#E60E0E14" Offset="0.55" />
+                                                <GradientStop Color="#F50A0A0E" Offset="1.0" />
+                                            </LinearGradientBrush>
+                                        </Border.Background>
+                                    </Border>
 
-                                    <!-- Biography Excerpt + "Ver más" if available -->
-                                    <StackPanel Margin="0,0,0,10" Visibility="{Binding MyMusic.SelectedArtistDetail.HasBiography, Converter={StaticResource BoolToVisConverter}}">
-                                        <TextBlock Text="{Binding MyMusic.SelectedArtistDetail.BiographySummary}"
-                                                   FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"
-                                                   TextTrimming="CharacterEllipsis" TextWrapping="Wrap" MaxHeight="36" LineHeight="16" MaxWidth="750" HorizontalAlignment="Left" />
-                                        <ui:Button Appearance="Transparent" Padding="0,4,8,4" HorizontalAlignment="Left" Margin="0,2,0,0"
-                                                   Command="{Binding DataContext.OpenArtistBioCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                   CommandParameter="{Binding MyMusic.SelectedArtistDetail}"
-                                                   ToolTip="Leer biografía completa">
-                                            <TextBlock Text="Ver más información..." FontSize="11" FontWeight="SemiBold" Foreground="{Binding Theme.CurrentAccentBrush}" />
-                                        </ui:Button>
-                                    </StackPanel>
+                                    <!-- Content Layer 2: High-Contrast Content -->
+                                    <Grid Margin="18,16">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
 
-                                    <!-- Action Buttons -->
-                                    <StackPanel Orientation="Horizontal">
-                                        <ui:Button Appearance="Primary" HorizontalAlignment="Left" Padding="14,6" Margin="0,0,10,0"
-                                                   Background="{Binding Theme.CurrentAccentBrush}"
-                                                   Command="{Binding DataContext.PlayArtistCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                   CommandParameter="{Binding MyMusic.SelectedArtistDetail}">
-                                            <StackPanel Orientation="Horizontal">
-                                                <ui:SymbolIcon Symbol="Play24" FontSize="14" Foreground="{Binding Theme.AccentForegroundBrush}" Margin="0,0,6,0" />
-                                                <TextBlock Text="Reproducir discografía" FontWeight="Bold" Foreground="{Binding Theme.AccentForegroundBrush}" FontSize="12" />
+                                        <!-- Big Artist Avatar (110x110) with Silhouette Fallback -->
+                                        <Grid Grid.Column="0" Width="110" Height="110" Margin="0,0,22,0" VerticalAlignment="Top">
+                                            <Ellipse Width="110" Height="110" Fill="#1F1F28" />
+                                            <ui:SymbolIcon Symbol="Person24" FontSize="48" Foreground="{DynamicResource TextTertiaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                            <Image Source="{Binding MyMusic.SelectedArtistDetail.AvatarImageSource}" Width="110" Height="110" Stretch="UniformToFill" RenderOptions.BitmapScalingMode="HighQuality">
+                                                <Image.Clip>
+                                                    <EllipseGeometry Center="55,55" RadiusX="55" RadiusY="55" />
+                                                </Image.Clip>
+                                            </Image>
+                                        </Grid>
+
+                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding MyMusic.SelectedArtistDetail.Name}" FontSize="26" FontWeight="Bold" Foreground="#FFFFFF" />
+                                            <TextBlock Text="{Binding MyMusic.SelectedArtistDetail.Subtitle}" FontSize="13" Foreground="#C8D0D8" Margin="0,4,0,8" />
+
+                                            <!-- Biography Excerpt + "Ver más" if available -->
+                                            <StackPanel Margin="0,0,0,10" Visibility="{Binding MyMusic.SelectedArtistDetail.HasBiography, Converter={StaticResource BoolToVisConverter}}">
+                                                <TextBlock Text="{Binding MyMusic.SelectedArtistDetail.BiographySummary}"
+                                                           FontSize="12" Foreground="#D0D6E0"
+                                                           TextTrimming="CharacterEllipsis" TextWrapping="Wrap" MaxHeight="36" LineHeight="16" MaxWidth="750" HorizontalAlignment="Left" />
+                                                <ui:Button Appearance="Transparent" Padding="0,4,8,4" HorizontalAlignment="Left" Margin="0,2,0,0"
+                                                           Command="{Binding DataContext.OpenArtistBioCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                           CommandParameter="{Binding MyMusic.SelectedArtistDetail}"
+                                                           ToolTip="Leer biografía completa">
+                                                    <TextBlock Text="Ver más información..." FontSize="11" FontWeight="SemiBold" Foreground="{Binding Theme.CurrentAccentBrush}" />
+                                                </ui:Button>
                                             </StackPanel>
-                                        </ui:Button>
 
-                                        <!-- Cambiar / Actualizar foto y datos del artista -->
-                                        <ui:Button Appearance="Secondary" Padding="12,6"
-                                                   Click="OnAddMenuButtonClick"
-                                                   ToolTip="Administrar fotos y actualizar información del artista">
-                                            <ui:Button.ContextMenu>
-                                                <ContextMenu>
-                                                    <MenuItem Header="Abrir galería de fotos..."
-                                                              Command="{Binding DataContext.OpenArtistGalleryCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                              CommandParameter="{Binding MyMusic.SelectedArtistDetail.Name}">
-                                                        <MenuItem.Icon>
-                                                            <ui:SymbolIcon Symbol="Image24" />
-                                                        </MenuItem.Icon>
-                                                    </MenuItem>
-                                                    <MenuItem Header="Elegir foto local desde explorador..."
-                                                              Command="{Binding DataContext.ChangeArtistPhotoFromExplorerCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                              CommandParameter="{Binding MyMusic.SelectedArtistDetail}">
-                                                        <MenuItem.Icon>
-                                                            <ui:SymbolIcon Symbol="FolderOpen24" />
-                                                        </MenuItem.Icon>
-                                                    </MenuItem>
-                                                    <Separator />
-                                                    <MenuItem Header="Volver a consultar Last.fm"
-                                                              Command="{Binding DataContext.RedownloadArtistFromLastFmCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                              CommandParameter="{Binding MyMusic.SelectedArtistDetail}">
-                                                        <MenuItem.Icon>
-                                                            <ui:SymbolIcon Symbol="ArrowSync24" />
-                                                        </MenuItem.Icon>
-                                                    </MenuItem>
-                                                </ContextMenu>
-                                            </ui:Button.ContextMenu>
+                                            <!-- Action Buttons -->
                                             <StackPanel Orientation="Horizontal">
-                                                <ui:SymbolIcon Symbol="ImageEdit24" FontSize="14" Margin="0,0,6,0" />
-                                                <TextBlock Text="Foto y datos del artista" FontSize="12" FontWeight="SemiBold" />
-                                            </StackPanel>
-                                        </ui:Button>
-                                    </StackPanel>
-                                </StackPanel>
+                                                <ui:Button Appearance="Primary" HorizontalAlignment="Left" Padding="14,6" Margin="0,0,10,0"
+                                                           Background="{Binding Theme.CurrentAccentBrush}"
+                                                           Command="{Binding DataContext.PlayArtistCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                           CommandParameter="{Binding MyMusic.SelectedArtistDetail}">
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <ui:SymbolIcon Symbol="Play24" FontSize="14" Foreground="{Binding Theme.AccentForegroundBrush}" Margin="0,0,6,0" />
+                                                        <TextBlock Text="Reproducir discografía" FontWeight="Bold" Foreground="{Binding Theme.AccentForegroundBrush}" FontSize="12" />
+                                                    </StackPanel>
+                                                </ui:Button>
 
-                                <!-- Right: View Mode Switcher (Ver en Lista vs Ver Carátulas) -->
-                                <Border Grid.Column="2" VerticalAlignment="Bottom" HorizontalAlignment="Right"
-                                        CornerRadius="10" Background="{DynamicResource SurfaceCardBrush}"
-                                        BorderBrush="{DynamicResource SurfaceCardBorderBrush}" BorderThickness="1"
-                                        Padding="4">
-                                    <StackPanel Orientation="Horizontal">
+                                                <!-- Cambiar / Actualizar foto y datos del artista -->
+                                                <ui:Button Appearance="Secondary" Padding="12,6"
+                                                           Click="OnAddMenuButtonClick"
+                                                           ToolTip="Administrar fotos y actualizar información del artista">
+                                                    <ui:Button.ContextMenu>
+                                                        <ContextMenu>
+                                                            <MenuItem Header="Abrir galería de fotos..."
+                                                                      Command="{Binding DataContext.OpenArtistGalleryCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                      CommandParameter="{Binding MyMusic.SelectedArtistDetail.Name}">
+                                                                <MenuItem.Icon>
+                                                                    <ui:SymbolIcon Symbol="Image24" />
+                                                                </MenuItem.Icon>
+                                                            </MenuItem>
+                                                            <MenuItem Header="Elegir foto local desde explorador..."
+                                                                      Command="{Binding DataContext.ChangeArtistPhotoFromExplorerCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                      CommandParameter="{Binding MyMusic.SelectedArtistDetail}">
+                                                                <MenuItem.Icon>
+                                                                    <ui:SymbolIcon Symbol="FolderOpen24" />
+                                                                </MenuItem.Icon>
+                                                            </MenuItem>
+                                                            <Separator />
+                                                            <MenuItem Header="Volver a consultar Last.fm"
+                                                                      Command="{Binding DataContext.RedownloadArtistFromLastFmCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                      CommandParameter="{Binding MyMusic.SelectedArtistDetail}">
+                                                                <MenuItem.Icon>
+                                                                    <ui:SymbolIcon Symbol="ArrowSync24" />
+                                                                </MenuItem.Icon>
+                                                            </MenuItem>
+                                                        </ContextMenu>
+                                                    </ui:Button.ContextMenu>
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <ui:SymbolIcon Symbol="ImageEdit24" FontSize="14" Margin="0,0,6,0" />
+                                                        <TextBlock Text="Foto y datos del artista" FontSize="12" FontWeight="SemiBold" />
+                                                    </StackPanel>
+                                                </ui:Button>
+                                            </StackPanel>
+                                        </StackPanel>
+
+                                        <!-- Right: View Mode Switcher (Ver en Lista vs Ver Carátulas) -->
+                                        <Border Grid.Column="2" VerticalAlignment="Bottom" HorizontalAlignment="Right"
+                                                CornerRadius="10" Background="{DynamicResource SurfaceCardBrush}"
+                                                BorderBrush="{DynamicResource SurfaceCardBorderBrush}" BorderThickness="1"
+                                                Padding="4">
+                                            <StackPanel Orientation="Horizontal">
                                         <!-- Button: Ver en Lista (Agrupado por Álbum) -->
                                         <Button Cursor="Hand"
                                                 Command="{Binding MyMusic.SetArtistViewModeCommand}"
@@ -1111,9 +1135,11 @@
                                                 </ControlTemplate>
                                             </Button.Template>
                                         </Button>
-                                    </StackPanel>
-                                </Border>
-                            </Grid>
+                                            </StackPanel>
+                                        </Border>
+                                    </Grid>
+                                </Grid>
+                            </Border>
                         </StackPanel>
 
                         <!-- COMPACT STICKY BAR (Smoothly expands when IsArtistHeaderCompact is True) -->
@@ -1803,57 +1829,83 @@
                             </StackPanel>
                         </ui:Button>
 
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-                            <!-- Big Album Cover -->
-                            <Border Grid.Column="0" Width="140" Height="140" CornerRadius="10" ClipToBounds="True" Background="#1C1C24" Margin="0,0,22,0">
-                                <Border.Effect>
-                                    <DropShadowEffect BlurRadius="25" Color="#000000" Opacity="0.5" ShadowDepth="4" />
-                                </Border.Effect>
-                                <Image Source="{Binding MyMusic.SelectedAlbumDetail.CoverImageSource}" Stretch="UniformToFill" RenderOptions.BitmapScalingMode="HighQuality" />
-                            </Border>
+                        <!-- Ambient Hero Banner Container for Album -->
+                        <Border CornerRadius="16" Margin="0,0,0,10" ClipToBounds="True" Background="#161620" BorderBrush="{DynamicResource SurfaceCardBorderBrush}" BorderThickness="1">
+                            <Grid>
+                                <!-- Background Layer 0: Ambient Album Cover Image with Heavy Blur -->
+                                <Image Source="{Binding MyMusic.SelectedAlbumDetail.CoverImageSource}"
+                                       Stretch="UniformToFill" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       Opacity="0.36">
+                                    <Image.Effect>
+                                        <BlurEffect Radius="65" />
+                                    </Image.Effect>
+                                </Image>
 
-                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                                <TextBlock Text="{Binding MyMusic.SelectedAlbumDetail.Name}" FontSize="24" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" />
-                                <!-- Clickable Artist Name navigating to Artist Detail -->
-                                <Button Background="Transparent" BorderThickness="0" Padding="0,2" HorizontalAlignment="Left" Cursor="Hand" Margin="0,2,0,2"
-                                        Command="{Binding DataContext.NavigateToArtistCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                        CommandParameter="{Binding MyMusic.SelectedAlbumDetail.Artist}"
-                                        ToolTip="Ver discografía del artista">
-                                    <Button.Template>
-                                        <ControlTemplate TargetType="Button">
-                                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                                <TextBlock x:Name="ArtistTxt" Text="{Binding MyMusic.SelectedAlbumDetail.Artist}"
-                                                           FontSize="15" FontWeight="SemiBold"
-                                                           Foreground="{Binding DataContext.Theme.CurrentAccentBrush, RelativeSource={RelativeSource AncestorType=Window}}" />
-                                                <ui:SymbolIcon x:Name="ArrowIcon" Symbol="ChevronRight16" FontSize="12" Margin="4,0,0,0" VerticalAlignment="Center"
-                                                               Foreground="{Binding DataContext.Theme.CurrentAccentBrush, RelativeSource={RelativeSource AncestorType=Window}}" Opacity="0.7" />
+                                <!-- Background Layer 1: High-Contrast Dark Gradient Scrim -->
+                                <Border>
+                                    <Border.Background>
+                                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                            <GradientStop Color="#D00E0E14" Offset="0.0" />
+                                            <GradientStop Color="#E60E0E14" Offset="0.55" />
+                                            <GradientStop Color="#F50A0A0E" Offset="1.0" />
+                                        </LinearGradientBrush>
+                                    </Border.Background>
+                                </Border>
+
+                                <!-- Content Layer 2: High-Contrast Content -->
+                                <Grid Margin="18,16">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <!-- Big Album Cover -->
+                                    <Border Grid.Column="0" Width="140" Height="140" CornerRadius="10" ClipToBounds="True" Background="#1C1C24" Margin="0,0,22,0">
+                                        <Border.Effect>
+                                            <DropShadowEffect BlurRadius="25" Color="#000000" Opacity="0.6" ShadowDepth="4" />
+                                        </Border.Effect>
+                                        <Image Source="{Binding MyMusic.SelectedAlbumDetail.CoverImageSource}" Stretch="UniformToFill" RenderOptions.BitmapScalingMode="HighQuality" />
+                                    </Border>
+
+                                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding MyMusic.SelectedAlbumDetail.Name}" FontSize="24" FontWeight="Bold" Foreground="#FFFFFF" />
+                                        <!-- Clickable Artist Name navigating to Artist Detail -->
+                                        <Button Background="Transparent" BorderThickness="0" Padding="0,2" HorizontalAlignment="Left" Cursor="Hand" Margin="0,2,0,2"
+                                                Command="{Binding DataContext.NavigateToArtistCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                CommandParameter="{Binding MyMusic.SelectedAlbumDetail.Artist}"
+                                                ToolTip="Ver discografía del artista">
+                                            <Button.Template>
+                                                <ControlTemplate TargetType="Button">
+                                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                        <TextBlock x:Name="ArtistTxt" Text="{Binding MyMusic.SelectedAlbumDetail.Artist}"
+                                                                   FontSize="15" FontWeight="SemiBold"
+                                                                   Foreground="{Binding DataContext.Theme.CurrentAccentBrush, RelativeSource={RelativeSource AncestorType=Window}}" />
+                                                        <ui:SymbolIcon x:Name="ArrowIcon" Symbol="ChevronRight16" FontSize="12" Margin="4,0,0,0" VerticalAlignment="Center"
+                                                                       Foreground="{Binding DataContext.Theme.CurrentAccentBrush, RelativeSource={RelativeSource AncestorType=Window}}" Opacity="0.7" />
+                                                    </StackPanel>
+                                                    <ControlTemplate.Triggers>
+                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                            <Setter TargetName="ArtistTxt" Property="TextDecorations" Value="Underline" />
+                                                            <Setter TargetName="ArrowIcon" Property="Opacity" Value="1.0" />
+                                                        </Trigger>
+                                                    </ControlTemplate.Triggers>
+                                                </ControlTemplate>
+                                            </Button.Template>
+                                        </Button>
+                                        <TextBlock Text="{Binding MyMusic.SelectedAlbumDetail.Subtitle}" FontSize="12" Foreground="#C8D0D8" Margin="0,0,0,12" />
+
+                                        <ui:Button Appearance="Primary" HorizontalAlignment="Left" Padding="16,7"
+                                                   Background="{Binding Theme.CurrentAccentBrush}"
+                                                   Command="{Binding DataContext.PlayAlbumCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                   CommandParameter="{Binding MyMusic.SelectedAlbumDetail}">
+                                            <StackPanel Orientation="Horizontal">
+                                                <ui:SymbolIcon Symbol="Play24" FontSize="15" Foreground="{Binding Theme.AccentForegroundBrush}" Margin="0,0,8,0" />
+                                                <TextBlock Text="Reproducir álbum completo" FontWeight="Bold" Foreground="{Binding Theme.AccentForegroundBrush}" FontSize="12" />
                                             </StackPanel>
-                                            <ControlTemplate.Triggers>
-                                                <Trigger Property="IsMouseOver" Value="True">
-                                                    <Setter TargetName="ArtistTxt" Property="TextDecorations" Value="Underline" />
-                                                    <Setter TargetName="ArrowIcon" Property="Opacity" Value="1.0" />
-                                                </Trigger>
-                                            </ControlTemplate.Triggers>
-                                        </ControlTemplate>
-                                    </Button.Template>
-                                </Button>
-                                <TextBlock Text="{Binding MyMusic.SelectedAlbumDetail.Subtitle}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,0,12" />
-
-                                <ui:Button Appearance="Primary" HorizontalAlignment="Left" Padding="16,7"
-                                           Background="{Binding Theme.CurrentAccentBrush}"
-                                           Command="{Binding DataContext.PlayAlbumCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                           CommandParameter="{Binding MyMusic.SelectedAlbumDetail}">
-                                    <StackPanel Orientation="Horizontal">
-                                        <ui:SymbolIcon Symbol="Play24" FontSize="15" Foreground="#0A0A0E" Margin="0,0,8,0" />
-                                        <TextBlock Text="Reproducir álbum completo" FontWeight="Bold" Foreground="#0A0A0E" FontSize="12" />
+                                        </ui:Button>
                                     </StackPanel>
-                                </ui:Button>
-                            </StackPanel>
-                        </Grid>
+                                </Grid>
+                            </Grid>
+                        </Border>
                     </StackPanel>
 
                     <!-- Fixed Column Header Bar -->

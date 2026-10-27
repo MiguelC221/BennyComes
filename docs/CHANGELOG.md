@@ -4,6 +4,35 @@ Todas las modificaciones notables realizadas en la aplicación BennyComes se doc
 
 ---
 
+## [Versión 1.2.1] - 2026-10-17
+
+### 🚨 Botón de Emergencia para Restablecer la Aplicación desde Cero
+- **Restablecimiento Total de Fábrica ([SettingsViewModel.cs](file:///C:/Users/Miguquis/.gemini/antigravity/scratch/BenyComes/ViewModels/SettingsViewModel.cs) y [SettingsPage.xaml](file:///C:/Users/Miguquis/.gemini/antigravity/scratch/BenyComes/Views/SettingsPage.xaml)):**
+  - Se implementó la *"Zona de Emergencia"* en la parte inferior de la pestaña Ajustes.
+  - Al presionar *"Restablecer Todo y Empezar de Cero"*, se solicita una confirmación de seguridad irreversible.
+  - Detiene la reproducción de audio, cancela enriquecimientos en segundo plano y libera los pools de conexiones de SQLite (`SqliteConnection.ClearAllPools()`).
+  - Elimina de forma íntegra la base de datos (`benycomes.db`, `benycomes.db-wal`, `benycomes.db-shm`), la caché de fotos de artistas (`%LocalAppData%\MusicPlayer\ArtistCache`), historiales y configuraciones, reiniciando la aplicación automáticamente limpia desde cero.
+
+### 🎨 Inicio con Recomendaciones Coloridas y Organizadas por Secciones
+- **Tarjetas Dinámicas y Vistosas ([HomeViewModel.cs](file:///C:/Users/Miguquis/.gemini/antigravity/scratch/BenyComes/ViewModels/HomeViewModel.cs) y [HomePage.xaml](file:///C:/Users/Miguquis/.gemini/antigravity/scratch/BenyComes/Views/HomePage.xaml)):**
+  - Cada tarjeta de recomendación y Smart Mix cuenta ahora con un degradado lineal distintivo y vibrante (`CardBackgroundBrush`), bordes con brillo sutil y etiquetas de categoría (`PERSONAL`, `TENDENCIA`, `REDESCUBRE`, `GÉNERO`).
+  - Se organizaron los bloques principales con indicadores de acento cromático (azul `#3B82F6` para *Top Canciones*, verde esmeralda `#10B981` para *Top Artistas*, violeta `#8B5CF6` para *Top Álbumes*) y medallas metálicas de ranking para el podio (oro, plata y bronce).
+
+### 🌟 Cabeceras Vistosas con Alto Contraste en Información de Artista y Álbum
+- **Banner Superior Ambiental con Respaldo de Legibilidad ([MyMusicPage.xaml](file:///C:/Users/Miguquis/.gemini/antigravity/scratch/BenyComes/Views/MyMusicPage.xaml)):**
+  - Las vistas de detalle de Artista y Álbum ahora muestran un fondo ambiental difuminado (`BlurEffect Radius="65"`) con el arte de portada o retrato del artista a opacidad calibrada.
+  - Se colocó una máscara oscura de degradado (`#D00E0E14` a `#F50A0A0E`) y tipografía blanca pura (`#FFFFFF` y `#C8D0D8`) con sombra sutil, garantizando un ratio de contraste superior a 18:1 (WCAG AAA) para que ningún texto pierda legibilidad.
+
+### 🔍 Botón "Volver a la Biblioteca" Ampliado en Reproducción en Curso
+- **Accesibilidad Mejorada ([MainWindow.xaml](file:///C:/Users/Miguquis/.gemini/antigravity/scratch/BenyComes/MainWindow.xaml)):**
+  - Se incrementaron las dimensiones del botón de retorno: altura a 32 px, acolchado de 16 px, tamaño de icono y texto aumentados y esquinas redondeadas (`CornerRadius="8"`), haciéndolo significativamente más cómodo y fácil de pulsar.
+
+### ⬆️ Elevación de Información al Ocultar el HUD por Inactividad del Ratón
+- **Reposicionamiento Vertical Hacia Arriba ([NowPlayingView.xaml.cs](file:///C:/Users/Miguquis/.gemini/antigravity/scratch/BenyComes/Views/NowPlayingView.xaml.cs)):**
+  - Al cesar el movimiento del ratón en reproducción en curso, la carátula, título, artista y visualizador se elevan sutilmente -26 px hacia arriba mediante una animación suave `CubicEase`, evitando que colisionen o queden pegados a la parte baja de la pantalla. Al mover el ratón, regresan de manera fluida a su alineación original.
+
+---
+
 ## [Versión 1.2.0] - 2026-10-17
 
 ### 🖼️ Selector de Fuentes y Extracción Limpia de Imágenes de Artista

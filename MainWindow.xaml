@@ -221,24 +221,24 @@
 
                 <Button Command="{Binding CloseNowPlayingCommand}"
                         Cursor="Hand" ToolTip="Volver a la biblioteca"
-                        Height="28" VerticalAlignment="Center">
+                        Height="32" VerticalAlignment="Center">
                     <Button.Template>
                         <ControlTemplate TargetType="Button">
-                            <Border x:Name="BtnBorder" Background="#26FFFFFF" BorderBrush="#33FFFFFF" BorderThickness="1"
-                                    CornerRadius="6" Padding="12,3" VerticalAlignment="Center">
+                            <Border x:Name="BtnBorder" Background="#33FFFFFF" BorderBrush="#4DFFFFFF" BorderThickness="1"
+                                    CornerRadius="8" Padding="16,4" VerticalAlignment="Center">
                                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                    <ui:SymbolIcon x:Name="BtnIcon" Symbol="ArrowLeft24" FontSize="14" Foreground="#FFFFFF" Margin="0,0,8,0" VerticalAlignment="Center" />
-                                    <TextBlock x:Name="BtnText" Text="Volver a la biblioteca" FontSize="12" FontWeight="SemiBold" Foreground="#FFFFFF" VerticalAlignment="Center" />
+                                    <ui:SymbolIcon x:Name="BtnIcon" Symbol="ArrowLeft24" FontSize="16" Foreground="#FFFFFF" Margin="0,0,10,0" VerticalAlignment="Center" />
+                                    <TextBlock x:Name="BtnText" Text="Volver a la biblioteca" FontSize="13" FontWeight="SemiBold" Foreground="#FFFFFF" VerticalAlignment="Center" />
                                 </StackPanel>
                             </Border>
                             <ControlTemplate.Triggers>
                                 <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter TargetName="BtnBorder" Property="Background" Value="#40FFFFFF" />
-                                    <Setter TargetName="BtnBorder" Property="BorderBrush" Value="#66FFFFFF" />
+                                    <Setter TargetName="BtnBorder" Property="Background" Value="#59FFFFFF" />
+                                    <Setter TargetName="BtnBorder" Property="BorderBrush" Value="#80FFFFFF" />
                                 </Trigger>
                                 <Trigger Property="IsPressed" Value="True">
-                                    <Setter TargetName="BtnBorder" Property="Background" Value="#55FFFFFF" />
-                                    <Setter TargetName="BtnBorder" Property="Opacity" Value="0.85" />
+                                    <Setter TargetName="BtnBorder" Property="Background" Value="#73FFFFFF" />
+                                    <Setter TargetName="BtnBorder" Property="Opacity" Value="0.9" />
                                 </Trigger>
                             </ControlTemplate.Triggers>
                         </ControlTemplate>

@@ -126,25 +126,14 @@ public partial class NowPlayingView : UserControl
         BottomHudControlsContainer.IsHitTestVisible = false;
         TechBadgesPanel.IsHitTestVisible = false;
 
-        // Measured layout: the hidden controls still reserve space, so drop everything to the window foot.
-        const double footMargin = 16;
-        double controlsHeight = BottomHudControlsContainer.ActualHeight;
-        double rowBottomGap = 20; // bottom margin of the immersive grid
-
-        double trackDrop = Math.Max(0, controlsHeight + VisualizerContainer.ActualHeight + VisualizerContainer.Margin.Bottom
-                                        + rowBottomGap + 24 - footMargin);
+        // Al estar inactivo el mouse, subir suavemente unos píxeles la carátula, canción, artista y álbum
+        const double trackLift = -26.0;
         TrackInfoTranslate.BeginAnimation(TranslateTransform.YProperty,
-            new DoubleAnimation(TrackInfoTranslate.Y, trackDrop, moveDuration) { EasingFunction = easeInOut });
+            new DoubleAnimation(TrackInfoTranslate.Y, trackLift, moveDuration) { EasingFunction = easeInOut });
 
-        // Visualizer: bottom-right corner of the window
-        FrameworkElement visual = WaveformLine.Visibility == Visibility.Visible ? WaveformLine : SpectrumItems;
-        double visualWidth = visual.ActualWidth;
-        double shiftX = Math.Max(0, (VisualizerContainer.ActualWidth - visualWidth) / 2.0);
-        double dropY = Math.Max(0, controlsHeight + VisualizerContainer.Margin.Bottom + rowBottomGap - footMargin);
-        VisualizerTranslate.BeginAnimation(TranslateTransform.XProperty,
-            new DoubleAnimation(VisualizerTranslate.X, shiftX, moveDuration) { EasingFunction = easeInOut });
+        // Visualizer: se eleva armónicamente al unísono
         VisualizerTranslate.BeginAnimation(TranslateTransform.YProperty,
-            new DoubleAnimation(VisualizerTranslate.Y, dropY, moveDuration) { EasingFunction = easeInOut });
+            new DoubleAnimation(VisualizerTranslate.Y, trackLift, moveDuration) { EasingFunction = easeInOut });
     }
 
     private void FadeInHud()

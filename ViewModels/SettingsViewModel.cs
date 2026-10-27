@@ -757,6 +757,80 @@ public partial class SettingsViewModel : ObservableObject
         catch { }
     }
 
+    [RelayCommand]
+    public async Task EmergencyFactoryResetAsync()
+    {
+        var result = System.Windows.MessageBox.Show(
+            "¿Estás completamente seguro de que deseas restablecer BennyComes a su estado de fábrica?\n\n" +
+            "Esta acción de emergencia borrará de forma irreversible:\n" +
+            " • Toda la base de datos de música (canciones, álbumes, artistas y favoritos)\n" +
+            " • La caché local de fotos y biografías de artistas (%LocalAppData%\\MusicPlayer\\ArtistCache)\n" +
+            " • El historial de reproducciones y listas inteligentes\n" +
+            " • Todas las configuraciones y carpetas vinculadas\n\n" +
+            "La aplicación se reiniciará inmediatamente limpia desde cero.",
+            "Restablecimiento de Emergencia - BennyComes",
+            System.Windows.MessageBoxButton.YesNo,
+            System.Windows.MessageBoxImage.Warning);
+
+        if (result != System.Windows.MessageBoxResult.Yes) return;
+
+        try
+        {
+            // 1. Detener reproducción y servicios en segundo plano
+            Services.Audio.AudioPlayerService.Instance.Stop();
+            Services.Online.ArtistEnrichmentService.Instance.Cancel();
+
+            // 2. Liberar conexiones de base de datos SQLite
+            Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+
+            // 3. Borrar base de datos y archivos de datos en %LocalAppData%\BenyComes
+            var appData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+            var benyComesDir = Path.Combine(appData, "BenyComes");
+            if (Directory.Exists(benyComesDir))
+            {
+                var dbFile = Path.Combine(benyComesDir, "benycomes.db");
+                var walFile = Path.Combine(benyComesDir, "benycomes.db-wal");
+                var shmFile = Path.Combine(benyComesDir, "benycomes.db-shm");
+
+                if (File.Exists(dbFile)) File.Delete(dbFile);
+                if (File.Exists(walFile)) File.Delete(walFile);
+                if (File.Exists(shmFile)) File.Delete(shmFile);
+            }
+
+            // 4. Borrar caché de artistas en %LocalAppData%\MusicPlayer\ArtistCache
+            var artistCacheDir = Path.Combine(appData, "MusicPlayer", "ArtistCache");
+            if (Directory.Exists(artistCacheDir))
+            {
+                try
+                {
+                    Directory.Delete(artistCacheDir, true);
+                }
+                catch { }
+            }
+
+            // 5. Reiniciar la aplicación de forma limpia
+            var exePath = Environment.ProcessPath ?? System.Diagnostics.Process.GetCurrentProcess().MainModule?.FileName;
+            if (!string.IsNullOrEmpty(exePath) && File.Exists(exePath))
+            {
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = exePath,
+                    UseShellExecute = true
+                });
+            }
+
+            System.Windows.Application.Current.Shutdown();
+        }
+        catch (Exception ex)
+        {
+            System.Windows.MessageBox.Show(
+                $"Ocurrió un error al intentar restablecer la aplicación: {ex.Message}",
+                "Error en restablecimiento",
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Error);
+        }
+    }
+
     public List<OpenSourceLicenseItem> OpenSourceLicenses { get; } = new()
     {
         new OpenSourceLicenseItem

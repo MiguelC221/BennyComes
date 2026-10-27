@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using BenyComes.Data;
 using BenyComes.Models;
@@ -28,10 +29,13 @@ public class SmartMixItemModel
     public string Title { get; set; } = string.Empty;
     public string Subtitle { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
+    public string CategoryTag { get; set; } = "RECOMENDADO";
     public string SymbolName { get; set; } = "MusicNote224";
     public Wpf.Ui.Controls.SymbolRegular Symbol { get; set; } = Wpf.Ui.Controls.SymbolRegular.MusicNote224;
     public string AccentColor { get; set; } = "#FF00D26A";
     public string BadgeBackgroundColor { get; set; } = "#2600D26A";
+    public Brush CardBackgroundBrush { get; set; } = Brushes.Transparent;
+    public Brush CardBorderBrush { get; set; } = Brushes.Transparent;
     public BitmapImage? CoverImage { get; set; }
     public IRelayCommand Command { get; set; } = null!;
     public object? CommandParameter { get; set; }
@@ -209,6 +213,36 @@ public partial class HomeViewModel : ObservableObject
         BuildSmartMixCards();
     }
 
+    private static LinearGradientBrush CreateMixGradient(string hexColor)
+    {
+        var baseColor = (Color)ColorConverter.ConvertFromString(hexColor);
+        var startColor = Color.FromArgb(48, baseColor.R, baseColor.G, baseColor.B);
+        var midColor = Color.FromArgb(22, baseColor.R, baseColor.G, baseColor.B);
+        var endColor = Color.FromArgb(245, 18, 18, 24);
+
+        var brush = new LinearGradientBrush
+        {
+            StartPoint = new System.Windows.Point(0, 0),
+            EndPoint = new System.Windows.Point(1, 1),
+            GradientStops = new GradientStopCollection
+            {
+                new GradientStop(startColor, 0.0),
+                new GradientStop(midColor, 0.45),
+                new GradientStop(endColor, 1.0)
+            }
+        };
+        brush.Freeze();
+        return brush;
+    }
+
+    private static SolidColorBrush CreateBorderBrush(string hexColor)
+    {
+        var baseColor = (Color)ColorConverter.ConvertFromString(hexColor);
+        var brush = new SolidColorBrush(Color.FromArgb(85, baseColor.R, baseColor.G, baseColor.B));
+        brush.Freeze();
+        return brush;
+    }
+
     public void BuildSmartMixCards()
     {
         SmartMixes.Clear();
@@ -219,10 +253,13 @@ public partial class HomeViewModel : ObservableObject
             Title = "Tus Favoritos",
             Subtitle = "Mix de guardadas",
             Description = $"{FavoriteCount} canciones",
+            CategoryTag = "PERSONAL",
             SymbolName = "Heart24",
             Symbol = Wpf.Ui.Controls.SymbolRegular.Heart24,
-            AccentColor = "#FFE81123",
-            BadgeBackgroundColor = "#26E81123",
+            AccentColor = "#FFFF3366",
+            BadgeBackgroundColor = "#33FF3366",
+            CardBackgroundBrush = CreateMixGradient("#FFFF3366"),
+            CardBorderBrush = CreateBorderBrush("#FFFF3366"),
             Command = PlayMixFavoritesCommand
         });
 
@@ -232,10 +269,13 @@ public partial class HomeViewModel : ObservableObject
             Title = "Más Escuchadas",
             Subtitle = "Tus hits del mes",
             Description = "Las que más suenan en tu lista",
+            CategoryTag = "TENDENCIA",
             SymbolName = "Fire24",
             Symbol = Wpf.Ui.Controls.SymbolRegular.Fire24,
-            AccentColor = "#FFFF8C00",
-            BadgeBackgroundColor = "#26FF8C00",
+            AccentColor = "#FFFF8800",
+            BadgeBackgroundColor = "#33FF8800",
+            CardBackgroundBrush = CreateMixGradient("#FFFF8800"),
+            CardBorderBrush = CreateBorderBrush("#FFFF8800"),
             Command = PlayMixMonthCommand
         });
 
@@ -245,25 +285,36 @@ public partial class HomeViewModel : ObservableObject
             Title = "Joyas Olvidadas",
             Subtitle = "Redescubre temas",
             Description = "Pistas con pocas reproducciones",
+            CategoryTag = "REDESCUBRE",
             SymbolName = "Sparkle24",
             Symbol = Wpf.Ui.Controls.SymbolRegular.Sparkle24,
-            AccentColor = "#FF0078D7",
-            BadgeBackgroundColor = "#260078D7",
+            AccentColor = "#FF00B4D8",
+            BadgeBackgroundColor = "#3300B4D8",
+            CardBackgroundBrush = CreateMixGradient("#FF00B4D8"),
+            CardBorderBrush = CreateBorderBrush("#FF00B4D8"),
             Command = PlayMixGemsCommand
         });
 
         // 4. Géneros Populares
+        var genreColors = new[] { "#FF8B5CF6", "#FF10B981", "#FFEC4899", "#FF3B82F6", "#FFF59E0B" };
+        int colorIdx = 0;
         foreach (var gm in GenreMixes)
         {
+            string hex = genreColors[colorIdx % genreColors.Length];
+            colorIdx++;
+
             SmartMixes.Add(new SmartMixItemModel
             {
                 Title = gm.Title,
                 Subtitle = "Mix por género",
                 Description = $"{gm.TrackCount} canciones",
+                CategoryTag = "GÉNERO",
                 SymbolName = "MusicNote224",
                 Symbol = Wpf.Ui.Controls.SymbolRegular.MusicNote224,
-                AccentColor = "#FF107C41",
-                BadgeBackgroundColor = "#26107C41",
+                AccentColor = hex,
+                BadgeBackgroundColor = hex.Replace("#FF", "#33"),
+                CardBackgroundBrush = CreateMixGradient(hex),
+                CardBorderBrush = CreateBorderBrush(hex),
                 CoverImage = gm.CoverImage,
                 Command = PlayGenreMixCommand,
                 CommandParameter = gm.GenreName
