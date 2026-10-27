@@ -15,13 +15,19 @@ using Wpf.Ui.Controls;
 
 namespace BenyComes.ViewModels;
 
-public class SearchSuggestionItem
+public partial class SearchSuggestionItem : ObservableObject
 {
     public string Title { get; set; } = string.Empty;
     public string Subtitle { get; set; } = string.Empty;
     public string SuggestionType { get; set; } = "Search"; // "Search", "Track", "Artist", "Album"
     public object? Target { get; set; }
     public SymbolRegular Icon { get; set; } = SymbolRegular.Search24;
+    public System.Windows.Media.ImageSource? CoverImage { get; set; }
+    public bool HasCoverImage => CoverImage != null;
+    public bool IsArtist => SuggestionType == "Artist";
+
+    [ObservableProperty]
+    private bool _isSelected;
 }
 
 public partial class SearchViewModel : ObservableObject
@@ -61,6 +67,38 @@ public partial class SearchViewModel : ObservableObject
 
     [ObservableProperty]
     private bool _isSuggestionsOpen;
+
+    [ObservableProperty]
+    private bool _isSidebarSuggestionsOpen;
+
+    [ObservableProperty]
+    private bool _isPageSuggestionsOpen;
+
+    [ObservableProperty]
+    private string _activeSearchSource = string.Empty;
+
+    [ObservableProperty]
+    private int _selectedSuggestionIndex = -1;
+
+    partial void OnSelectedSuggestionIndexChanged(int value)
+    {
+        for (int i = 0; i < Suggestions.Count; i++)
+        {
+            Suggestions[i].IsSelected = (i == value);
+        }
+    }
+
+    partial void OnActiveSearchSourceChanged(string value)
+    {
+        UpdateSuggestionsPopupVisibility();
+    }
+
+    private void UpdateSuggestionsPopupVisibility()
+    {
+        bool hasSuggestions = Suggestions.Count > 0 && HasSearchQuery;
+        IsSidebarSuggestionsOpen = hasSuggestions && ActiveSearchSource == "Sidebar";
+        IsPageSuggestionsOpen = hasSuggestions && ActiveSearchSource == "Page";
+    }
 
     [ObservableProperty]
     private bool _showArtistsSection;
@@ -152,9 +190,44 @@ public partial class SearchViewModel : ObservableObject
     }
 
     [RelayCommand]
+    public void MoveSuggestionSelection(int delta)
+    {
+        if (Suggestions.Count == 0)
+        {
+            SelectedSuggestionIndex = -1;
+            return;
+        }
+
+        int newIdx = SelectedSuggestionIndex + delta;
+        if (newIdx < 0)
+        {
+            newIdx = -1;
+        }
+        else if (newIdx >= Suggestions.Count)
+        {
+            newIdx = Suggestions.Count - 1;
+        }
+
+        SelectedSuggestionIndex = newIdx;
+    }
+
+    [RelayCommand]
+    public void SelectCurrentHighlightedSuggestion()
+    {
+        if (SelectedSuggestionIndex >= 0 && SelectedSuggestionIndex < Suggestions.Count)
+        {
+            var item = Suggestions[SelectedSuggestionIndex];
+            SelectSuggestion(item);
+        }
+    }
+
+    [RelayCommand]
     public void CloseSuggestions()
     {
         IsSuggestionsOpen = false;
+        IsSidebarSuggestionsOpen = false;
+        IsPageSuggestionsOpen = false;
+        SelectedSuggestionIndex = -1;
     }
 
     [RelayCommand]
@@ -163,6 +236,8 @@ public partial class SearchViewModel : ObservableObject
         _suggestionsDebounceTimer.Stop();
         _suggestionsCts?.Cancel();
         IsSuggestionsOpen = false;
+        IsSidebarSuggestionsOpen = false;
+        IsPageSuggestionsOpen = false;
 
         string q = SearchQuery?.Trim() ?? string.Empty;
         if (string.IsNullOrWhiteSpace(q))
@@ -184,6 +259,8 @@ public partial class SearchViewModel : ObservableObject
     {
         if (item == null) return;
         IsSuggestionsOpen = false;
+        IsSidebarSuggestionsOpen = false;
+        IsPageSuggestionsOpen = false;
 
         switch (item.SuggestionType)
         {
@@ -334,7 +411,8 @@ public partial class SearchViewModel : ObservableObject
                             Subtitle = $"Álbum • {al.Artist}",
                             SuggestionType = "Album",
                             Target = al,
-                            Icon = SymbolRegular.Album24
+                            Icon = SymbolRegular.Album24,
+                            CoverImage = al.CoverImageSource
                         });
                         albumMatches++;
                     }
@@ -356,7 +434,8 @@ public partial class SearchViewModel : ObservableObject
                             Subtitle = $"Canción • {t.Artist}",
                             SuggestionType = "Track",
                             Target = t,
-                            Icon = SymbolRegular.MusicNote224
+                            Icon = SymbolRegular.MusicNote224,
+                            CoverImage = t.CoverImageSource
                         });
                         trackMatches++;
                     }
@@ -373,12 +452,17 @@ public partial class SearchViewModel : ObservableObject
                 if (string.IsNullOrWhiteSpace(SearchQuery))
                 {
                     Suggestions.Clear();
+                    SelectedSuggestionIndex = -1;
                     IsSuggestionsOpen = false;
+                    IsSidebarSuggestionsOpen = false;
+                    IsPageSuggestionsOpen = false;
                 }
                 else
                 {
+                    SelectedSuggestionIndex = -1;
                     Suggestions.ReplaceRange(suggestions);
                     IsSuggestionsOpen = suggestions.Count > 0;
+                    UpdateSuggestionsPopupVisibility();
                 }
             };
 

@@ -34,7 +34,10 @@
             <SolidColorBrush x:Key="TextTertiaryBrush" Color="#70FFFFFF" />
             <SolidColorBrush x:Key="NavPaneBackgroundBrush" Color="#14141C" />
             <SolidColorBrush x:Key="DividerBrush" Color="#18FFFFFF" />
-            <SolidColorBrush x:Key="MiniPlayerBackgroundBrush" Color="#161720" />
+            <SolidColorBrush x:Key="ScrollBarThumbBrush" Color="#66FFFFFF" />
+            <SolidColorBrush x:Key="ScrollBarThumbHoverBrush" Color="#99FFFFFF" />
+            <SolidColorBrush x:Key="ScrollBarThumbDraggingBrush" Color="#CCFFFFFF" />
+            <SolidColorBrush x:Key="MiniPlayerBackgroundBrush" Color="#1C1D24" />
             <SolidColorBrush x:Key="AccentBrush" Color="#00D26A" />
             <SolidColorBrush x:Key="SystemAccentBrush" Color="#00D26A" />
             <SolidColorBrush x:Key="AccentForegroundBrush" Color="#FFFFFF" />
@@ -294,19 +297,19 @@
                                         MinHeight="56"
                                         HorizontalAlignment="Center"
                                         CornerRadius="3"
-                                        Background="#66FFFFFF"
+                                        Background="{DynamicResource ScrollBarThumbBrush}"
                                         Margin="0,1" />
                             </Grid>
                             <ControlTemplate.Triggers>
                                 <Trigger Property="IsMouseOver" Value="True">
                                     <Setter TargetName="ThumbPill" Property="Width" Value="8" />
                                     <Setter TargetName="ThumbPill" Property="CornerRadius" Value="4" />
-                                    <Setter TargetName="ThumbPill" Property="Background" Value="#99FFFFFF" />
+                                    <Setter TargetName="ThumbPill" Property="Background" Value="{DynamicResource ScrollBarThumbHoverBrush}" />
                                 </Trigger>
                                 <Trigger Property="IsDragging" Value="True">
                                     <Setter TargetName="ThumbPill" Property="Width" Value="8" />
                                     <Setter TargetName="ThumbPill" Property="CornerRadius" Value="4" />
-                                    <Setter TargetName="ThumbPill" Property="Background" Value="#CCFFFFFF" />
+                                    <Setter TargetName="ThumbPill" Property="Background" Value="{DynamicResource ScrollBarThumbDraggingBrush}" />
                                 </Trigger>
                             </ControlTemplate.Triggers>
                         </ControlTemplate>
@@ -328,19 +331,19 @@
                                         MinWidth="56"
                                         VerticalAlignment="Center"
                                         CornerRadius="3"
-                                        Background="#66FFFFFF"
+                                        Background="{DynamicResource ScrollBarThumbBrush}"
                                         Margin="1,0" />
                             </Grid>
                             <ControlTemplate.Triggers>
                                 <Trigger Property="IsMouseOver" Value="True">
                                     <Setter TargetName="ThumbPill" Property="Height" Value="8" />
                                     <Setter TargetName="ThumbPill" Property="CornerRadius" Value="4" />
-                                    <Setter TargetName="ThumbPill" Property="Background" Value="#99FFFFFF" />
+                                    <Setter TargetName="ThumbPill" Property="Background" Value="{DynamicResource ScrollBarThumbHoverBrush}" />
                                 </Trigger>
                                 <Trigger Property="IsDragging" Value="True">
                                     <Setter TargetName="ThumbPill" Property="Height" Value="8" />
                                     <Setter TargetName="ThumbPill" Property="CornerRadius" Value="4" />
-                                    <Setter TargetName="ThumbPill" Property="Background" Value="#CCFFFFFF" />
+                                    <Setter TargetName="ThumbPill" Property="Background" Value="{DynamicResource ScrollBarThumbDraggingBrush}" />
                                 </Trigger>
                             </ControlTemplate.Triggers>
                         </ControlTemplate>

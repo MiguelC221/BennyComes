@@ -143,7 +143,7 @@
         </Style>
     </UserControl.Resources>
 
-    <Grid Margin="28,16,28,10">
+    <Grid Margin="0,16,0,10">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" /> <!-- 0. Page Title -->
             <RowDefinition Height="Auto" /> <!-- 1. Sub-tabs Selector -->
@@ -154,7 +154,7 @@
         <!-- ============================================================== -->
         <!-- ROW 0: PAGE TITLE                                              -->
         <!-- ============================================================== -->
-        <Grid Grid.Row="0" Margin="0,0,0,14">
+        <Grid Grid.Row="0" Margin="28,0,28,14">
             <Grid.Style>
                 <Style TargetType="Grid">
                     <Setter Property="Visibility" Value="Visible" />
@@ -185,7 +185,7 @@
         <!-- ============================================================== -->
         <!-- ROW 1: MODERN SUB-TABS SELECTOR                                -->
         <!-- ============================================================== -->
-        <Border Grid.Row="1" BorderBrush="{DynamicResource DividerBrush}" BorderThickness="0,0,0,1" Margin="0,0,0,16">
+        <Border Grid.Row="1" BorderBrush="{DynamicResource DividerBrush}" BorderThickness="0,0,0,1" Margin="28,0,28,16">
             <Border.Style>
                 <Style TargetType="Border">
                     <Setter Property="Visibility" Value="Visible" />
@@ -370,7 +370,7 @@
         <!-- ============================================================== -->
         <!-- ROW 2: PERSISTENT TOOLBAR (REPRODUCIR ALEATORIAMENTE + FILTROS) -->
         <!-- ============================================================== -->
-        <Grid Grid.Row="2" Margin="0,0,0,14">
+        <Grid Grid.Row="2" Margin="28,0,28,14">
             <Grid.Style>
                 <Style TargetType="Grid">
                     <Setter Property="Visibility" Value="Visible" />
@@ -434,6 +434,17 @@
 
             <!-- Filters (Right aligned) -->
             <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                <StackPanel.Style>
+                    <Style TargetType="StackPanel">
+                        <Setter Property="Visibility" Value="Visible" />
+                        <Style.Triggers>
+                            <!-- Ocultar filtros en pestaña Artistas (SelectedTabIndex == 1) -->
+                            <DataTrigger Binding="{Binding MyMusic.SelectedTabIndex}" Value="1">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </StackPanel.Style>
                 <TextBlock Text="Ordenar por:" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,8,0" />
                 <ComboBox Width="160" ItemsSource="{Binding MyMusic.SortOptions}"
                           SelectedItem="{Binding MyMusic.SelectedSort, Mode=TwoWay}"
@@ -510,7 +521,7 @@
                 </Grid.RowDefinitions>
 
                 <!-- Fixed Column Header Bar -->
-                <Grid Grid.Row="0" Margin="10,0,10,8">
+                <Grid Grid.Row="0" Margin="28,0,28,8" Visibility="{Binding MyMusic.Songs.Count, Converter={StaticResource BoolToVisConverter}}">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="56" />
                         <ColumnDefinition Width="2.5*" />
@@ -529,6 +540,7 @@
 
                 <!-- Full-Width Virtualized Songs ListView -->
                 <ListView x:Name="SongsListView" Grid.Row="1" ItemsSource="{Binding MyMusic.Songs}"
+                          Visibility="{Binding MyMusic.Songs.Count, Converter={StaticResource BoolToVisConverter}}"
                           Background="Transparent" BorderThickness="0"
                           VirtualizingPanel.IsVirtualizing="True"
                           VirtualizingPanel.IsVirtualizingWhenGrouping="True"
@@ -539,6 +551,7 @@
                           ScrollViewer.CanContentScroll="True"
                           AlternationCount="2"
                           ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                          PreviewMouseWheel="OnSongsListViewPreviewMouseWheel"
                           MouseDoubleClick="OnSongItemDoubleClick">
 
                     <ListView.GroupStyle>
@@ -548,7 +561,7 @@
                                     <Setter Property="Template">
                                         <Setter.Value>
                                             <ControlTemplate TargetType="{x:Type GroupItem}">
-                                                <StackPanel Margin="0,12,0,6">
+                                                <StackPanel Margin="28,12,28,6">
                                                     <Button Style="{StaticResource AlphaGroupHeaderButtonStyle}"
                                                             Content="{Binding Name}"
                                                             Click="OnAlphaHeaderClick" />
@@ -569,7 +582,7 @@
                             <Setter Property="FocusVisualStyle" Value="{x:Null}" />
                             <Setter Property="Background" Value="Transparent" />
                             <Setter Property="Padding" Value="0" />
-                            <Setter Property="Margin" Value="0,2" />
+                            <Setter Property="Margin" Value="28,2,28,2" />
                             <Setter Property="BorderThickness" Value="0" />
                             <Setter Property="ContextMenu" Value="{DynamicResource TrackContextMenu}" />
                             <Setter Property="Template">
@@ -676,6 +689,31 @@
                         </DataTemplate>
                     </ListView.ItemTemplate>
                 </ListView>
+
+                <!-- Empty State for Songs Tab -->
+                <Border Grid.Row="1" Visibility="{Binding MyMusic.Songs.Count, Converter={StaticResource InverseBoolToVisConverter}}"
+                        Background="{DynamicResource SurfaceCardBrush}" BorderBrush="{DynamicResource SurfaceCardBorderBrush}"
+                        BorderThickness="1" CornerRadius="12" Padding="28,36" Margin="10,20,10,20"
+                        HorizontalAlignment="Center" VerticalAlignment="Top" MaxWidth="520">
+                    <StackPanel HorizontalAlignment="Center">
+                        <Border Width="64" Height="64" CornerRadius="32" Background="#1AEAB308" HorizontalAlignment="Center" Margin="0,0,0,16">
+                            <ui:SymbolIcon Symbol="MusicNote224" FontSize="28" Foreground="#FFEAB308" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <TextBlock Text="No hay canciones por aquí todavía" FontSize="18" FontWeight="Bold"
+                                   Foreground="{DynamicResource TextPrimaryBrush}" TextAlignment="Center" Margin="0,0,0,8" />
+                        <TextBlock Text="Tu biblioteca no tiene canciones cargadas con los filtros actuales. Prueba a indexar tus carpetas de música o restablecer los filtros."
+                                   FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" TextAlignment="Center" TextWrapping="Wrap" LineHeight="20" Margin="0,0,0,20" />
+                        <ui:Button Appearance="Primary" Padding="16,8" HorizontalAlignment="Center"
+                                   Background="{Binding Theme.CurrentAccentBrush}"
+                                   Command="{Binding DataContext.NavigateToCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                   CommandParameter="Settings">
+                            <StackPanel Orientation="Horizontal">
+                                <ui:SymbolIcon Symbol="FolderAdd24" FontSize="16" Foreground="{Binding Theme.AccentForegroundBrush}" Margin="0,0,8,0" />
+                                <TextBlock Text="Indexar biblioteca en Configuración" FontWeight="Bold" Foreground="{Binding Theme.AccentForegroundBrush}" FontSize="13" />
+                            </StackPanel>
+                        </ui:Button>
+                    </StackPanel>
+                </Border>
             </Grid>
 
             <!-- ========================================================== -->
@@ -733,7 +771,7 @@
                     </Grid.RowDefinitions>
 
                     <!-- Banner no bloqueante de descarga de fotos de artistas -->
-                    <Border Grid.Row="0" Margin="0,0,0,12" Background="{DynamicResource SurfaceCardBrush}" BorderBrush="{DynamicResource SurfaceCardBorderBrush}" BorderThickness="1" CornerRadius="8" Padding="12,8"
+                    <Border Grid.Row="0" Margin="28,0,28,12" Background="{DynamicResource SurfaceCardBrush}" BorderBrush="{DynamicResource SurfaceCardBorderBrush}" BorderThickness="1" CornerRadius="8" Padding="12,8"
                             Visibility="{Binding MyMusic.IsDownloadingArtistImages, Converter={StaticResource BoolToVisConverter}}">
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                             <ui:ProgressRing Width="16" Height="16" IsIndeterminate="True" Margin="0,0,10,0" Foreground="{Binding Theme.CurrentAccentBrush}" />
@@ -743,17 +781,38 @@
 
                     <ListView Grid.Row="1" x:Name="ArtistsListView" ItemsSource="{Binding MyMusic.Artists}"
                               Background="Transparent" BorderThickness="0"
-                              VirtualizingPanel.IsVirtualizing="True"
-                              VirtualizingPanel.VirtualizationMode="Recycling"
-                              VirtualizingPanel.ScrollUnit="Pixel"
-                              VirtualizingPanel.CacheLengthUnit="Page"
-                              VirtualizingPanel.CacheLength="1,1"
-                              ScrollViewer.CanContentScroll="True"
+                              ScrollViewer.CanContentScroll="False"
                               ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                              ScrollViewer.VerticalScrollBarVisibility="Auto">
+                              ScrollViewer.VerticalScrollBarVisibility="Auto"
+                              PreviewMouseWheel="OnArtistsListViewPreviewMouseWheel">
+                        <ListView.GroupStyle>
+                            <GroupStyle>
+                                <GroupStyle.Panel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel Orientation="Horizontal" />
+                                    </ItemsPanelTemplate>
+                                </GroupStyle.Panel>
+                                <GroupStyle.ContainerStyle>
+                                    <Style TargetType="{x:Type GroupItem}">
+                                        <Setter Property="Template">
+                                            <Setter.Value>
+                                                <ControlTemplate TargetType="{x:Type GroupItem}">
+                                                    <StackPanel Margin="28,12,28,16">
+                                                        <Button Style="{StaticResource AlphaGroupHeaderButtonStyle}"
+                                                                Content="{Binding Name}"
+                                                                Click="OnAlphaHeaderClick" />
+                                                        <ItemsPresenter />
+                                                    </StackPanel>
+                                                </ControlTemplate>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </Style>
+                                </GroupStyle.ContainerStyle>
+                            </GroupStyle>
+                        </ListView.GroupStyle>
                         <ListView.ItemsPanel>
                             <ItemsPanelTemplate>
-                                <wpftk:VirtualizingWrapPanel Orientation="Horizontal" SpacingMode="None" />
+                                <WrapPanel Orientation="Horizontal" />
                             </ItemsPanelTemplate>
                         </ListView.ItemsPanel>
                         <ListView.ItemContainerStyle>
@@ -912,11 +971,85 @@
                             </DataTemplate>
                         </ListView.ItemTemplate>
                     </ListView>
+
+                    <!-- Empty State for Artists Tab -->
+                    <Border Visibility="{Binding MyMusic.Artists.Count, Converter={StaticResource InverseBoolToVisConverter}}"
+                            Background="{DynamicResource SurfaceCardBrush}" BorderBrush="{DynamicResource SurfaceCardBorderBrush}"
+                            BorderThickness="1" CornerRadius="12" Padding="28,36" Margin="10,20,10,20"
+                            HorizontalAlignment="Center" VerticalAlignment="Top" MaxWidth="520">
+                        <StackPanel HorizontalAlignment="Center">
+                            <Border Width="64" Height="64" CornerRadius="32" Background="#1A10B981" HorizontalAlignment="Center" Margin="0,0,0,16">
+                                <ui:SymbolIcon Symbol="Person24" FontSize="28" Foreground="#FF10B981" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+                            <TextBlock Text="No hay artistas por aquí todavía" FontSize="18" FontWeight="Bold"
+                                       Foreground="{DynamicResource TextPrimaryBrush}" TextAlignment="Center" Margin="0,0,0,8" />
+                            <TextBlock Text="No encontramos artistas en tu colección según los filtros activos. Añade carpetas de música para empezar a armar tu catálogo."
+                                       FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" TextAlignment="Center" TextWrapping="Wrap" LineHeight="20" Margin="0,0,0,20" />
+                            <ui:Button Appearance="Primary" Padding="16,8" HorizontalAlignment="Center"
+                                       Background="{Binding Theme.CurrentAccentBrush}"
+                                       Command="{Binding DataContext.NavigateToCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                       CommandParameter="Settings">
+                                <StackPanel Orientation="Horizontal">
+                                    <ui:SymbolIcon Symbol="FolderAdd24" FontSize="16" Foreground="{Binding Theme.AccentForegroundBrush}" Margin="0,0,8,0" />
+                                    <TextBlock Text="Indexar biblioteca en Configuración" FontWeight="Bold" Foreground="{Binding Theme.AccentForegroundBrush}" FontSize="13" />
+                                </StackPanel>
+                            </ui:Button>
+                        </StackPanel>
+                    </Border>
                 </Grid>
 
                 <!-- 2.B ARTIST DETAIL VIEW (When an artist card is clicked) -->
                 <Grid Visibility="{Binding MyMusic.SelectedArtistDetail, Converter={StaticResource NullToVisibilityConverter}}"
                       PreviewMouseWheel="OnArtistDetailPreviewMouseWheel">
+                    <Grid.RenderTransform>
+                        <TranslateTransform Y="0" />
+                    </Grid.RenderTransform>
+                    <Grid.Style>
+                        <Style TargetType="Grid">
+                            <Setter Property="Opacity" Value="0" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding MyMusic.SelectedArtistDetail, Converter={StaticResource NullToVisibilityConverter}}" Value="Visible">
+                                    <Setter Property="Opacity" Value="1" />
+                                    <DataTrigger.EnterActions>
+                                        <BeginStoryboard>
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                                 From="0.0" To="1.0" Duration="0:0:0.35">
+                                                    <DoubleAnimation.EasingFunction>
+                                                        <CubicEase EasingMode="EaseOut" />
+                                                    </DoubleAnimation.EasingFunction>
+                                                </DoubleAnimation>
+                                                <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.Y)"
+                                                                 From="-45" To="0" Duration="0:0:0.35">
+                                                    <DoubleAnimation.EasingFunction>
+                                                        <CubicEase EasingMode="EaseOut" />
+                                                    </DoubleAnimation.EasingFunction>
+                                                </DoubleAnimation>
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </DataTrigger.EnterActions>
+                                    <DataTrigger.ExitActions>
+                                        <BeginStoryboard>
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                                 To="0.0" Duration="0:0:0.25">
+                                                    <DoubleAnimation.EasingFunction>
+                                                        <CubicEase EasingMode="EaseIn" />
+                                                    </DoubleAnimation.EasingFunction>
+                                                </DoubleAnimation>
+                                                <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.Y)"
+                                                                 To="45" Duration="0:0:0.25">
+                                                    <DoubleAnimation.EasingFunction>
+                                                        <CubicEase EasingMode="EaseIn" />
+                                                    </DoubleAnimation.EasingFunction>
+                                                </DoubleAnimation>
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </DataTrigger.ExitActions>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Grid.Style>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" /> <!-- Back Button, Artist Header & View Mode Toggle -->
                         <RowDefinition Height="*" />    <!-- Content: Album-Grouped List View OR Album Covers Grid View -->
@@ -1053,23 +1186,23 @@
                                                     <ui:Button.ContextMenu>
                                                         <ContextMenu>
                                                             <MenuItem Header="Abrir galería de fotos..."
-                                                                      Command="{Binding DataContext.OpenArtistGalleryCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                                      CommandParameter="{Binding MyMusic.SelectedArtistDetail.Name}">
+                                                                      Command="{Binding Source={x:Static vm:MainViewModel.Instance}, Path=OpenArtistGalleryCommand}"
+                                                                      CommandParameter="{Binding Source={x:Static vm:MainViewModel.Instance}, Path=MyMusic.SelectedArtistDetail.Name}">
                                                                 <MenuItem.Icon>
                                                                     <ui:SymbolIcon Symbol="Image24" />
                                                                 </MenuItem.Icon>
                                                             </MenuItem>
                                                             <MenuItem Header="Elegir foto local desde explorador..."
-                                                                      Command="{Binding DataContext.ChangeArtistPhotoFromExplorerCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                                      CommandParameter="{Binding MyMusic.SelectedArtistDetail}">
+                                                                      Command="{Binding Source={x:Static vm:MainViewModel.Instance}, Path=ChangeArtistPhotoFromExplorerCommand}"
+                                                                      CommandParameter="{Binding Source={x:Static vm:MainViewModel.Instance}, Path=MyMusic.SelectedArtistDetail}">
                                                                 <MenuItem.Icon>
                                                                     <ui:SymbolIcon Symbol="FolderOpen24" />
                                                                 </MenuItem.Icon>
                                                             </MenuItem>
                                                             <Separator />
                                                             <MenuItem Header="Volver a consultar Last.fm"
-                                                                      Command="{Binding DataContext.RedownloadArtistFromLastFmCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                                      CommandParameter="{Binding MyMusic.SelectedArtistDetail}">
+                                                                      Command="{Binding Source={x:Static vm:MainViewModel.Instance}, Path=RedownloadArtistFromLastFmCommand}"
+                                                                      CommandParameter="{Binding Source={x:Static vm:MainViewModel.Instance}, Path=MyMusic.SelectedArtistDetail}">
                                                                 <MenuItem.Icon>
                                                                     <ui:SymbolIcon Symbol="ArrowSync24" />
                                                                 </MenuItem.Icon>
@@ -1640,18 +1773,9 @@
                 </Grid.Style>
 
                 <!-- 3.A ALBUM GRID (When no album detail is open) -->
-                <ListView x:Name="AlbumsListView" ItemsSource="{Binding MyMusic.Albums}"
-                          Background="Transparent" BorderThickness="0"
-                          VirtualizingPanel.IsVirtualizing="True"
-                          VirtualizingPanel.VirtualizationMode="Recycling"
-                          VirtualizingPanel.ScrollUnit="Pixel"
-                          VirtualizingPanel.CacheLengthUnit="Page"
-                          VirtualizingPanel.CacheLength="1,1"
-                          ScrollViewer.CanContentScroll="True"
-                          ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                          ScrollViewer.VerticalScrollBarVisibility="Auto">
-                    <ListView.Style>
-                        <Style TargetType="ListView">
+                <Grid>
+                    <Grid.Style>
+                        <Style TargetType="Grid">
                             <Setter Property="Visibility" Value="Visible" />
                             <Style.Triggers>
                                 <DataTrigger Binding="{Binding MyMusic.SelectedAlbumDetail, Converter={StaticResource NullToVisibilityConverter}}" Value="Visible">
@@ -1659,8 +1783,21 @@
                                 </DataTrigger>
                             </Style.Triggers>
                         </Style>
-                    </ListView.Style>
-                    <ListView.ItemsPanel>
+                    </Grid.Style>
+
+                    <ListView x:Name="AlbumsListView" ItemsSource="{Binding MyMusic.Albums}"
+                              Visibility="{Binding MyMusic.Albums.Count, Converter={StaticResource BoolToVisConverter}}"
+                              Background="Transparent" BorderThickness="0"
+                              Padding="28,0,28,0"
+                              VirtualizingPanel.IsVirtualizing="True"
+                              VirtualizingPanel.VirtualizationMode="Recycling"
+                              VirtualizingPanel.ScrollUnit="Pixel"
+                              VirtualizingPanel.CacheLengthUnit="Page"
+                              VirtualizingPanel.CacheLength="1,1"
+                              ScrollViewer.CanContentScroll="True"
+                              ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                              ScrollViewer.VerticalScrollBarVisibility="Auto">
+                        <ListView.ItemsPanel>
                         <ItemsPanelTemplate>
                             <wpftk:VirtualizingWrapPanel Orientation="Horizontal" SpacingMode="None" />
                         </ItemsPanelTemplate>
@@ -1813,13 +1950,88 @@
                     </ListView.ItemTemplate>
                 </ListView>
 
-                <!-- 3.B ALBUM DETAIL VIEW (When an album card is clicked) -->
-                <Grid Visibility="{Binding MyMusic.SelectedAlbumDetail, Converter={StaticResource NullToVisibilityConverter}}">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" /> <!-- Back Button & Header -->
-                        <RowDefinition Height="Auto" /> <!-- Column Headers -->
-                        <RowDefinition Height="*" />    <!-- Album Tracks -->
-                    </Grid.RowDefinitions>
+                <!-- Empty State for Albums Tab -->
+                <Border Visibility="{Binding MyMusic.Albums.Count, Converter={StaticResource InverseBoolToVisConverter}}"
+                        Background="{DynamicResource SurfaceCardBrush}" BorderBrush="{DynamicResource SurfaceCardBorderBrush}"
+                        BorderThickness="1" CornerRadius="12" Padding="28,36" Margin="10,20,10,20"
+                        HorizontalAlignment="Center" VerticalAlignment="Top" MaxWidth="520">
+                    <StackPanel HorizontalAlignment="Center">
+                        <Border Width="64" Height="64" CornerRadius="32" Background="#1A8B5CF6" HorizontalAlignment="Center" Margin="0,0,0,16">
+                            <ui:SymbolIcon Symbol="Album24" FontSize="28" Foreground="#FF8B5CF6" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <TextBlock Text="No hay álbumes por aquí todavía" FontSize="18" FontWeight="Bold"
+                                   Foreground="{DynamicResource TextPrimaryBrush}" TextAlignment="Center" Margin="0,0,0,8" />
+                        <TextBlock Text="No encontramos álbumes asociados a las pistas filtradas en tu biblioteca. Explora las carpetas agregadas en configuración para actualizar."
+                                   FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" TextAlignment="Center" TextWrapping="Wrap" LineHeight="20" Margin="0,0,0,20" />
+                        <ui:Button Appearance="Primary" Padding="16,8" HorizontalAlignment="Center"
+                                   Background="{Binding Theme.CurrentAccentBrush}"
+                                   Command="{Binding DataContext.NavigateToCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                   CommandParameter="Settings">
+                            <StackPanel Orientation="Horizontal">
+                                <ui:SymbolIcon Symbol="FolderAdd24" FontSize="16" Foreground="{Binding Theme.AccentForegroundBrush}" Margin="0,0,8,0" />
+                                <TextBlock Text="Indexar biblioteca en Configuración" FontWeight="Bold" Foreground="{Binding Theme.AccentForegroundBrush}" FontSize="13" />
+                            </StackPanel>
+                        </ui:Button>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <!-- 3.B ALBUM DETAIL VIEW (When an album card is clicked) -->
+            <Grid Visibility="{Binding MyMusic.SelectedAlbumDetail, Converter={StaticResource NullToVisibilityConverter}}">
+                <Grid.RenderTransform>
+                    <TranslateTransform Y="0" />
+                </Grid.RenderTransform>
+                <Grid.Style>
+                    <Style TargetType="Grid">
+                        <Setter Property="Opacity" Value="0" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding MyMusic.SelectedAlbumDetail, Converter={StaticResource NullToVisibilityConverter}}" Value="Visible">
+                                <Setter Property="Opacity" Value="1" />
+                                <DataTrigger.EnterActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                             From="0.0" To="1.0" Duration="0:0:0.35">
+                                                <DoubleAnimation.EasingFunction>
+                                                    <CubicEase EasingMode="EaseOut" />
+                                                </DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
+                                            <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.Y)"
+                                                             From="-45" To="0" Duration="0:0:0.35">
+                                                <DoubleAnimation.EasingFunction>
+                                                    <CubicEase EasingMode="EaseOut" />
+                                                </DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </DataTrigger.EnterActions>
+                                <DataTrigger.ExitActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                             To="0.0" Duration="0:0:0.25">
+                                                <DoubleAnimation.EasingFunction>
+                                                    <CubicEase EasingMode="EaseIn" />
+                                                </DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
+                                            <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.Y)"
+                                                             To="45" Duration="0:0:0.25">
+                                                <DoubleAnimation.EasingFunction>
+                                                    <CubicEase EasingMode="EaseIn" />
+                                                </DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </DataTrigger.ExitActions>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Grid.Style>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" /> <!-- Back Button & Header -->
+                    <RowDefinition Height="Auto" /> <!-- Column Headers -->
+                    <RowDefinition Height="*" />    <!-- Album Tracks -->
+                </Grid.RowDefinitions>
 
                     <StackPanel Grid.Row="0" Margin="0,0,0,16">
                         <!-- Back Button -->
@@ -1831,29 +2043,31 @@
                             </StackPanel>
                         </ui:Button>
 
-                        <!-- Ambient Hero Banner Container for Album -->
-                        <Border CornerRadius="16" Margin="0,0,0,10" MinHeight="172" ClipToBounds="True" Background="#161620" BorderBrush="{DynamicResource SurfaceCardBorderBrush}" BorderThickness="1">
+                        <!-- Ambient Hero Banner Container for Album (Dominant Accent Tint Background) -->
+                        <Border CornerRadius="16" Margin="0,0,0,10" MinHeight="172" ClipToBounds="True"
+                                Background="{Binding MyMusic.SelectedAlbumDetail.DominantHeaderBrush, FallbackValue='#161620'}"
+                                BorderBrush="{DynamicResource SurfaceCardBorderBrush}" BorderThickness="1">
                             <Grid x:Name="AlbumHeroGrid">
-                                <!-- Background Layer 0: Ambient Album Cover Image with Heavy Blur (Canvas prevents image from inflating container height) -->
+                                <!-- Background Layer 0: Subtle Ambient Glow from Cover Image -->
                                 <Canvas ClipToBounds="True">
                                     <Image Source="{Binding MyMusic.SelectedAlbumDetail.CoverImageSource}"
                                            Width="{Binding ActualWidth, ElementName=AlbumHeroGrid}"
                                            Height="{Binding ActualHeight, ElementName=AlbumHeroGrid}"
                                            Stretch="UniformToFill" HorizontalAlignment="Center" VerticalAlignment="Center"
-                                           Opacity="0.36">
+                                           Opacity="0.28">
                                         <Image.Effect>
                                             <BlurEffect Radius="65" />
                                         </Image.Effect>
                                     </Image>
                                 </Canvas>
 
-                                <!-- Background Layer 1: High-Contrast Dark Gradient Scrim -->
+                                <!-- Background Layer 1: High-Contrast Dark Bottom Vignette -->
                                 <Border>
                                     <Border.Background>
-                                        <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                                            <GradientStop Color="#D00E0E14" Offset="0.0" />
-                                            <GradientStop Color="#E60E0E14" Offset="0.55" />
-                                            <GradientStop Color="#F50A0A0E" Offset="1.0" />
+                                        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                            <GradientStop Color="#22000000" Offset="0.0" />
+                                            <GradientStop Color="#44000000" Offset="0.65" />
+                                            <GradientStop Color="#AA000000" Offset="1.0" />
                                         </LinearGradientBrush>
                                     </Border.Background>
                                 </Border>
@@ -1942,7 +2156,7 @@
                                 <Setter Property="FocusVisualStyle" Value="{x:Null}" />
                                 <Setter Property="Background" Value="Transparent" />
                                 <Setter Property="Padding" Value="0" />
-                                <Setter Property="Margin" Value="0,2" />
+                                <Setter Property="Margin" Value="28,2,28,2" />
                                 <Setter Property="BorderThickness" Value="0" />
                                 <Setter Property="ContextMenu" Value="{DynamicResource TrackContextMenu}" />
                                 <Setter Property="Template">

@@ -388,7 +388,7 @@ public partial class MyMusicViewModel : ObservableObject
 
         string syncVal = await Data.LibraryDao.Instance.GetSettingAsync("sync_artists_lastfm", "false");
         bool isSync = bool.TryParse(syncVal, out var b) && b;
-        IsLastFmArtistSyncEnabled = isSync;
+        IsLastFmArtistSyncEnabled = false; // Desactivado dentro de artistas
     }
 
     private void LoadGenresFromCache()
@@ -487,20 +487,16 @@ public partial class MyMusicViewModel : ObservableObject
             {
                 _tabSignature[2] = signature;
                 _allFilteredAlbums = _cache.GetFilteredAlbums(sortKey, SelectedGenre, string.Empty, IsSortDescending);
-                int initialCount = isAlphaAtoZ ? Math.Min(_allFilteredAlbums.Count, 60) : Math.Min(_allFilteredAlbums.Count, PageSize);
-                var targetAlbums = _allFilteredAlbums.Take(initialCount).ToList();
-                Albums.ReplaceRange(targetAlbums);
-                _loadedAlbumsCount = targetAlbums.Count;
+                Albums.ReplaceRange(_allFilteredAlbums);
+                _loadedAlbumsCount = _allFilteredAlbums.Count;
             }
 
             if (forceAll || SelectedTabIndex == 1)
             {
                 _tabSignature[1] = signature;
-                _allFilteredArtists = _cache.GetFilteredArtists(sortKey, string.Empty, IsSortDescending);
-                int initialCount = isAlphaAtoZ ? Math.Min(_allFilteredArtists.Count, 60) : Math.Min(_allFilteredArtists.Count, PageSize);
-                var targetArtists = _allFilteredArtists.Take(initialCount).ToList();
-                Artists.ReplaceRange(targetArtists);
-                _loadedArtistsCount = targetArtists.Count;
+                _allFilteredArtists = _cache.GetFilteredArtists("Nombre (A-Z)", string.Empty, false);
+                Artists.ReplaceRange(_allFilteredArtists);
+                _loadedArtistsCount = _allFilteredArtists.Count;
             }
 
             UpdateGrouping();
@@ -644,6 +640,21 @@ public partial class MyMusicViewModel : ObservableObject
                 .OrderBy(t => t.TrackNumber == 0 ? uint.MaxValue : t.TrackNumber)
                 .ThenBy(t => t.Title, StringComparer.OrdinalIgnoreCase)
                 .ToList();
+        }
+
+        if (album.DominantHeaderBrush == null && album.CoverImageSource != null)
+        {
+            try
+            {
+                var rawColor = Services.Metadata.MetadataService.ExtractDominantAccentColor(album.CoverImageSource);
+                byte r = (byte)(rawColor.R * 0.40);
+                byte g = (byte)(rawColor.G * 0.40);
+                byte b = (byte)(rawColor.B * 0.40);
+                var brush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(r, g, b));
+                brush.Freeze();
+                album.DominantHeaderBrush = brush;
+            }
+            catch { }
         }
 
         SelectedAlbumDetail = album;
@@ -916,7 +927,7 @@ public partial class MyMusicViewModel : ObservableObject
         if (SelectedTabIndex == 0)
             ApplyGroupingToCollection(Songs, shouldGroup);
         else if (SelectedTabIndex == 1)
-            ApplyGroupingToCollection(Artists, shouldGroup);
+            ApplyGroupingToCollection(Artists, true); // En Artistas siempre agrupar alfabéticamente por default
         else if (SelectedTabIndex == 2)
             ApplyGroupingToCollection(Albums, shouldGroup);
     }

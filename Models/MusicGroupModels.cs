@@ -46,6 +46,9 @@ public partial class AlbumModel : ObservableObject
     [ObservableProperty]
     private BitmapImage? _coverImage;
 
+    [ObservableProperty]
+    private System.Windows.Media.Brush? _dominantHeaderBrush;
+
     private bool _isLoadingCover;
 
     public BitmapImage? CoverImageSource
@@ -66,9 +69,11 @@ public partial class AlbumModel : ObservableObject
                         var img = LoadThumbnail(path, fallbackTrack);
                         if (img != null)
                         {
+                            var brush = ExtractHeaderBrush(img);
                             App.Current?.Dispatcher?.InvokeAsync(() =>
                             {
                                 CoverImage = img;
+                                if (brush != null) DominantHeaderBrush = brush;
                                 OnPropertyChanged(nameof(CoverImageSource));
                             }, System.Windows.Threading.DispatcherPriority.Background);
                         }
@@ -127,6 +132,27 @@ public partial class AlbumModel : ObservableObject
         }
 
         return Services.Metadata.MetadataService.Instance.GetAlbumArtImage(fallbackTrack, decodeWidth: 160);
+    }
+
+    private static System.Windows.Media.Brush? ExtractHeaderBrush(BitmapSource? image)
+    {
+        if (image == null) return null;
+        try
+        {
+            var rawColor = Services.Metadata.MetadataService.ExtractDominantAccentColor(image);
+            // Creamos un tono rico y oscuro para el fondo del banner superior (como en Groove Music / screenshot)
+            byte r = (byte)(rawColor.R * 0.40);
+            byte g = (byte)(rawColor.G * 0.40);
+            byte b = (byte)(rawColor.B * 0.40);
+            var color = System.Windows.Media.Color.FromRgb(r, g, b);
+            var brush = new System.Windows.Media.SolidColorBrush(color);
+            brush.Freeze();
+            return brush;
+        }
+        catch
+        {
+            return null;
+        }
     }
 }
 

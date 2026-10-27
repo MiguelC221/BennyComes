@@ -27,10 +27,30 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
 
         RestoreWindowBounds();
 
+        StateChanged += (s, e) =>
+        {
+            // Si el usuario desmaximiza (clic en botón Restaurar/Desmaximizar de la barra de título), asegurar salida de fullscreen
+            if (WindowState == WindowState.Normal && ViewModel.IsFullscreen)
+            {
+                ViewModel.IsFullscreen = false;
+                WindowStyle = WindowStyle.SingleBorderWindow;
+            }
+        };
+
         Loaded += (s, e) =>
         {
             App.LogMessage("MainWindow Loaded event fired");
             SetupTrackChangeFadeAnimation();
+            if (DataContext is MainViewModel vm)
+            {
+                vm.PropertyChanged += (sender, args) =>
+                {
+                    if (args.PropertyName == nameof(MainViewModel.IsNavPaneOpen))
+                    {
+                        UpdateNavPaneOverlayMode(ActualWidth);
+                    }
+                };
+            }
         };
         Closing += (s, e) =>
         {
@@ -49,23 +69,45 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
     {
         Services.Audio.AudioPlayerService.Instance.TrackChanged += (s, track) =>
         {
-            Dispatcher.InvokeAsync(() =>
+            Dispatcher.InvokeAsync(async () =>
             {
                 if (MiniPlayerBigButton != null)
                 {
-                    var fadeOut = new System.Windows.Media.Animation.DoubleAnimation(1.0, 0.0, TimeSpan.FromMilliseconds(500))
+                    // Animación estilo Groove Music (cinta deslizante hacia la derecha)
+                    var slideEaseOut = new System.Windows.Media.Animation.CubicEase { EasingMode = System.Windows.Media.Animation.EasingMode.EaseOut };
+                    var slideEaseIn = new System.Windows.Media.Animation.CubicEase { EasingMode = System.Windows.Media.Animation.EasingMode.EaseIn };
+
+                    // 1. Limpieza instantánea y salida rápida
+                    var fadeOut = new System.Windows.Media.Animation.DoubleAnimation(MiniPlayerBigButton.Opacity, 0.0, TimeSpan.FromMilliseconds(120))
                     {
-                        EasingFunction = new System.Windows.Media.Animation.CubicEase { EasingMode = System.Windows.Media.Animation.EasingMode.EaseOut }
+                        EasingFunction = slideEaseIn
                     };
-                    fadeOut.Completed += (s, ev) =>
+                    
+                    var slideRightOut = new System.Windows.Media.Animation.DoubleAnimation(0.0, 40.0, TimeSpan.FromMilliseconds(120))
                     {
-                        var fadeIn = new System.Windows.Media.Animation.DoubleAnimation(0.0, 1.0, TimeSpan.FromMilliseconds(500))
-                        {
-                            EasingFunction = new System.Windows.Media.Animation.CubicEase { EasingMode = System.Windows.Media.Animation.EasingMode.EaseOut }
-                        };
-                        MiniPlayerBigButton.BeginAnimation(OpacityProperty, fadeIn);
+                        EasingFunction = slideEaseIn
                     };
+
                     MiniPlayerBigButton.BeginAnimation(OpacityProperty, fadeOut);
+                    var currentTranslate = (MiniPlayerBigButton.Template?.FindName("MiniTrackInfoTranslate", MiniPlayerBigButton) as System.Windows.Media.TranslateTransform);
+                    currentTranslate?.BeginAnimation(System.Windows.Media.TranslateTransform.XProperty, slideRightOut);
+
+                    // 2. Breve pausa en blanco (~180ms) para que todo se limpie antes de entrar la nueva pista
+                    await Task.Delay(180);
+
+                    // 3. Entrada suave desde la izquierda estilo cinta
+                    var fadeIn = new System.Windows.Media.Animation.DoubleAnimation(0.0, 1.0, TimeSpan.FromMilliseconds(320))
+                    {
+                        EasingFunction = slideEaseOut
+                    };
+                    var slideInFromLeft = new System.Windows.Media.Animation.DoubleAnimation(-35.0, 0.0, TimeSpan.FromMilliseconds(320))
+                    {
+                        EasingFunction = slideEaseOut
+                    };
+
+                    MiniPlayerBigButton.BeginAnimation(OpacityProperty, fadeIn);
+                    var translateIn = (MiniPlayerBigButton.Template?.FindName("MiniTrackInfoTranslate", MiniPlayerBigButton) as System.Windows.Media.TranslateTransform);
+                    translateIn?.BeginAnimation(System.Windows.Media.TranslateTransform.XProperty, slideInFromLeft);
                 }
             });
         };
@@ -140,6 +182,17 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
     private const int WM_NCLBUTTONDOWN = 0xA1;
     private const int HTCAPTION = 0x2;
 
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    [return: System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.Bool)]
+    private static extern bool GetCursorPos(out POINT lpPoint);
+
+    [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
+    private struct POINT
+    {
+        public int X;
+        public int Y;
+    }
+
     private void OnTitleBarMouseDown(object sender, MouseButtonEventArgs e)
     {
         if (e.OriginalSource is DependencyObject dep && FindVisualParent<System.Windows.Controls.Primitives.ButtonBase>(dep) != null)
@@ -157,17 +210,42 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
             {
                 if (WindowState == WindowState.Maximized)
                 {
-                    // Obtener la posición del cursor respecto a la ventana antes de restaurar
-                    Point curPoint = e.GetPosition(this);
-                    double percentX = Math.Clamp(curPoint.X / Math.Max(1.0, ActualWidth), 0.05, 0.95);
+                    // Obtener la posición absoluta del cursor en pantalla mediante Win32 (coordenadas de pantalla físicas/virtuales multimonitor)
+                    double screenX = 0;
+                    double screenY = 0;
+                    if (GetCursorPos(out POINT pt))
+                    {
+                        var source = PresentationSource.FromVisual(this);
+                        if (source?.CompositionTarget != null)
+                        {
+                            var transform = source.CompositionTarget.TransformFromDevice;
+                            var wpfPt = transform.Transform(new Point(pt.X, pt.Y));
+                            screenX = wpfPt.X;
+                            screenY = wpfPt.Y;
+                        }
+                        else
+                        {
+                            screenX = pt.X;
+                            screenY = pt.Y;
+                        }
+                    }
+                    else
+                    {
+                        Point curPoint = PointToScreen(e.GetPosition(this));
+                        screenX = curPoint.X;
+                        screenY = curPoint.Y;
+                    }
+
+                    // Porcentaje horizontal donde el usuario hizo clic en la ventana maximizada
+                    Point curPointInWindow = e.GetPosition(this);
+                    double percentX = Math.Clamp(curPointInWindow.X / Math.Max(1.0, ActualWidth), 0.05, 0.95);
 
                     // Restaurar ventana
                     WindowState = WindowState.Normal;
 
-                    // Posicionar la ventana centrada proporcionalmente bajo el cursor
-                    double targetLeft = curPoint.X - (ActualWidth * percentX);
-                    Left = Math.Max(0, targetLeft);
-                    Top = Math.Max(0, curPoint.Y - 18);
+                    // Posicionar la ventana bajo el cursor en el monitor actual donde ocurrió el clic
+                    Left = screenX - (ActualWidth * percentX);
+                    Top = Math.Max(0, screenY - 18);
                 }
 
                 try
@@ -210,6 +288,68 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
             _wasNarrowWindow = false;
             vm.IsNavPaneOpen = true;
         }
+
+        UpdateNavPaneOverlayMode(e.NewSize.Width);
+    }
+
+    private void UpdateNavPaneOverlayMode(double windowWidth)
+    {
+        if (NavPaneBackdrop == null || SidebarBorder == null || SidebarColumn == null) return;
+
+        // Se considera modo móvil / estrecho cuando el ancho de la ventana es menor a 1080 px
+        bool isMobile = windowWidth < 1080;
+        ViewModel.IsMobileLayout = isMobile;
+
+        if (isMobile)
+        {
+            // MODO MÓVIL: La columna base queda fija en 48 px y la barra lateral flota con sombra y backdrop
+            SidebarColumn.Width = new GridLength(48);
+
+            if (ViewModel.IsNavPaneOpen)
+            {
+                NavPaneBackdrop.Visibility = Visibility.Visible;
+                var anim = new System.Windows.Media.Animation.DoubleAnimation(0.0, 1.0, TimeSpan.FromMilliseconds(200));
+                NavPaneBackdrop.BeginAnimation(UIElement.OpacityProperty, anim);
+                if (SidebarShadow != null)
+                {
+                    var shadowAnim = new System.Windows.Media.Animation.DoubleAnimation(0.0, 0.45, TimeSpan.FromMilliseconds(200));
+                    SidebarShadow.BeginAnimation(System.Windows.Media.Effects.DropShadowEffect.OpacityProperty, shadowAnim);
+                }
+            }
+            else
+            {
+                if (NavPaneBackdrop.Visibility == Visibility.Visible)
+                {
+                    var anim = new System.Windows.Media.Animation.DoubleAnimation(1.0, 0.0, TimeSpan.FromMilliseconds(150));
+                    anim.Completed += (s, e) => { NavPaneBackdrop.Visibility = Visibility.Collapsed; };
+                    NavPaneBackdrop.BeginAnimation(UIElement.OpacityProperty, anim);
+                }
+                if (SidebarShadow != null)
+                {
+                    var shadowAnim = new System.Windows.Media.Animation.DoubleAnimation(0.45, 0.0, TimeSpan.FromMilliseconds(150));
+                    SidebarShadow.BeginAnimation(System.Windows.Media.Effects.DropShadowEffect.OpacityProperty, shadowAnim);
+                }
+            }
+        }
+        else
+        {
+            // MODO ESCRITORIO (Fuera de móvil): La barra lateral NO es flotante.
+            // Ocupa su espacio propio en el Grid (240 px expandida, 48 px contraída) sin tapar el contenido ni mostrar backdrop
+            NavPaneBackdrop.Visibility = Visibility.Collapsed;
+            if (SidebarShadow != null)
+            {
+                SidebarShadow.Opacity = 0;
+            }
+
+            double targetWidth = ViewModel.IsNavPaneOpen ? 240 : 48;
+            SidebarColumn.Width = new GridLength(targetWidth);
+        }
+    }
+
+    private void OnNavPaneBackdropMouseDown(object sender, MouseButtonEventArgs e)
+    {
+        ViewModel.IsNavPaneOpen = false;
+        UpdateNavPaneOverlayMode(ActualWidth);
     }
 
     private void OnDismissDialogClick(object sender, MouseButtonEventArgs e)
@@ -301,6 +441,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         {
             ViewModel.SelectedTrackForContext = Services.Audio.AudioPlayerService.Instance.CurrentTrack;
             btn.ContextMenu.PlacementTarget = btn;
+            btn.ContextMenu.Placement = System.Windows.Controls.Primitives.PlacementMode.Top;
             btn.ContextMenu.IsOpen = true;
             e.Handled = true;
         }
@@ -368,8 +509,8 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
             SetSliderValueFromMousePosition(slider, e);
             _isDraggingSeek = false;
             ViewModel.NowPlaying.SeekCommand.Execute(slider.Value);
+            ViewModel.NowPlaying.IsUserSeeking = false;
         }
-        ViewModel.NowPlaying.IsUserSeeking = false;
     }
 
     private void OnSeekSliderValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
@@ -404,6 +545,18 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         {
             SetSliderValueFromMousePosition(slider, e);
             _isDraggingVolume = false;
+        }
+    }
+
+    private void OnMiniPlayerBarPreviewMouseWheel(object sender, MouseWheelEventArgs e)
+    {
+        if (ViewModel?.NowPlaying != null)
+        {
+            // Subir / Bajar volumen un 3% con la rueda del mouse en el panel principal (MiniPlayer)
+            float step = e.Delta > 0 ? 0.03f : -0.03f;
+            float newVol = Math.Clamp(ViewModel.NowPlaying.Volume + step, 0.0f, 1.0f);
+            ViewModel.NowPlaying.Volume = newVol;
+            e.Handled = true;
         }
     }
 
@@ -478,12 +631,48 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         }
     }
 
+    private void OnSidebarSearchBoxGotFocus(object sender, RoutedEventArgs e)
+    {
+        if (ViewModel?.Search != null)
+        {
+            ViewModel.Search.ActiveSearchSource = "Sidebar";
+        }
+    }
+
     private void OnSidebarSearchBoxKeyDown(object sender, KeyEventArgs e)
     {
-        if (e.Key == Key.Enter)
+        if (ViewModel?.Search == null) return;
+
+        ViewModel.Search.ActiveSearchSource = "Sidebar";
+
+        if (e.Key == Key.Down)
+        {
+            if (ViewModel.Search.IsSidebarSuggestionsOpen)
+            {
+                e.Handled = true;
+                ViewModel.Search.MoveSuggestionSelectionCommand.Execute(1);
+            }
+        }
+        else if (e.Key == Key.Up)
+        {
+            if (ViewModel.Search.IsSidebarSuggestionsOpen)
+            {
+                e.Handled = true;
+                ViewModel.Search.MoveSuggestionSelectionCommand.Execute(-1);
+            }
+        }
+        else if (e.Key == Key.Enter)
         {
             e.Handled = true;
-            ViewModel.ExecuteSearchFromHeaderCommand.Execute(null);
+            if (ViewModel.Search.IsSidebarSuggestionsOpen && ViewModel.Search.SelectedSuggestionIndex >= 0)
+            {
+                ViewModel.Search.SelectCurrentHighlightedSuggestionCommand.Execute(null);
+            }
+            else
+            {
+                ViewModel.ExecuteSearchFromHeaderCommand.Execute(null);
+            }
+
             if (sender is UIElement uie)
             {
                 uie.MoveFocus(new TraversalRequest(FocusNavigationDirection.Next));
@@ -493,6 +682,134 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         {
             e.Handled = true;
             ViewModel.Search.CloseSuggestionsCommand.Execute(null);
+        }
+    }
+
+    private void OnWindowPreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Escape) return;
+
+        // 0. Si la aplicación está en pantalla completa (Fullscreen), Esc sale inmediatamente de pantalla completa
+        if (ViewModel.IsFullscreen)
+        {
+            ViewModel.ExitFullscreen(this);
+            e.Handled = true;
+            return;
+        }
+
+        // 1. Prioridad: Diálogos modales y paneles emergentes
+        if (ViewModel.IsEqualizerOpen)
+        {
+            ViewModel.IsEqualizerOpen = false;
+            e.Handled = true;
+            return;
+        }
+
+        if (ViewModel.IsTrackPropertiesModalOpen)
+        {
+            ViewModel.IsTrackPropertiesModalOpen = false;
+            e.Handled = true;
+            return;
+        }
+
+        if (ViewModel.IsArtistGalleryModalOpen)
+        {
+            ViewModel.IsArtistGalleryModalOpen = false;
+            e.Handled = true;
+            return;
+        }
+
+        if (ViewModel.IsArtistBioModalOpen)
+        {
+            ViewModel.IsArtistBioModalOpen = false;
+            e.Handled = true;
+            return;
+        }
+
+        if (ViewModel.IsLicensesModalOpen)
+        {
+            ViewModel.CloseLicensesModal();
+            e.Handled = true;
+            return;
+        }
+
+        if (ViewModel.IsNewPlaylistDialogVisible)
+        {
+            ViewModel.CancelNewPlaylistDialog();
+            e.Handled = true;
+            return;
+        }
+
+        if (ViewModel.IsEditPlaylistDialogVisible)
+        {
+            ViewModel.CancelEditPlaylistDialog();
+            e.Handled = true;
+            return;
+        }
+
+        if (ViewModel.IsDuplicateDialogVisible)
+        {
+            ViewModel.IsDuplicateDialogVisible = false;
+            e.Handled = true;
+            return;
+        }
+
+        if (ViewModel.Settings.IsSeparatorsModalOpen)
+        {
+            ViewModel.Settings.CloseSeparatorsModal();
+            e.Handled = true;
+            return;
+        }
+
+        if (ViewModel.Settings.IsExceptionsModalOpen)
+        {
+            ViewModel.Settings.CloseExceptionsModal();
+            e.Handled = true;
+            return;
+        }
+
+        if (ViewModel.Settings.IsLibraryFoldersModalOpen)
+        {
+            ViewModel.Settings.CloseLibraryFoldersModal();
+            e.Handled = true;
+            return;
+        }
+
+        if (ViewModel.IsDeviceSelectorOpen)
+        {
+            ViewModel.IsDeviceSelectorOpen = false;
+            e.Handled = true;
+            return;
+        }
+
+        if (ViewModel.IsQueueDrawerOpen)
+        {
+            ViewModel.IsQueueDrawerOpen = false;
+            e.Handled = true;
+            return;
+        }
+
+        if (ViewModel.Search.IsSidebarSuggestionsOpen)
+        {
+            ViewModel.Search.CloseSuggestionsCommand.Execute(null);
+            e.Handled = true;
+            return;
+        }
+
+        // 2. Si está en pantalla inmersiva (Reproducción en curso), salir a la biblioteca
+        if (ViewModel.IsNowPlayingActive)
+        {
+            ViewModel.CloseNowPlaying();
+            e.Handled = true;
+            return;
+        }
+
+        // 3. Volver atrás en el historial de navegación si está disponible
+        if (ViewModel.CanGoBack)
+        {
+            ViewModel.GoBack();
+            e.Handled = true;
+            return;
         }
     }
 

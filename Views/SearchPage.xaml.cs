@@ -70,15 +70,48 @@ public partial class SearchPage : UserControl
         }
     }
 
+    private void OnPageSearchBoxGotFocus(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is MainViewModel vm)
+        {
+            vm.Search.ActiveSearchSource = "Page";
+        }
+    }
+
     private void OnPageSearchBoxKeyDown(object sender, KeyEventArgs e)
     {
-        if (e.Key == Key.Enter)
+        if (DataContext is not MainViewModel vm) return;
+
+        vm.Search.ActiveSearchSource = "Page";
+
+        if (e.Key == Key.Down)
+        {
+            if (vm.Search.IsPageSuggestionsOpen)
+            {
+                e.Handled = true;
+                vm.Search.MoveSuggestionSelectionCommand.Execute(1);
+            }
+        }
+        else if (e.Key == Key.Up)
+        {
+            if (vm.Search.IsPageSuggestionsOpen)
+            {
+                e.Handled = true;
+                vm.Search.MoveSuggestionSelectionCommand.Execute(-1);
+            }
+        }
+        else if (e.Key == Key.Enter)
         {
             e.Handled = true;
-            if (DataContext is MainViewModel vm)
+            if (vm.Search.IsPageSuggestionsOpen && vm.Search.SelectedSuggestionIndex >= 0)
+            {
+                vm.Search.SelectCurrentHighlightedSuggestionCommand.Execute(null);
+            }
+            else
             {
                 _ = vm.Search.ExecuteFullSearchAsync();
             }
+
             if (sender is UIElement uie)
             {
                 uie.MoveFocus(new TraversalRequest(FocusNavigationDirection.Next));
@@ -87,10 +120,7 @@ public partial class SearchPage : UserControl
         else if (e.Key == Key.Escape)
         {
             e.Handled = true;
-            if (DataContext is MainViewModel vm)
-            {
-                vm.Search.CloseSuggestionsCommand.Execute(null);
-            }
+            vm.Search.CloseSuggestionsCommand.Execute(null);
         }
     }
 }

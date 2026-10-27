@@ -961,12 +961,30 @@ public class AudioPlayerService
             if (targetTime < TimeSpan.Zero) targetTime = TimeSpan.Zero;
             if (targetTime > _currentReader.TotalTime) targetTime = _currentReader.TotalTime;
 
-            _currentReader.CurrentTime = targetTime;
+            // Direct byte-aligned seek when possible to prevent MediaFoundation/VBR rounding down to 0
+            if (_currentReader.WaveFormat != null && _currentReader.WaveFormat.AverageBytesPerSecond > 0)
+            {
+                long targetBytePos = (long)(targetTime.TotalSeconds * _currentReader.WaveFormat.AverageBytesPerSecond);
+                int blockAlign = Math.Max(1, _currentReader.WaveFormat.BlockAlign);
+                targetBytePos -= (targetBytePos % blockAlign);
+                _currentReader.Position = Math.Clamp(targetBytePos, 0, _currentReader.Length);
+            }
+            else
+            {
+                _currentReader.CurrentTime = targetTime;
+            }
+
             PositionChanged?.Invoke(this, targetTime);
         }
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"Seek failed: {ex.Message}");
+            try
+            {
+                _currentReader.CurrentTime = targetTime;
+                PositionChanged?.Invoke(this, targetTime);
+            }
+            catch { }
         }
         finally
         {

@@ -62,6 +62,9 @@ public partial class MainViewModel : ObservableObject
     private bool _isNavPaneOpen = true;
 
     [ObservableProperty]
+    private bool _isMobileLayout = false;
+
+    [ObservableProperty]
     private bool _isQueueDrawerOpen;
 
     [ObservableProperty]
@@ -492,6 +495,7 @@ public partial class MainViewModel : ObservableObject
         else if (viewName == "Settings")
         {
             _ = Settings.LoadFoldersAsync();
+            Settings.TriggerLibraryFolderHighlight();
         }
 
         var dispatcher = System.Windows.Application.Current?.Dispatcher;
@@ -616,6 +620,20 @@ public partial class MainViewModel : ObservableObject
     }
 
     [RelayCommand]
+    public void EnterFullscreenAndNowPlaying()
+    {
+        var window = Application.Current?.MainWindow;
+        if (window != null && !IsFullscreen)
+        {
+            IsFullscreen = true;
+            window.WindowState = WindowState.Normal;
+            window.WindowStyle = WindowStyle.None;
+            window.WindowState = WindowState.Maximized;
+        }
+        IsNowPlayingActive = true;
+    }
+
+    [RelayCommand]
     private void ToggleFullscreen(Window? window = null)
     {
         window ??= Application.Current?.MainWindow;
@@ -630,6 +648,19 @@ public partial class MainViewModel : ObservableObject
         }
         else
         {
+            window.WindowStyle = WindowStyle.SingleBorderWindow;
+            window.WindowState = WindowState.Normal;
+        }
+    }
+
+    public void ExitFullscreen(Window? window = null)
+    {
+        window ??= Application.Current?.MainWindow;
+        if (window == null) return;
+
+        if (IsFullscreen)
+        {
+            IsFullscreen = false;
             window.WindowStyle = WindowStyle.SingleBorderWindow;
             window.WindowState = WindowState.Normal;
         }
@@ -1305,6 +1336,53 @@ public partial class MainViewModel : ObservableObject
         }
         _pendingTrackForNewPlaylist = null;
         await OpenPlaylistDetailAsync(created);
+    }
+
+    [RelayCommand]
+    public async Task CreateSuggestedPlaylistAsync(string? suggestionType)
+    {
+        string name;
+        List<Track>? tracks = null;
+
+        if (suggestionType == "Favorites")
+        {
+            name = "Mis Favoritas";
+            tracks = await _libraryDao.GetFavoriteTracksAsync();
+            if (tracks.Count == 0)
+            {
+                // Si aún no tiene favoritas marcadas, tomamos hasta 15 canciones de la biblioteca
+                tracks = MyMusic.Songs.Take(15).ToList();
+            }
+        }
+        else if (suggestionType == "Chill")
+        {
+            name = "Relax & Chill";
+            tracks = MyMusic.Songs.Take(10).ToList();
+        }
+        else
+        {
+            name = $"Mi Lista {Playlists.Playlists.Count + 1}";
+            tracks = MyMusic.Songs.Take(10).ToList();
+        }
+
+        var created = await PlaylistDao.Instance.CreatePlaylistAsync(name, tracks);
+        Playlists.Playlists.Add(created);
+        ShowToast("Lista de reproducción", $"Lista sugerida \"{name}\" creada.", false, 3000);
+        await OpenPlaylistDetailAsync(created);
+    }
+
+    [RelayCommand]
+    public async Task NavigateToPlaylistsViewAsync()
+    {
+        if (Playlists.Playlists.Count > 0)
+        {
+            var target = SelectedPlaylistForDetail ?? Playlists.Playlists[0];
+            await OpenPlaylistDetailAsync(target);
+        }
+        else
+        {
+            OpenCreatePlaylistDialog(null);
+        }
     }
 
     // Edit Playlist Modal Dialog

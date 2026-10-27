@@ -66,6 +66,14 @@ public partial class NowPlayingView : UserControl
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
         _hudInactivityTimer.Start();
+        SizeChanged -= OnNowPlayingViewSizeChanged;
+        SizeChanged += OnNowPlayingViewSizeChanged;
+
+        if (CustomizationPopup != null)
+        {
+            CustomizationPopup.Opened -= OnCustomizationPopupOpened;
+            CustomizationPopup.Opened += OnCustomizationPopupOpened;
+        }
 
         if (DataContext is MainViewModel vm && vm.NowPlaying != null)
         {
@@ -126,11 +134,22 @@ public partial class NowPlayingView : UserControl
         BottomHudControlsContainer.IsHitTestVisible = false;
         TechBadgesPanel.IsHitTestVisible = false;
 
-        // Al estar inactivo el mouse, subir suavemente unos píxeles el bloque único (carátula, canción, artista, álbum y visualizador)
+        // Al estar inactivo el mouse, acomodar suavemente hacia abajo el bloque único y los visualizadores alternativos
         double hudRowHeight = NormalImmersiveContainer.RowDefinitions[1].ActualHeight;
         double trackLift = Math.Max(0, hudRowHeight - 28.0);
         TrackInfoTranslate.BeginAnimation(TranslateTransform.YProperty,
             new DoubleAnimation(TrackInfoTranslate.Y, trackLift, moveDuration) { EasingFunction = easeInOut });
+
+        if (VisualizerCenterTranslate != null)
+        {
+            VisualizerCenterTranslate.BeginAnimation(TranslateTransform.YProperty,
+                new DoubleAnimation(VisualizerCenterTranslate.Y, trackLift, moveDuration) { EasingFunction = easeInOut });
+        }
+        if (VisualizerRightTranslate != null)
+        {
+            VisualizerRightTranslate.BeginAnimation(TranslateTransform.YProperty,
+                new DoubleAnimation(VisualizerRightTranslate.Y, trackLift, moveDuration) { EasingFunction = easeInOut });
+        }
     }
 
     private void FadeInHud()
@@ -151,6 +170,15 @@ public partial class NowPlayingView : UserControl
         // Restore track info container smoothly to original position
         var restoreTrackInfo = new DoubleAnimation(0.0, returnDuration) { EasingFunction = ease };
         TrackInfoTranslate.BeginAnimation(TranslateTransform.YProperty, restoreTrackInfo);
+
+        if (VisualizerCenterTranslate != null)
+        {
+            VisualizerCenterTranslate.BeginAnimation(TranslateTransform.YProperty, restoreTrackInfo);
+        }
+        if (VisualizerRightTranslate != null)
+        {
+            VisualizerRightTranslate.BeginAnimation(TranslateTransform.YProperty, restoreTrackInfo);
+        }
     }
 
     private void OnMainViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -554,6 +582,17 @@ public partial class NowPlayingView : UserControl
         }
     }
 
+    private void OnVolumeAreaPreviewMouseWheel(object sender, System.Windows.Input.MouseWheelEventArgs e)
+    {
+        if (DataContext is MainViewModel vm)
+        {
+            float step = e.Delta > 0 ? 0.03f : -0.03f;
+            float newVol = Math.Clamp(vm.NowPlaying.Volume + step, 0.0f, 1.0f);
+            vm.NowPlaying.Volume = newVol;
+            e.Handled = true;
+        }
+    }
+
     private void OnQueueItemDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
     {
         if (e.OriginalSource is DependencyObject dep && FindVisualParent<System.Windows.Controls.Primitives.ButtonBase>(dep) != null)
@@ -584,6 +623,31 @@ public partial class NowPlayingView : UserControl
         {
             vm.Queue.PlayTrackCommand.Execute(track);
         }
+    }
+
+    private void OnCustomizationPopupOpened(object? sender, EventArgs e)
+    {
+        UpdateCustomizationFlyoutMaxHeight();
+    }
+
+    private void OnNowPlayingViewSizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        UpdateCustomizationFlyoutMaxHeight();
+    }
+
+    private void UpdateCustomizationFlyoutMaxHeight()
+    {
+        if (CustomizationScrollViewer == null) return;
+        double availableHeight = ActualHeight;
+        if (availableHeight <= 0)
+        {
+            var win = Window.GetWindow(this);
+            if (win != null) availableHeight = win.ActualHeight;
+        }
+
+        // Dejar margen superior e inferior (~120px) para que el flyout no desborde la ventana
+        double maxContentHeight = Math.Max(180, availableHeight - 120);
+        CustomizationScrollViewer.MaxHeight = maxContentHeight;
     }
 
     private static T? FindVisualParent<T>(DependencyObject? child) where T : DependencyObject

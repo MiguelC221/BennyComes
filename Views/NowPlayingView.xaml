@@ -108,13 +108,18 @@
                        StaysOpen="False"
                        AllowsTransparency="True">
                     <Border Background="#E6181820" BorderBrush="#33FFFFFF" BorderThickness="1"
-                            CornerRadius="12" Padding="18" Width="340">
+                            CornerRadius="12" Padding="18,14,14,14" Width="340">
                         <Border.Effect>
                             <DropShadowEffect BlurRadius="24" ShadowDepth="6" Opacity="0.6" Direction="270" Color="#000000" />
                         </Border.Effect>
-                        <StackPanel>
-                            <!-- Header -->
-                            <Grid Margin="0,0,0,14">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+
+                            <!-- Header fijo con título y botón de cerrar -->
+                            <Grid Grid.Row="0" Margin="0,0,0,12">
                                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                     <ui:SymbolIcon Symbol="Color24" FontSize="18" Foreground="{Binding Theme.CurrentAccentBrush}" Margin="0,0,8,0" />
                                     <TextBlock Text="Personalización" FontSize="14" FontWeight="Bold" Foreground="#FFFFFF" VerticalAlignment="Center" />
@@ -126,197 +131,216 @@
                                 </ui:Button>
                             </Grid>
 
-                            <!-- 1. Usar imagen del artista en el fondo (Label antes del switch, switch a la derecha) -->
-                            <Grid Margin="0,0,0,12">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-                                <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,10,0">
-                                    <TextBlock Text="Imagen del artista" FontWeight="SemiBold" FontSize="12" Foreground="#FFFFFF" />
-                                    <TextBlock Text="Usar fotos del artista en el fondo" FontSize="11" Foreground="#99FFFFFF" TextWrapping="Wrap" />
-                                </StackPanel>
-                                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Right">
-                                    <TextBlock VerticalAlignment="Center" Margin="0,0,8,0" FontSize="11" Foreground="#99FFFFFF">
-                                        <TextBlock.Style>
-                                            <Style TargetType="TextBlock">
-                                                <Setter Property="Text" Value="Desactivado" />
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding NowPlaying.UseArtistBackground}" Value="True">
-                                                        <Setter Property="Text" Value="Activado" />
-                                                        <Setter Property="Foreground" Value="{Binding Theme.CurrentAccentBrush}" />
-                                                        <Setter Property="FontWeight" Value="SemiBold" />
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </TextBlock.Style>
-                                    </TextBlock>
-                                    <ui:ToggleSwitch IsChecked="{Binding NowPlaying.UseArtistBackground, Mode=TwoWay}"
-                                                     OffContent="" OnContent=""
-                                                     VerticalAlignment="Center" />
-                                </StackPanel>
-                            </Grid>
+                            <!-- Contenido con ScrollViewer para que no se salga de la pantalla -->
+                            <ScrollViewer x:Name="CustomizationScrollViewer" Grid.Row="1"
+                                          VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                                          Padding="0,0,4,0">
+                                <StackPanel>
+                                    <!-- 1. Usar imagen del artista en el fondo (Label antes del switch, switch a la derecha) -->
+                                    <Grid Margin="0,0,0,12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,10,0">
+                                            <TextBlock Text="Imagen del artista" FontWeight="SemiBold" FontSize="12" Foreground="#FFFFFF" />
+                                            <TextBlock Text="Usar fotos del artista en el fondo" FontSize="11" Foreground="#99FFFFFF" TextWrapping="Wrap" />
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Right">
+                                            <TextBlock VerticalAlignment="Center" Margin="0,0,8,0" FontSize="11" Foreground="#99FFFFFF">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="Text" Value="Desactivado" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding NowPlaying.UseArtistBackground}" Value="True">
+                                                                <Setter Property="Text" Value="Activado" />
+                                                                <Setter Property="Foreground" Value="{Binding Theme.CurrentAccentBrush}" />
+                                                                <Setter Property="FontWeight" Value="SemiBold" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                            <ui:ToggleSwitch IsChecked="{Binding NowPlaying.UseArtistBackground, Mode=TwoWay}"
+                                                             OffContent="" OnContent=""
+                                                             VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </Grid>
 
-                            <!-- Interruptor: Ver siempre la imagen de artista (Visible cuando haya imagen de artista disponible) -->
-                            <Grid Margin="0,0,0,12" Visibility="{Binding NowPlaying.HasAvailableArtistImage, Converter={StaticResource BoolToVisConverter}}">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-                                <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,10,0">
-                                    <TextBlock Text="Ver siempre la imagen de artista" FontWeight="SemiBold" FontSize="12" Foreground="#FFFFFF" />
-                                    <TextBlock Text="Limita el difuminado hasta 4 px y el oscurecimiento al 30%" FontSize="11" Foreground="#99FFFFFF" TextWrapping="Wrap" />
-                                </StackPanel>
-                                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Right">
-                                    <TextBlock VerticalAlignment="Center" Margin="0,0,8,0" FontSize="11" Foreground="#99FFFFFF">
-                                        <TextBlock.Style>
-                                            <Style TargetType="TextBlock">
-                                                <Setter Property="Text" Value="Desactivado" />
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding NowPlaying.AlwaysShowArtistImage}" Value="True">
-                                                        <Setter Property="Text" Value="Activado" />
-                                                        <Setter Property="Foreground" Value="{Binding Theme.CurrentAccentBrush}" />
-                                                        <Setter Property="FontWeight" Value="SemiBold" />
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </TextBlock.Style>
-                                    </TextBlock>
-                                    <ui:ToggleSwitch IsChecked="{Binding NowPlaying.AlwaysShowArtistImage, Mode=TwoWay}"
-                                                     OffContent="" OnContent=""
-                                                     VerticalAlignment="Center" />
-                                </StackPanel>
-                            </Grid>
+                                    <!-- Interruptor: Ver siempre la imagen de artista (Visible cuando haya imagen de artista disponible) -->
+                                    <Grid Margin="0,0,0,12" Visibility="{Binding NowPlaying.HasAvailableArtistImage, Converter={StaticResource BoolToVisConverter}}">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,10,0">
+                                            <TextBlock Text="Ver siempre la imagen de artista" FontWeight="SemiBold" FontSize="12" Foreground="#FFFFFF" />
+                                            <TextBlock Text="Limita el difuminado hasta 4 px y el oscurecimiento al 30%" FontSize="11" Foreground="#99FFFFFF" TextWrapping="Wrap" />
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Right">
+                                            <TextBlock VerticalAlignment="Center" Margin="0,0,8,0" FontSize="11" Foreground="#99FFFFFF">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="Text" Value="Desactivado" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding NowPlaying.AlwaysShowArtistImage}" Value="True">
+                                                                <Setter Property="Text" Value="Activado" />
+                                                                <Setter Property="Foreground" Value="{Binding Theme.CurrentAccentBrush}" />
+                                                                <Setter Property="FontWeight" Value="SemiBold" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                            <ui:ToggleSwitch IsChecked="{Binding NowPlaying.AlwaysShowArtistImage, Mode=TwoWay}"
+                                                             OffContent="" OnContent=""
+                                                             VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </Grid>
 
-                            <!-- Multi-Artist Collaboration Selector (Visible if song has multiple artists) -->
-                            <StackPanel Margin="0,0,0,12" Visibility="{Binding NowPlaying.HasCollaborationArtists, Converter={StaticResource BoolToVisConverter}}">
-                                <TextBlock Text="Descargar / Usar imágenes de:" FontSize="11" Foreground="#CCCCCC" Margin="0,0,0,4" FontWeight="SemiBold" />
-                                <ComboBox ItemsSource="{Binding NowPlaying.CollaborationArtists}"
-                                          SelectedItem="{Binding NowPlaying.SelectedCollaborationArtist, Mode=TwoWay}"
-                                          HorizontalAlignment="Stretch" />
-                            </StackPanel>
-
-                            <!-- 2. Seleccionar imagen de artista -->
-                            <ui:Button Margin="0,0,0,8" HorizontalAlignment="Stretch" Padding="10,7"
-                                       Command="{Binding OpenArtistGalleryCommand}"
-                                       ToolTip="Ver y seleccionar fotos disponibles del artista">
-                                <Grid HorizontalAlignment="Stretch">
-                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                        <ui:SymbolIcon Symbol="ImageMultiple24" FontSize="16" Foreground="{Binding Theme.CurrentAccentBrush}" Margin="0,0,8,0" />
-                                        <TextBlock Text="Seleccionar imagen de artista" FontSize="12" FontWeight="SemiBold" Foreground="#FFFFFF" />
+                                    <!-- Multi-Artist Collaboration Selector (Visible if song has multiple artists) -->
+                                    <StackPanel Margin="0,0,0,12" Visibility="{Binding NowPlaying.HasCollaborationArtists, Converter={StaticResource BoolToVisConverter}}">
+                                        <TextBlock Text="Descargar / Usar imágenes de:" FontSize="11" Foreground="#CCCCCC" Margin="0,0,0,4" FontWeight="SemiBold" />
+                                        <ComboBox ItemsSource="{Binding NowPlaying.CollaborationArtists}"
+                                                  SelectedItem="{Binding NowPlaying.SelectedCollaborationArtist, Mode=TwoWay}"
+                                                  HorizontalAlignment="Stretch" />
                                     </StackPanel>
-                                </Grid>
-                            </ui:Button>
 
-                            <!-- 2.b Siguiente imagen de artista -->
-                            <ui:Button Margin="0,0,0,14" HorizontalAlignment="Stretch" Padding="10,7"
-                                       Command="{Binding NowPlaying.NextArtistImageCommand}"
-                                       IsEnabled="{Binding NowPlaying.UseArtistBackground}"
-                                       ToolTip="Cambiar de inmediato a la siguiente foto del artista">
-                                <Grid HorizontalAlignment="Stretch">
-                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                        <ui:SymbolIcon Symbol="Next24" FontSize="16" Foreground="{Binding Theme.CurrentAccentBrush}" Margin="0,0,8,0" />
-                                        <TextBlock Text="Siguiente imagen de artista" FontSize="12" FontWeight="SemiBold" Foreground="#FFFFFF" />
+                                    <!-- 2. Seleccionar imagen de artista -->
+                                    <ui:Button Margin="0,0,0,8" HorizontalAlignment="Stretch" Padding="10,7"
+                                               Command="{Binding OpenArtistGalleryCommand}"
+                                               ToolTip="Ver y seleccionar fotos disponibles del artista">
+                                        <Grid HorizontalAlignment="Stretch">
+                                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                <ui:SymbolIcon Symbol="ImageMultiple24" FontSize="16" Foreground="{Binding Theme.CurrentAccentBrush}" Margin="0,0,8,0" />
+                                                <TextBlock Text="Seleccionar imagen de artista" FontSize="12" FontWeight="SemiBold" Foreground="#FFFFFF" />
+                                            </StackPanel>
+                                        </Grid>
+                                    </ui:Button>
+
+                                    <!-- 2.b Siguiente imagen de artista -->
+                                    <ui:Button Margin="0,0,0,14" HorizontalAlignment="Stretch" Padding="10,7"
+                                               Command="{Binding NowPlaying.NextArtistImageCommand}"
+                                               IsEnabled="{Binding NowPlaying.UseArtistBackground}"
+                                               ToolTip="Cambiar de inmediato a la siguiente foto del artista">
+                                        <Grid HorizontalAlignment="Stretch">
+                                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                <ui:SymbolIcon Symbol="Next24" FontSize="16" Foreground="{Binding Theme.CurrentAccentBrush}" Margin="0,0,8,0" />
+                                                <TextBlock Text="Siguiente imagen de artista" FontSize="12" FontWeight="SemiBold" Foreground="#FFFFFF" />
+                                            </StackPanel>
+                                        </Grid>
+                                    </ui:Button>
+
+                                    <Separator Background="#22FFFFFF" Margin="0,0,0,12" />
+
+                                    <!-- 3. Intensidad del difuminado (Blur) -->
+                                    <StackPanel Margin="0,0,0,12">
+                                        <Grid Margin="0,0,0,4">
+                                            <TextBlock Text="Intensidad de difuminado (Blur)" FontSize="12" FontWeight="SemiBold" Foreground="#FFFFFF" />
+                                            <TextBlock Text="{Binding NowPlaying.BackgroundBlurRadius, StringFormat='{}{0:F0} px'}"
+                                                       HorizontalAlignment="Right" FontSize="12" Foreground="{Binding Theme.CurrentAccentBrush}" FontWeight="Bold" />
+                                        </Grid>
+                                        <Slider Minimum="0" Maximum="{Binding NowPlaying.MaxBlurRadius, FallbackValue=80}" SmallChange="1" LargeChange="5"
+                                                Value="{Binding NowPlaying.BackgroundBlurRadius, Mode=TwoWay}"
+                                                ValueChanged="OnBlurSliderValueChanged" />
                                     </StackPanel>
-                                </Grid>
-                            </ui:Button>
 
-                            <Separator Background="#22FFFFFF" Margin="0,0,0,12" />
+                                    <!-- 4. Slider de Oscurecimiento del Fondo (10% a 90%) -->
+                                    <StackPanel Margin="0,0,0,12">
+                                        <Grid Margin="0,0,0,4">
+                                            <TextBlock Text="Oscurecimiento del fondo" FontSize="12" FontWeight="SemiBold" Foreground="#FFFFFF" />
+                                            <TextBlock Text="{Binding NowPlaying.BackgroundDarkness, StringFormat='{}{0:P0}'}"
+                                                       HorizontalAlignment="Right" FontSize="12" Foreground="{Binding Theme.CurrentAccentBrush}" FontWeight="Bold" />
+                                        </Grid>
+                                        <Slider Minimum="0.10" Maximum="{Binding NowPlaying.MaxDarkness, FallbackValue=0.90}" SmallChange="0.05" LargeChange="0.10"
+                                                Value="{Binding NowPlaying.BackgroundDarkness, Mode=TwoWay}"
+                                                ValueChanged="OnDarknessSliderValueChanged" />
+                                    </StackPanel>
 
-                            <!-- 3. Intensidad del difuminado (Blur) -->
-                            <StackPanel Margin="0,0,0,12">
-                                <Grid Margin="0,0,0,4">
-                                    <TextBlock Text="Intensidad de difuminado (Blur)" FontSize="12" FontWeight="SemiBold" Foreground="#FFFFFF" />
-                                    <TextBlock Text="{Binding NowPlaying.BackgroundBlurRadius, StringFormat='{}{0:F0} px'}"
-                                               HorizontalAlignment="Right" FontSize="12" Foreground="{Binding Theme.CurrentAccentBrush}" FontWeight="Bold" />
-                                </Grid>
-                                <Slider Minimum="0" Maximum="{Binding NowPlaying.MaxBlurRadius, FallbackValue=80}" SmallChange="1" LargeChange="5"
-                                        Value="{Binding NowPlaying.BackgroundBlurRadius, Mode=TwoWay}"
-                                        ValueChanged="OnBlurSliderValueChanged" />
-                            </StackPanel>
+                                    <!-- 5. Slider de Duración por Foto de Artista (15s a 90s) -->
+                                    <StackPanel Margin="0,0,0,14">
+                                        <Grid Margin="0,0,0,4">
+                                            <TextBlock Text="Duración por foto de artista" FontSize="12" FontWeight="SemiBold" Foreground="#FFFFFF" />
+                                            <TextBlock Text="{Binding NowPlaying.ArtistImageIntervalSeconds, StringFormat='{}{0} s'}"
+                                                       HorizontalAlignment="Right" FontSize="12" Foreground="{Binding Theme.CurrentAccentBrush}" FontWeight="Bold" />
+                                        </Grid>
+                                        <Slider Minimum="15" Maximum="90" SmallChange="5" LargeChange="15"
+                                                IsSnapToTickEnabled="True" TickFrequency="5"
+                                                Value="{Binding NowPlaying.ArtistImageIntervalSeconds, Mode=TwoWay}" />
+                                    </StackPanel>
 
-                            <!-- 4. Slider de Oscurecimiento del Fondo (10% a 90%) -->
-                            <StackPanel Margin="0,0,0,12">
-                                <Grid Margin="0,0,0,4">
-                                    <TextBlock Text="Oscurecimiento del fondo" FontSize="12" FontWeight="SemiBold" Foreground="#FFFFFF" />
-                                    <TextBlock Text="{Binding NowPlaying.BackgroundDarkness, StringFormat='{}{0:P0}'}"
-                                               HorizontalAlignment="Right" FontSize="12" Foreground="{Binding Theme.CurrentAccentBrush}" FontWeight="Bold" />
-                                </Grid>
-                                <Slider Minimum="0.10" Maximum="{Binding NowPlaying.MaxDarkness, FallbackValue=0.90}" SmallChange="0.05" LargeChange="0.10"
-                                        Value="{Binding NowPlaying.BackgroundDarkness, Mode=TwoWay}"
-                                        ValueChanged="OnDarknessSliderValueChanged" />
-                            </StackPanel>
+                                    <Separator Background="#22FFFFFF" Margin="0,0,0,12" />
 
-                            <!-- 5. Slider de Duración por Foto de Artista (15s a 90s) -->
-                            <StackPanel Margin="0,0,0,14">
-                                <Grid Margin="0,0,0,4">
-                                    <TextBlock Text="Duración por foto de artista" FontSize="12" FontWeight="SemiBold" Foreground="#FFFFFF" />
-                                    <TextBlock Text="{Binding NowPlaying.ArtistImageIntervalSeconds, StringFormat='{}{0} s'}"
-                                               HorizontalAlignment="Right" FontSize="12" Foreground="{Binding Theme.CurrentAccentBrush}" FontWeight="Bold" />
-                                </Grid>
-                                <Slider Minimum="15" Maximum="90" SmallChange="5" LargeChange="15"
-                                        IsSnapToTickEnabled="True" TickFrequency="5"
-                                        Value="{Binding NowPlaying.ArtistImageIntervalSeconds, Mode=TwoWay}" />
-                            </StackPanel>
+                                    <!-- 6. Visualizador de audio (Label antes del switch, switch a la derecha) -->
+                                    <Grid Margin="0,0,0,10">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <TextBlock Text="Visualizador de audio" FontWeight="SemiBold" FontSize="12" Foreground="#FFFFFF" />
+                                            <TextBlock Text="Reactivo a las frecuencias" FontSize="11" Foreground="#99FFFFFF" />
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Right">
+                                            <TextBlock VerticalAlignment="Center" Margin="0,0,8,0" FontSize="11" Foreground="#99FFFFFF">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="Text" Value="Desactivado" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding NowPlaying.IsVisualizerActive}" Value="True">
+                                                                <Setter Property="Text" Value="Activado" />
+                                                                <Setter Property="Foreground" Value="{Binding Theme.CurrentAccentBrush}" />
+                                                                <Setter Property="FontWeight" Value="SemiBold" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                            <ui:ToggleSwitch IsChecked="{Binding NowPlaying.IsVisualizerActive, Mode=TwoWay}"
+                                                             OffContent="" OnContent=""
+                                                             VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </Grid>
 
-                            <Separator Background="#22FFFFFF" Margin="0,0,0,12" />
+                                    <!-- 7. Tipo de visualización -->
+                                    <StackPanel Margin="0,0,0,12">
+                                        <TextBlock Text="Tipo de visualización" FontSize="11" Foreground="#CCCCCC" Margin="0,0,0,4" />
+                                        <ComboBox SelectedValue="{Binding NowPlaying.SelectedVisualizerMode, Mode=TwoWay}"
+                                                  SelectedValuePath="Content"
+                                                  HorizontalAlignment="Stretch">
+                                            <ComboBoxItem Content="Barras de Espectro" />
+                                            <ComboBoxItem Content="Onda Reactiva" />
+                                            <ComboBoxItem Content="Pulso de Bajos" />
+                                        </ComboBox>
+                                    </StackPanel>
 
-                            <!-- 6. Visualizador de audio (Label antes del switch, switch a la derecha) -->
-                            <Grid Margin="0,0,0,10">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-                                <StackPanel Grid.Column="0" VerticalAlignment="Center">
-                                    <TextBlock Text="Visualizador de audio" FontWeight="SemiBold" FontSize="12" Foreground="#FFFFFF" />
-                                    <TextBlock Text="Reactivo a las frecuencias" FontSize="11" Foreground="#99FFFFFF" />
+                                    <!-- 7.b Posición del visualizador -->
+                                    <StackPanel Margin="0,0,0,12">
+                                        <TextBlock Text="Posición del visualizador" FontSize="11" Foreground="#CCCCCC" Margin="0,0,0,4" />
+                                        <ComboBox SelectedValue="{Binding NowPlaying.SelectedVisualizerPlacement, Mode=TwoWay}"
+                                                  SelectedValuePath="Tag"
+                                                  HorizontalAlignment="Stretch">
+                                            <ComboBoxItem Content="Junto a la canción (Original)" Tag="InfoCancion" />
+                                            <ComboBoxItem Content="Centro de la ventana (Más alto)" Tag="Centro" />
+                                            <ComboBoxItem Content="Parte inferior derecha (Más alto)" Tag="InferiorDerecha" />
+                                        </ComboBox>
+                                    </StackPanel>
+
+                                    <Separator Background="#22FFFFFF" Margin="0,0,0,10" />
+
+                                    <!-- 8. Botón Forzar Actualización de Estilo -->
+                                    <ui:Button HorizontalAlignment="Stretch" Padding="10,6"
+                                               Appearance="Secondary"
+                                               Command="{Binding NowPlaying.ForceUpdateStyleCommand}"
+                                               ToolTip="Refrescar inmediatamente fondo, desenfoque y oscurecimiento">
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                            <ui:SymbolIcon Symbol="ArrowSync24" FontSize="14" Foreground="{Binding Theme.CurrentAccentBrush}" Margin="0,0,6,0" />
+                                            <TextBlock Text="Forzar actualización de estilo" FontSize="11" FontWeight="SemiBold" />
+                                        </StackPanel>
+                                    </ui:Button>
                                 </StackPanel>
-                                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Right">
-                                    <TextBlock VerticalAlignment="Center" Margin="0,0,8,0" FontSize="11" Foreground="#99FFFFFF">
-                                        <TextBlock.Style>
-                                            <Style TargetType="TextBlock">
-                                                <Setter Property="Text" Value="Desactivado" />
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding NowPlaying.IsVisualizerActive}" Value="True">
-                                                        <Setter Property="Text" Value="Activado" />
-                                                        <Setter Property="Foreground" Value="{Binding Theme.CurrentAccentBrush}" />
-                                                        <Setter Property="FontWeight" Value="SemiBold" />
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </TextBlock.Style>
-                                    </TextBlock>
-                                    <ui:ToggleSwitch IsChecked="{Binding NowPlaying.IsVisualizerActive, Mode=TwoWay}"
-                                                     OffContent="" OnContent=""
-                                                     VerticalAlignment="Center" />
-                                </StackPanel>
-                            </Grid>
-
-                            <!-- 7. Tipo de visualización -->
-                            <StackPanel Margin="0,0,0,12">
-                                <TextBlock Text="Tipo de visualización" FontSize="11" Foreground="#CCCCCC" Margin="0,0,0,4" />
-                                <ComboBox SelectedValue="{Binding NowPlaying.SelectedVisualizerMode, Mode=TwoWay}"
-                                          SelectedValuePath="Content"
-                                          HorizontalAlignment="Stretch">
-                                    <ComboBoxItem Content="Barras de Espectro" />
-                                    <ComboBoxItem Content="Onda Reactiva" />
-                                    <ComboBoxItem Content="Pulso de Bajos" />
-                                </ComboBox>
-                            </StackPanel>
-
-                            <Separator Background="#22FFFFFF" Margin="0,0,0,10" />
-
-                            <!-- 8. Botón Forzar Actualización de Estilo -->
-                            <ui:Button HorizontalAlignment="Stretch" Padding="10,6"
-                                       Appearance="Secondary"
-                                       Command="{Binding NowPlaying.ForceUpdateStyleCommand}"
-                                       ToolTip="Refrescar inmediatamente fondo, desenfoque y oscurecimiento">
-                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                                    <ui:SymbolIcon Symbol="ArrowSync24" FontSize="14" Foreground="{Binding Theme.CurrentAccentBrush}" Margin="0,0,6,0" />
-                                    <TextBlock Text="Forzar actualización de estilo" FontSize="11" FontWeight="SemiBold" />
-                                </StackPanel>
-                            </ui:Button>
-                        </StackPanel>
+                            </ScrollViewer>
+                        </Grid>
                     </Border>
                 </Popup>
 
@@ -355,23 +379,23 @@
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
 
-                <!-- Album Art: fixed 160x160 with CornerRadius="12" & DropShadow & Bass Pulse -->
-                <Border Grid.Column="0" Width="160" Height="160" VerticalAlignment="Bottom"
-                        CornerRadius="12" ClipToBounds="True" Background="#1C1C24"
+                <!-- Album Art: fixed 210x210 with CornerRadius="14" & DropShadow & Bass Pulse -->
+                <Border Grid.Column="0" Width="210" Height="210" VerticalAlignment="Bottom"
+                        CornerRadius="14" ClipToBounds="True" Background="#1C1C24"
                         RenderTransformOrigin="0.5,0.5">
                     <Border.RenderTransform>
                         <ScaleTransform ScaleX="{Binding NowPlaying.Visualizer.BassScale}"
                                         ScaleY="{Binding NowPlaying.Visualizer.BassScale}" />
                     </Border.RenderTransform>
                     <Border.Effect>
-                        <DropShadowEffect BlurRadius="40" Color="{Binding Theme.CurrentAccentColor}"
+                        <DropShadowEffect BlurRadius="45" Color="{Binding Theme.CurrentAccentColor}"
                                           Opacity="{Binding NowPlaying.Visualizer.BassGlowOpacity}" ShadowDepth="0" />
                     </Border.Effect>
                     <Image Source="{Binding NowPlaying.AlbumArt}" Stretch="UniformToFill" RenderOptions.BitmapScalingMode="HighQuality" />
                 </Border>
 
                 <!-- Track Info, Visualizer & Audio Badges Stack -->
-                <StackPanel Grid.Column="1" VerticalAlignment="Bottom" Margin="24,0,0,0">
+                <StackPanel Grid.Column="1" VerticalAlignment="Bottom" Margin="28,0,0,0">
                     <!-- Interactive Song Info (Title & Artist • Album) redirects to Album -->
                     <Button Command="{Binding DataContext.ViewCurrentAlbumCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                             Background="Transparent"
@@ -389,23 +413,23 @@
                                 </Border>
                             </ControlTemplate>
                         </Button.Template>
-                        <StackPanel MaxWidth="560">
+                        <StackPanel MaxWidth="720">
                             <!-- Title -->
                             <TextBlock Text="{Binding NowPlaying.Title}"
                                        FontFamily="Segoe UI Variable Display, Segoe UI"
-                                       FontSize="28" FontWeight="Bold" Foreground="#FFFFFF"
+                                       FontSize="36" FontWeight="Bold" Foreground="#FFFFFF"
                                        TextTrimming="CharacterEllipsis">
                                 <TextBlock.Effect>
-                                    <DropShadowEffect BlurRadius="12" Color="#000000" Opacity="0.5" ShadowDepth="2" />
+                                    <DropShadowEffect BlurRadius="14" Color="#000000" Opacity="0.5" ShadowDepth="2" />
                                 </TextBlock.Effect>
                             </TextBlock>
 
                             <!-- Interactive Artist • Album -->
-                            <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
+                            <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
                                 <TextBlock Text="{Binding NowPlaying.Artist}"
                                            FontFamily="Segoe UI Variable Text, Segoe UI"
-                                           FontSize="15" Foreground="#D0FFFFFF"
-                                           TextTrimming="CharacterEllipsis" MaxWidth="320">
+                                           FontSize="18" Foreground="#D0FFFFFF"
+                                           TextTrimming="CharacterEllipsis" MaxWidth="400">
                                     <TextBlock.Effect>
                                         <DropShadowEffect BlurRadius="8" Color="#000000" Opacity="0.4" ShadowDepth="2" />
                                     </TextBlock.Effect>
@@ -413,7 +437,7 @@
 
                                 <!-- Dot Separator -->
                                 <TextBlock Text=" • " FontFamily="Segoe UI Variable Text, Segoe UI"
-                                           FontSize="15" Foreground="#80FFFFFF" VerticalAlignment="Center">
+                                           FontSize="18" Foreground="#80FFFFFF" VerticalAlignment="Center">
                                     <TextBlock.Effect>
                                         <DropShadowEffect BlurRadius="8" Color="#000000" Opacity="0.4" ShadowDepth="2" />
                                     </TextBlock.Effect>
@@ -422,8 +446,8 @@
                                 <!-- Album -->
                                 <TextBlock Text="{Binding NowPlaying.Album}"
                                            FontFamily="Segoe UI Variable Text, Segoe UI"
-                                           FontSize="15" Foreground="#D0FFFFFF"
-                                           TextTrimming="CharacterEllipsis" MaxWidth="220">
+                                           FontSize="18" Foreground="#D0FFFFFF"
+                                           TextTrimming="CharacterEllipsis" MaxWidth="300">
                                     <TextBlock.Effect>
                                         <DropShadowEffect BlurRadius="8" Color="#000000" Opacity="0.4" ShadowDepth="2" />
                                     </TextBlock.Effect>
@@ -432,8 +456,18 @@
                         </StackPanel>
                     </Button>
 
-                    <!-- Visualizer Display Area (Left aligned with title, separated ~16px from text) -->
+                    <!-- Visualizer Display Area (Posición 1: InfoCancion - left aligned with title) -->
                     <Grid x:Name="VisualizerContainer" Height="36" Width="260" Margin="0,16,0,0" HorizontalAlignment="Left" VerticalAlignment="Bottom">
+                        <Grid.Style>
+                            <Style TargetType="Grid">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding NowPlaying.SelectedVisualizerPlacement}" Value="InfoCancion">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Grid.Style>
                         <!-- 1. Spectrum Bars -->
                         <ItemsControl x:Name="SpectrumItems" ItemsSource="{Binding NowPlaying.Visualizer.SpectrumBars}"
                                       HorizontalAlignment="Left" VerticalAlignment="Bottom">
@@ -501,6 +535,132 @@
                         </Border>
                     </WrapPanel>
                 </StackPanel>
+            </Grid>
+
+            <!-- ============================================================== -->
+            <!-- POSICIÓN 2: CENTRO DE LA VENTANA (MÁS ALTO, HASTA 120PX)       -->
+            <!-- ============================================================== -->
+            <Grid x:Name="VisualizerCenterContainer" Grid.Row="0" HorizontalAlignment="Center" VerticalAlignment="Center" Height="130" Margin="0,0,0,40"
+                  IsHitTestVisible="False">
+                <Grid.RenderTransform>
+                    <TranslateTransform x:Name="VisualizerCenterTranslate" X="0" Y="0" />
+                </Grid.RenderTransform>
+                <Grid.Style>
+                    <Style TargetType="Grid">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding NowPlaying.SelectedVisualizerPlacement}" Value="Centro">
+                                <Setter Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Grid.Style>
+                <!-- Spectrum Bars Center -->
+                <ItemsControl ItemsSource="{Binding NowPlaying.Visualizer.SpectrumBars}"
+                              HorizontalAlignment="Center" VerticalAlignment="Bottom">
+                    <ItemsControl.Style>
+                        <Style TargetType="ItemsControl">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding NowPlaying.Visualizer.SelectedVisualizerMode}" Value="Barras de Espectro">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </ItemsControl.Style>
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Bottom" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Width="7" Height="{Binding}" CornerRadius="3.5" Margin="2,0"
+                                    VerticalAlignment="Bottom"
+                                    Background="{Binding DataContext.Theme.CurrentAccentBrush, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <!-- Reactive Waveform Center -->
+                <Polyline Points="{Binding NowPlaying.Visualizer.WaveformPoints}"
+                          Stroke="{Binding Theme.CurrentAccentBrush}"
+                          StrokeThickness="3"
+                          HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <Polyline.Style>
+                        <Style TargetType="Polyline">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding NowPlaying.Visualizer.SelectedVisualizerMode}" Value="Onda Reactiva">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Polyline.Style>
+                </Polyline>
+            </Grid>
+
+            <!-- ============================================================== -->
+            <!-- POSICIÓN 3: INFERIOR DERECHA (ALINEADA A INFO CANCIÓN, 100PX)  -->
+            <!-- ============================================================== -->
+            <Grid x:Name="VisualizerRightContainer" Grid.Row="0" HorizontalAlignment="Right" VerticalAlignment="Bottom" Height="110" Margin="0,0,48,16"
+                  IsHitTestVisible="False">
+                <Grid.RenderTransform>
+                    <TranslateTransform x:Name="VisualizerRightTranslate" X="0" Y="0" />
+                </Grid.RenderTransform>
+                <Grid.Style>
+                    <Style TargetType="Grid">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding NowPlaying.SelectedVisualizerPlacement}" Value="InferiorDerecha">
+                                <Setter Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Grid.Style>
+                <!-- Spectrum Bars Right -->
+                <ItemsControl ItemsSource="{Binding NowPlaying.Visualizer.SpectrumBars}"
+                              HorizontalAlignment="Right" VerticalAlignment="Bottom">
+                    <ItemsControl.Style>
+                        <Style TargetType="ItemsControl">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding NowPlaying.Visualizer.SelectedVisualizerMode}" Value="Barras de Espectro">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </ItemsControl.Style>
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Bottom" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Width="6" Height="{Binding}" CornerRadius="3" Margin="1.8,0"
+                                    VerticalAlignment="Bottom"
+                                    Background="{Binding DataContext.Theme.CurrentAccentBrush, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <!-- Reactive Waveform Right -->
+                <Polyline Points="{Binding NowPlaying.Visualizer.WaveformPoints}"
+                          Stroke="{Binding Theme.CurrentAccentBrush}"
+                          StrokeThickness="2.8"
+                          HorizontalAlignment="Right" VerticalAlignment="Center">
+                    <Polyline.Style>
+                        <Style TargetType="Polyline">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding NowPlaying.Visualizer.SelectedVisualizerMode}" Value="Onda Reactiva">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Polyline.Style>
+                </Polyline>
             </Grid>
 
             <!-- Bottom Transport & Seekbar (HUD) -->
@@ -617,13 +777,10 @@
                     </StackPanel>
 
                     <!-- Center: Expand Queue Arrow (^) -->
-                    <ui:Button Grid.Column="1" Appearance="Transparent" Padding="14,6"
+                    <ui:Button Grid.Column="1" Appearance="Transparent" Padding="14,8"
                                Command="{Binding ToggleNowPlayingQueueCommand}"
                                ToolTip="Desplegar Cola Actual (Up Next)">
-                        <StackPanel Orientation="Vertical" HorizontalAlignment="Center">
-                            <ui:SymbolIcon Symbol="ChevronUp24" FontSize="20" Foreground="{Binding Theme.CurrentAccentBrush}" />
-                            <TextBlock Text="Cola activa" FontSize="10" FontWeight="SemiBold" Foreground="#A0FFFFFF" HorizontalAlignment="Center" Margin="0,2,0,0" />
-                        </StackPanel>
+                        <ui:SymbolIcon Symbol="ChevronUp24" FontSize="20" Foreground="{Binding Theme.CurrentAccentBrush}" />
                     </ui:Button>
 
                     <!-- Right: Extra Controls (Mute Button, Volume Slider, DAC Selector, Fullscreen, More Options) -->
@@ -905,48 +1062,52 @@
                             </Button.Template>
                         </Button>
 
-                        <!-- Volume Mute Button -->
-                        <Button Command="{Binding NowPlaying.ToggleMuteCommand}" Cursor="Hand" Width="32" Height="32" Padding="0" ToolTip="Silenciar / Activar sonido">
-                            <Button.Template>
-                                <ControlTemplate TargetType="Button">
-                                    <Border x:Name="BtnBorder" CornerRadius="8" Padding="5,4" Background="Transparent" BorderThickness="1" BorderBrush="Transparent">
-                                        <StackPanel Orientation="Vertical" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                            <ui:SymbolIcon x:Name="BtnIcon" FontSize="15" Foreground="#D9FFFFFF" HorizontalAlignment="Center">
-                                                <ui:SymbolIcon.Symbol>
-                                                    <MultiBinding Converter="{StaticResource VolumeToSymbolConverter}">
-                                                        <Binding Path="NowPlaying.Volume" />
-                                                        <Binding Path="NowPlaying.IsMuted" />
-                                                    </MultiBinding>
-                                                </ui:SymbolIcon.Symbol>
-                                            </ui:SymbolIcon>
-                                            <Ellipse x:Name="ActiveDot" Width="4" Height="4" Fill="#FF4C4C" Margin="0,2,0,0" Visibility="Collapsed" HorizontalAlignment="Center" />
-                                        </StackPanel>
-                                    </Border>
-                                    <ControlTemplate.Triggers>
-                                        <DataTrigger Binding="{Binding NowPlaying.IsMuted}" Value="True">
-                                            <Setter TargetName="BtnBorder" Property="Background" Value="#CC121216" />
-                                            <Setter TargetName="BtnBorder" Property="BorderBrush" Value="#66FFFFFF" />
-                                            <Setter TargetName="BtnIcon" Property="Foreground" Value="#FF6B6B" />
-                                            <Setter TargetName="ActiveDot" Property="Visibility" Value="Visible" />
-                                        </DataTrigger>
-                                        <Trigger Property="IsMouseOver" Value="True">
-                                            <Setter TargetName="BtnBorder" Property="Background" Value="#33000000" />
-                                        </Trigger>
-                                    </ControlTemplate.Triggers>
-                                </ControlTemplate>
-                            </Button.Template>
-                        </Button>
+                        <!-- Volume Controls Group (Mute Button + Slider): aísla la rueda del mouse exclusivamente para el volumen e invalida la cola -->
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center"
+                                    PreviewMouseWheel="OnVolumeAreaPreviewMouseWheel">
+                            <!-- Volume Mute Button -->
+                            <Button Command="{Binding NowPlaying.ToggleMuteCommand}" Cursor="Hand" Width="32" Height="32" Padding="0" ToolTip="Silenciar / Activar sonido">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border x:Name="BtnBorder" CornerRadius="8" Padding="5,4" Background="Transparent" BorderThickness="1" BorderBrush="Transparent">
+                                            <StackPanel Orientation="Vertical" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                <ui:SymbolIcon x:Name="BtnIcon" FontSize="15" Foreground="#D9FFFFFF" HorizontalAlignment="Center">
+                                                    <ui:SymbolIcon.Symbol>
+                                                        <MultiBinding Converter="{StaticResource VolumeToSymbolConverter}">
+                                                            <Binding Path="NowPlaying.Volume" />
+                                                            <Binding Path="NowPlaying.IsMuted" />
+                                                        </MultiBinding>
+                                                    </ui:SymbolIcon.Symbol>
+                                                </ui:SymbolIcon>
+                                                <Ellipse x:Name="ActiveDot" Width="4" Height="4" Fill="#FF4C4C" Margin="0,2,0,0" Visibility="Collapsed" HorizontalAlignment="Center" />
+                                            </StackPanel>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <DataTrigger Binding="{Binding NowPlaying.IsMuted}" Value="True">
+                                                <Setter TargetName="BtnBorder" Property="Background" Value="#CC121216" />
+                                                <Setter TargetName="BtnBorder" Property="BorderBrush" Value="#66FFFFFF" />
+                                                <Setter TargetName="BtnIcon" Property="Foreground" Value="#FF6B6B" />
+                                                <Setter TargetName="ActiveDot" Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="BtnBorder" Property="Background" Value="#33000000" />
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Button.Template>
+                            </Button>
 
-                        <!-- Volume Slider with Wide Hitbox -->
-                        <Border Background="Transparent" Padding="0,8" Margin="2,0,8,0" Cursor="Hand">
-                            <Slider Width="90" Minimum="0" Maximum="1"
-                                    IsMoveToPointEnabled="True"
-                                    Value="{Binding NowPlaying.Volume, Mode=TwoWay}"
-                                    PreviewMouseLeftButtonDown="OnVolumeSliderPreviewMouseDown"
-                                    PreviewMouseMove="OnVolumeSliderPreviewMouseMove"
-                                    PreviewMouseLeftButtonUp="OnVolumeSliderPreviewMouseUp"
-                                    VerticalAlignment="Center" />
-                        </Border>
+                            <!-- Volume Slider with Wide Hitbox -->
+                            <Border Background="Transparent" Padding="0,8" Margin="2,0,8,0" Cursor="Hand">
+                                <Slider Width="90" Minimum="0" Maximum="1"
+                                        IsMoveToPointEnabled="True"
+                                        Value="{Binding NowPlaying.Volume, Mode=TwoWay}"
+                                        PreviewMouseLeftButtonDown="OnVolumeSliderPreviewMouseDown"
+                                        PreviewMouseMove="OnVolumeSliderPreviewMouseMove"
+                                        PreviewMouseLeftButtonUp="OnVolumeSliderPreviewMouseUp"
+                                        VerticalAlignment="Center" />
+                            </Border>
+                        </StackPanel>
 
                         <!-- Fullscreen Button -->
                         <ui:Button Appearance="Transparent" Padding="7" Margin="0,0,4,0"

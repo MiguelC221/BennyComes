@@ -61,7 +61,7 @@
         </Style>
     </UserControl.Resources>
 
-    <Grid Margin="32,24,32,20">
+    <Grid Margin="28,20,0,20">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" /> <!-- Top Search Header & Filter Chips -->
             <RowDefinition Height="*" />    <!-- Scrollable Unified Search Results -->
@@ -70,7 +70,7 @@
         <!-- ============================================================== -->
         <!-- ROW 0: SEARCH HEADER & FILTER CHIPS                            -->
         <!-- ============================================================== -->
-        <StackPanel Grid.Row="0" Margin="0,0,0,20">
+        <StackPanel Grid.Row="0" Margin="0,0,28,20">
             <!-- Title & Subtitle -->
             <TextBlock Text="Búsqueda"
                        FontFamily="Segoe UI Variable Display, Segoe UI"
@@ -98,6 +98,7 @@
                                 BorderThickness="1"
                                 Width="520"
                                 HorizontalAlignment="Left"
+                                GotFocus="OnPageSearchBoxGotFocus"
                                 KeyDown="OnPageSearchBoxKeyDown" />
 
                     <!-- Left Search Icon inside box -->
@@ -120,7 +121,7 @@
                     <Popup x:Name="PageSearchSuggestionsPopup"
                            PlacementTarget="{Binding ElementName=PageSearchBox}"
                            Placement="Bottom"
-                           IsOpen="{Binding Search.IsSuggestionsOpen, Mode=TwoWay}"
+                           IsOpen="{Binding Search.IsPageSuggestionsOpen, Mode=TwoWay}"
                            StaysOpen="False"
                            AllowsTransparency="True"
                            PopupAnimation="Fade"
@@ -132,22 +133,46 @@
                             </Border.Effect>
                             <ScrollViewer MaxHeight="320" VerticalScrollBarVisibility="Auto">
                                 <ItemsControl ItemsSource="{Binding Search.Suggestions}">
+                                    <ItemsControl.ItemContainerStyle>
+                                        <Style TargetType="ContentPresenter">
+                                            <Setter Property="HorizontalAlignment" Value="Stretch" />
+                                        </Style>
+                                    </ItemsControl.ItemContainerStyle>
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate DataType="{x:Type vm:SearchSuggestionItem}">
-                                            <Button Padding="10,8" Margin="0,1" HorizontalContentAlignment="Stretch" Cursor="Hand"
+                                            <Button Padding="10,8" Margin="0,1" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Cursor="Hand"
                                                     Command="{Binding DataContext.Search.SelectSuggestionCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                     CommandParameter="{Binding}">
                                                 <Button.Template>
                                                     <ControlTemplate TargetType="Button">
-                                                        <Border x:Name="BtnBrd" Background="Transparent" CornerRadius="8" Padding="{TemplateBinding Padding}">
-                                                            <Grid>
+                                                        <Border x:Name="BtnBrd" Background="Transparent" CornerRadius="8" Padding="{TemplateBinding Padding}" HorizontalAlignment="Stretch">
+                                                            <Grid HorizontalAlignment="Stretch">
                                                                 <Grid.ColumnDefinitions>
                                                                     <ColumnDefinition Width="Auto" />
                                                                     <ColumnDefinition Width="*" />
                                                                 </Grid.ColumnDefinitions>
-                                                                <ui:SymbolIcon Symbol="{Binding Icon}" FontSize="18"
-                                                                               Foreground="{Binding DataContext.Theme.CurrentAccentBrush, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                                                               Margin="0,0,12,0" VerticalAlignment="Center" />
+
+                                                                <!-- Thumbnail / Icon Area (32x32) -->
+                                                                <Grid Grid.Column="0" Width="32" Height="32" Margin="0,0,12,0" VerticalAlignment="Center">
+                                                                    <!-- 1. Fallback Icon for Search / Default -->
+                                                                    <ui:SymbolIcon Symbol="{Binding Icon}" FontSize="18"
+                                                                                   Foreground="{Binding DataContext.Theme.CurrentAccentBrush, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                                   HorizontalAlignment="Center" VerticalAlignment="Center" />
+
+                                                                    <!-- 2. Artist Silhouette Circle -->
+                                                                    <Border Width="32" Height="32" CornerRadius="16" Background="#1F1F28"
+                                                                            Visibility="{Binding IsArtist, Converter={StaticResource BoolToVisConverter}}">
+                                                                        <ui:SymbolIcon Symbol="Person24" FontSize="16" Foreground="{DynamicResource TextTertiaryBrush}"
+                                                                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                                    </Border>
+
+                                                                    <!-- 3. Album / Track Cached Artwork -->
+                                                                    <Border Width="32" Height="32" CornerRadius="4" ClipToBounds="True"
+                                                                            Visibility="{Binding HasCoverImage, Converter={StaticResource BoolToVisConverter}}">
+                                                                        <Image Source="{Binding CoverImage}" Stretch="UniformToFill" RenderOptions.BitmapScalingMode="LowQuality" />
+                                                                    </Border>
+                                                                </Grid>
+
                                                                 <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                                                     <TextBlock Text="{Binding Title}" FontSize="13" FontWeight="SemiBold"
                                                                                Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis" />
@@ -160,8 +185,11 @@
                                                             <Trigger Property="IsMouseOver" Value="True">
                                                                 <Setter TargetName="BtnBrd" Property="Background" Value="#26FFFFFF" />
                                                             </Trigger>
-                                                            <Trigger Property="IsPressed" Value="True">
+                                                            <DataTrigger Binding="{Binding IsSelected}" Value="True">
                                                                 <Setter TargetName="BtnBrd" Property="Background" Value="#33FFFFFF" />
+                                                            </DataTrigger>
+                                                            <Trigger Property="IsPressed" Value="True">
+                                                                <Setter TargetName="BtnBrd" Property="Background" Value="#40FFFFFF" />
                                                             </Trigger>
                                                         </ControlTemplate.Triggers>
                                                     </ControlTemplate>
@@ -354,7 +382,7 @@
         <!-- ROW 1: SCROLLABLE UNIFIED RESULTS CONTAINER                    -->
         <!-- ============================================================== -->
         <ScrollViewer x:Name="SearchScrollViewer" Grid.Row="1" VerticalScrollBarVisibility="Auto">
-            <StackPanel Margin="0,0,16,40">
+            <StackPanel Margin="0,0,28,40">
 
                 <!-- 0. LOADING ANIMATION (While search is running in background) -->
                 <StackPanel Margin="0,60,0,0" HorizontalAlignment="Center"

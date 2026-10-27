@@ -210,6 +210,17 @@ public partial class NowPlayingViewModel : ObservableObject
         }
     }
 
+    public string SelectedVisualizerPlacement
+    {
+        get => Visualizer.VisualizerPlacement;
+        set
+        {
+            Visualizer.VisualizerPlacement = value;
+            OnPropertyChanged(nameof(SelectedVisualizerPlacement));
+            _ = Data.LibraryDao.Instance.SetSettingAsync("visualizer_placement", value);
+        }
+    }
+
     public event Action<BitmapImage, bool>? OnBackgroundTransitionRequested;
 
     public NowPlayingViewModel()
@@ -266,6 +277,9 @@ public partial class NowPlayingViewModel : ObservableObject
                 ArtistImageIntervalSeconds = Math.Clamp(it, 15, 90);
                 _artistImageCycleTimer.Interval = TimeSpan.FromSeconds(ArtistImageIntervalSeconds);
             }
+
+            string placementVal = await Data.LibraryDao.Instance.GetSettingAsync("visualizer_placement", "InfoCancion");
+            SelectedVisualizerPlacement = placementVal;
         }
         catch { }
     }
@@ -601,7 +615,10 @@ public partial class NowPlayingViewModel : ObservableObject
     [RelayCommand]
     public void Seek(double targetSeconds)
     {
-        _audio.Seek(TimeSpan.FromSeconds(targetSeconds));
+        CurrentPositionSeconds = targetSeconds;
+        var ts = TimeSpan.FromSeconds(targetSeconds);
+        CurrentTimeText = ts.Hours > 0 ? ts.ToString(@"h\:mm\:ss") : ts.ToString(@"m\:ss");
+        _audio.Seek(ts);
     }
 
     partial void OnVolumeChanged(float value)

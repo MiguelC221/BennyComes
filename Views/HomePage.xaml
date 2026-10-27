@@ -9,44 +9,46 @@
              mc:Ignorable="d" 
              d:DesignHeight="1000" d:DesignWidth="980">
 
-    <ScrollViewer x:Name="HomeScrollViewer" VerticalScrollBarVisibility="Auto" Margin="32,20,32,20">
-        <StackPanel Margin="0,0,0,30">
+    <ScrollViewer x:Name="HomeScrollViewer" VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="20,16,20,30">
             <!-- ============================================================== -->
             <!-- 1. HEADER & QUICK ACTIONS                                     -->
             <!-- ============================================================== -->
-            <Grid Margin="0,0,0,28">
+            <Grid Margin="0,0,0,24">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
-                <StackPanel Grid.Column="0">
+                <StackPanel Grid.Column="0" Margin="0,0,20,12" MinWidth="240">
                     <TextBlock Text="{Binding Home.Greeting}"
                                FontFamily="Segoe UI Variable Display, Segoe UI"
-                               FontSize="32" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" />
+                               FontSize="28" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap" />
                     <TextBlock Text="Continúa disfrutando de tu biblioteca musical con máxima fidelidad de audio"
-                               FontSize="14" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,6,0,0" />
+                               FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,4,0,0" TextWrapping="Wrap" />
                 </StackPanel>
 
-                <!-- Quick Actions -->
-                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                    <ui:Button Appearance="Primary" Padding="16,9" Margin="0,0,12,0"
+                <!-- Quick Actions: Aligned to right in desktop, wraps cleanly -->
+                <WrapPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,0,12">
+                    <ui:Button Appearance="Primary" Padding="14,8" Margin="0,0,10,6"
                                Background="{Binding Theme.CurrentAccentBrush}"
-                               Command="{Binding Home.ResumePlaybackCommand}">
+                               Command="{Binding Home.ResumePlaybackCommand}"
+                               ToolTip="Reanudar escucha">
                         <StackPanel Orientation="Horizontal">
-                            <ui:SymbolIcon Symbol="Play24" FontSize="16" Foreground="{Binding Theme.AccentForegroundBrush}" Margin="0,0,8,0" />
-                            <TextBlock Text="Reanudar escucha" FontWeight="Bold" Foreground="{Binding Theme.AccentForegroundBrush}" FontSize="13" />
+                            <ui:SymbolIcon Symbol="Play24" FontSize="16" Foreground="{Binding Theme.AccentForegroundBrush}" Margin="0,0,6,0" />
+                            <TextBlock Text="Reanudar" FontWeight="Bold" Foreground="{Binding Theme.AccentForegroundBrush}" FontSize="13" />
                         </StackPanel>
                     </ui:Button>
 
-                    <ui:Button Appearance="Secondary" Padding="16,9"
-                               Command="{Binding Home.DailyRandomMixCommand}">
+                    <ui:Button Appearance="Secondary" Padding="14,8" Margin="0,0,0,6"
+                               Command="{Binding Home.DailyRandomMixCommand}"
+                               ToolTip="Mix Diario Aleatorio">
                         <StackPanel Orientation="Horizontal">
-                            <ui:SymbolIcon Symbol="ArrowShuffle24" FontSize="16" Margin="0,0,8,0" />
-                            <TextBlock Text="Mix Diario Aleatorio" FontWeight="SemiBold" FontSize="13" />
+                            <ui:SymbolIcon Symbol="ArrowShuffle24" FontSize="16" Margin="0,0,6,0" />
+                            <TextBlock Text="Mix Aleatorio" FontWeight="SemiBold" FontSize="13" />
                         </StackPanel>
                     </ui:Button>
-                </StackPanel>
+                </WrapPanel>
             </Grid>
 
             <!-- ============================================================== -->
@@ -102,8 +104,8 @@
                                                 <ui:SymbolIcon Symbol="{Binding Symbol}" FontSize="18" Foreground="{Binding AccentColor}" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                             </Border>
                                             <StackPanel VerticalAlignment="Center">
-                                                <TextBlock Text="{Binding Title}" FontWeight="Bold" FontSize="14" Foreground="#FFFFFF" TextTrimming="CharacterEllipsis" />
-                                                <TextBlock Text="{Binding Subtitle}" FontSize="11" Foreground="#C8D0D8" TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Text="{Binding Title}" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Text="{Binding Subtitle}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" />
                                             </StackPanel>
                                         </StackPanel>
 
@@ -114,7 +116,7 @@
                                     </Grid>
 
                                     <!-- Row 1: Description / Count -->
-                                    <TextBlock Grid.Row="1" Text="{Binding Description}" FontSize="12" Foreground="#B0B8C4" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,6,0,0" />
+                                    <TextBlock Grid.Row="1" Text="{Binding Description}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,6,0,0" />
 
                                     <!-- Row 2: Play Button -->
                                     <ui:Button Grid.Row="2" Appearance="Secondary" Padding="14,5" HorizontalAlignment="Right"
@@ -122,7 +124,7 @@
                                                CommandParameter="{Binding CommandParameter}">
                                         <StackPanel Orientation="Horizontal">
                                             <ui:SymbolIcon Symbol="Play24" FontSize="13" Foreground="{Binding AccentColor}" Margin="0,0,6,0" />
-                                            <TextBlock Text="Reproducir" FontSize="12" FontWeight="SemiBold" Foreground="#FFFFFF" />
+                                            <TextBlock Text="Reproducir" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" />
                                         </StackPanel>
                                     </ui:Button>
                                 </Grid>
@@ -210,7 +212,7 @@
             </Grid>
 
             <!-- Top Tracks Sub-header -->
-            <Grid Margin="0,8,0,10">
+            <Grid Margin="0,8,0,10" Visibility="{Binding Home.TopTracks.Count, Converter={StaticResource BoolToVisConverter}}">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
@@ -226,7 +228,7 @@
             </Grid>
 
             <!-- Column Header for Top Tracks -->
-            <Grid Margin="12,0,12,6">
+            <Grid Margin="12,0,12,6" Visibility="{Binding Home.TopTracks.Count, Converter={StaticResource BoolToVisConverter}}">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="40" />
                     <ColumnDefinition Width="44" />
@@ -247,6 +249,7 @@
 
             <!-- Top Tracks List with Scroll pass-through -->
             <ListView ItemsSource="{Binding Home.TopTracks}"
+                      Visibility="{Binding Home.TopTracks.Count, Converter={StaticResource BoolToVisConverter}}"
                       PreviewMouseWheel="OnListViewPreviewMouseWheel"
                       MouseDoubleClick="OnTopTrackDoubleClick"
                       Background="Transparent" BorderThickness="0"
@@ -369,10 +372,44 @@
                 </ListView.ItemTemplate>
             </ListView>
 
+            <!-- Empty State for Top Tracks (When count == 0) -->
+            <Border Visibility="{Binding Home.TopTracks.Count, Converter={StaticResource InverseBoolToVisConverter}}"
+                    Background="{DynamicResource SurfaceCardBrush}" BorderBrush="{DynamicResource SurfaceCardBorderBrush}"
+                    BorderThickness="1" CornerRadius="12" Padding="28,32" Margin="0,0,0,28">
+                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" MaxWidth="520">
+                    <Border Width="64" Height="64" CornerRadius="32" Background="#1A3B82F6" HorizontalAlignment="Center" Margin="0,0,0,16">
+                        <ui:SymbolIcon Symbol="Sparkle24" FontSize="28" Foreground="#FF3B82F6" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <TextBlock Text="Aún no hay suficientes datos de reproducción" FontSize="18" FontWeight="Bold"
+                               Foreground="{DynamicResource TextPrimaryBrush}" TextAlignment="Center" Margin="0,0,0,8" />
+                    <TextBlock Text="¡Sigue disfrutando de tu música! Conforme escuches tus temas favoritos, aquí aparecerán automáticamente tus estadísticas, artistas más sonados y canciones más reproducidas."
+                               FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" TextAlignment="Center" TextWrapping="Wrap" LineHeight="20" Margin="0,0,0,20" />
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                        <ui:Button Appearance="Primary" Padding="16,8" Margin="0,0,10,0"
+                                   Background="{Binding Theme.CurrentAccentBrush}"
+                                   Command="{Binding DataContext.NavigateToCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                   CommandParameter="MyMusic">
+                            <StackPanel Orientation="Horizontal">
+                                <ui:SymbolIcon Symbol="MusicNote224" FontSize="16" Foreground="{Binding Theme.AccentForegroundBrush}" Margin="0,0,8,0" />
+                                <TextBlock Text="Explorar mi música" FontWeight="Bold" Foreground="{Binding Theme.AccentForegroundBrush}" FontSize="13" />
+                            </StackPanel>
+                        </ui:Button>
+                        <ui:Button Appearance="Secondary" Padding="14,8"
+                                   Command="{Binding DataContext.NavigateToCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                   CommandParameter="Settings">
+                            <StackPanel Orientation="Horizontal">
+                                <ui:SymbolIcon Symbol="FolderAdd24" FontSize="16" Margin="0,0,8,0" />
+                                <TextBlock Text="Indexar biblioteca" FontSize="13" />
+                            </StackPanel>
+                        </ui:Button>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
             <!-- ============================================================== -->
             <!-- 4. SECCIÓN: TOP ARTISTAS RECOMENDADOS                          -->
             <!-- ============================================================== -->
-            <Grid Margin="0,14,0,12">
+            <Grid Margin="0,14,0,12" Visibility="{Binding Home.TopArtists.Count, Converter={StaticResource BoolToVisConverter}}">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
@@ -393,7 +430,8 @@
                 </ui:Button>
             </Grid>
 
-            <ItemsControl ItemsSource="{Binding Home.TopArtists}" Margin="0,0,0,24">
+            <ItemsControl ItemsSource="{Binding Home.TopArtists}" Margin="0,0,0,24"
+                         Visibility="{Binding Home.TopArtists.Count, Converter={StaticResource BoolToVisConverter}}">
                 <ItemsControl.ItemsPanel>
                     <ItemsPanelTemplate>
                         <WrapPanel Orientation="Horizontal" />
@@ -470,7 +508,7 @@
             <!-- ============================================================== -->
             <!-- 5. SECCIÓN: TOP ÁLBUMES RECOMENDADOS                          -->
             <!-- ============================================================== -->
-            <Grid Margin="0,14,0,12">
+            <Grid Margin="0,14,0,12" Visibility="{Binding Home.TopAlbums.Count, Converter={StaticResource BoolToVisConverter}}">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
@@ -491,7 +529,8 @@
                 </ui:Button>
             </Grid>
 
-            <ItemsControl ItemsSource="{Binding Home.TopAlbums}" Margin="0,0,0,24">
+            <ItemsControl ItemsSource="{Binding Home.TopAlbums}" Margin="0,0,0,24"
+                         Visibility="{Binding Home.TopAlbums.Count, Converter={StaticResource BoolToVisConverter}}">
                 <ItemsControl.ItemsPanel>
                     <ItemsPanelTemplate>
                         <WrapPanel Orientation="Horizontal" />

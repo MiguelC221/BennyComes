@@ -7,8 +7,8 @@
              mc:Ignorable="d" 
              d:DesignHeight="950" d:DesignWidth="900">
 
-    <ScrollViewer VerticalScrollBarVisibility="Auto" Margin="32,20,32,10">
-        <StackPanel MaxWidth="800" HorizontalAlignment="Left">
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel MaxWidth="800" HorizontalAlignment="Left" Margin="28,20,28,30">
             <!-- Header -->
             <TextBlock Text="Configuración"
                        FontFamily="Segoe UI Variable Display, Segoe UI"
@@ -17,7 +17,17 @@
             <!-- ============================================== -->
             <!-- SECTION 1: BIBLIOTECA DE MÚSICA (CARPETAS)    -->
             <!-- ============================================== -->
-            <Border CornerRadius="12" Background="{DynamicResource SurfaceCardBrush}" BorderBrush="{DynamicResource SurfaceCardBorderBrush}" BorderThickness="1" Padding="20" Margin="0,0,0,20">
+            <Border x:Name="LibraryFoldersCard" CornerRadius="12" Background="{DynamicResource SurfaceCardBrush}" BorderBrush="{DynamicResource SurfaceCardBorderBrush}" BorderThickness="1" Padding="20" Margin="0,0,0,20">
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding Settings.HighlightLibraryFoldersSection}" Value="True">
+                                <Setter Property="BorderBrush" Value="{Binding Theme.CurrentAccentBrush}" />
+                                <Setter Property="BorderThickness" Value="2" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
                 <StackPanel>
                     <Grid Margin="0,0,0,12">
                         <Grid.ColumnDefinitions>

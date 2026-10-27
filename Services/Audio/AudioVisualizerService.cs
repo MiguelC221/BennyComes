@@ -43,6 +43,12 @@ public partial class AudioVisualizerService : ObservableObject
     private string _selectedVisualizerMode = "Barras de Espectro";
 
     [ObservableProperty]
+    private string _visualizerPlacement = "InfoCancion"; // "InfoCancion", "Centro", "InferiorDerecha"
+
+    [ObservableProperty]
+    private double _maxBarHeight = 50.0;
+
+    [ObservableProperty]
     private double _backgroundDarkness = 0.70;
 
     [ObservableProperty]
@@ -83,6 +89,17 @@ public partial class AudioVisualizerService : ObservableObject
             pc.Add(new Point(i * step, 30.0));
         }
         WaveformPoints = pc;
+    }
+
+    partial void OnVisualizerPlacementChanged(string value)
+    {
+        // En centro y lateral derecho tiene más altura disponible (hasta 120-140px)
+        MaxBarHeight = value switch
+        {
+            "Centro" => 120.0,
+            "InferiorDerecha" => 100.0,
+            _ => 50.0 // InfoCancion / Posición actual
+        };
     }
 
     partial void OnSelectedVisualizerModeChanged(string value)
@@ -170,15 +187,23 @@ public partial class AudioVisualizerService : ObservableObject
 
         FastFourierTransform.FFT(true, FftExponent, _fftBuffer);
 
-        int usefulBins = FftSize / 2; // 512
+        // Sample rate standard: 44.1kHz -> Nyquist 22050 Hz across 512 bins (~43 Hz per bin)
+        // Usamos una distribución musical balanceada de frecuencias desde ~30 Hz hasta ~16000 Hz:
+        int maxUsefulBin = Math.Min(FftSize / 2, 380); // ~16.3 kHz
+        int minUsefulBin = 1; // ~43 Hz
+
         for (int b = 0; b < NumBars; b++)
         {
-            // Logarithmic bin grouping
-            double minFreqIndex = Math.Pow(usefulBins, (double)b / NumBars);
-            double maxFreqIndex = Math.Pow(usefulBins, (double)(b + 1) / NumBars);
+            // Curva perceptual exponencial suave para que cada barra represente un rango musical real
+            double tStart = (double)b / NumBars;
+            double tEnd = (double)(b + 1) / NumBars;
 
-            int startBin = Math.Clamp((int)minFreqIndex, 0, usefulBins - 1);
-            int endBin = Math.Clamp((int)maxFreqIndex, startBin + 1, usefulBins);
+            // Escala logarítmica musical
+            double minFreqIndex = minUsefulBin * Math.Pow((double)maxUsefulBin / minUsefulBin, tStart);
+            double maxFreqIndex = minUsefulBin * Math.Pow((double)maxUsefulBin / minUsefulBin, tEnd);
+
+            int startBin = Math.Clamp((int)minFreqIndex, 0, maxUsefulBin - 1);
+            int endBin = Math.Clamp((int)Math.Ceiling(maxFreqIndex), startBin + 1, maxUsefulBin);
 
             double sum = 0;
             for (int k = startBin; k < endBin; k++)
@@ -188,23 +213,30 @@ public partial class AudioVisualizerService : ObservableObject
             }
 
             double avg = sum / (endBin - startBin);
-            // Non-linear boost for perceptual brightness & dynamic range
-            double target = Math.Min(1.0, Math.Pow(avg * 18.0, 0.72));
+
+            // Ecualización de compensación acústica (Tilt / Treble Boost):
+            // Las altas frecuencias tienen mucha menos energía acústica que los bajos en música mezclada/masterizada.
+            // Aplicamos un boost progresivo desde los medios hasta los agudos (de 1.0x hasta 3.8x)
+            double freqCompensation = 1.0 + Math.Pow((double)b / NumBars, 1.4) * 2.8;
+            double compensatedAvg = avg * freqCompensation;
+
+            // Rango dinámico y escalado perceptual
+            double target = Math.Min(1.0, Math.Pow(compensatedAvg * 16.0, 0.75));
 
             // Smooth attack and decay
             if (target > _currentBarValues[b])
             {
-                _currentBarValues[b] = _currentBarValues[b] * 0.25 + target * 0.75; // snappy attack
+                _currentBarValues[b] = _currentBarValues[b] * 0.22 + target * 0.78; // snappy attack
             }
             else
             {
-                _currentBarValues[b] = _currentBarValues[b] * 0.82 + target * 0.18; // smooth decay
+                _currentBarValues[b] = _currentBarValues[b] * 0.80 + target * 0.20; // smooth decay
             }
 
             _currentBarValues[b] = Math.Clamp(_currentBarValues[b], 0.04, 1.0);
             if (b < SpectrumBars.Count)
             {
-                SpectrumBars[b] = Math.Clamp(_currentBarValues[b] * 50.0, 2.0, 50.0);
+                SpectrumBars[b] = Math.Clamp(_currentBarValues[b] * MaxBarHeight, 2.0, MaxBarHeight);
             }
         }
     }
@@ -260,7 +292,7 @@ public partial class AudioVisualizerService : ObservableObject
             _currentBarValues[i] = Math.Max(0.04, _currentBarValues[i] * 0.85);
             if (i < SpectrumBars.Count)
             {
-                SpectrumBars[i] = Math.Max(2.0, _currentBarValues[i] * 50.0);
+                SpectrumBars[i] = Math.Max(2.0, _currentBarValues[i] * MaxBarHeight);
             }
         }
 

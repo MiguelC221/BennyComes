@@ -7,6 +7,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using BenyComes.Data;
 using BenyComes.Models;
+using BenyComes.Services;
 using BenyComes.Services.Audio;
 using BenyComes.Services.Library;
 using BenyComes.Services.Metadata;
@@ -71,6 +72,13 @@ public partial class HomeViewModel : ObservableObject
     public HomeViewModel()
     {
         UpdateGreeting();
+        ThemeService.Instance.PropertyChanged += (s, e) =>
+        {
+            if (e.PropertyName == nameof(ThemeService.CurrentTheme))
+            {
+                BuildSmartMixCards();
+            }
+        };
     }
 
     public void UpdateGreeting()
@@ -215,10 +223,22 @@ public partial class HomeViewModel : ObservableObject
 
     private static LinearGradientBrush CreateMixGradient(string hexColor)
     {
+        bool isLight = ThemeService.Instance.CurrentTheme == "Claro";
         var baseColor = (Color)ColorConverter.ConvertFromString(hexColor);
-        var startColor = Color.FromArgb(48, baseColor.R, baseColor.G, baseColor.B);
-        var midColor = Color.FromArgb(22, baseColor.R, baseColor.G, baseColor.B);
-        var endColor = Color.FromArgb(245, 18, 18, 24);
+        
+        Color startColor, midColor, endColor;
+        if (isLight)
+        {
+            startColor = Color.FromArgb(70, baseColor.R, baseColor.G, baseColor.B);
+            midColor = Color.FromArgb(35, baseColor.R, baseColor.G, baseColor.B);
+            endColor = Color.FromRgb(245, 247, 250);
+        }
+        else
+        {
+            startColor = Color.FromArgb(48, baseColor.R, baseColor.G, baseColor.B);
+            midColor = Color.FromArgb(22, baseColor.R, baseColor.G, baseColor.B);
+            endColor = Color.FromArgb(245, 18, 18, 24);
+        }
 
         var brush = new LinearGradientBrush
         {
@@ -237,8 +257,10 @@ public partial class HomeViewModel : ObservableObject
 
     private static SolidColorBrush CreateBorderBrush(string hexColor)
     {
+        bool isLight = ThemeService.Instance.CurrentTheme == "Claro";
         var baseColor = (Color)ColorConverter.ConvertFromString(hexColor);
-        var brush = new SolidColorBrush(Color.FromArgb(85, baseColor.R, baseColor.G, baseColor.B));
+        byte alpha = isLight ? (byte)120 : (byte)85;
+        var brush = new SolidColorBrush(Color.FromArgb(alpha, baseColor.R, baseColor.G, baseColor.B));
         brush.Freeze();
         return brush;
     }

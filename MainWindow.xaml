@@ -9,7 +9,7 @@
         xmlns:models="clr-namespace:BenyComes.Models"
         mc:Ignorable="d"
         Title="BennyComes"
-        Height="820" Width="1240" MinHeight="680" MinWidth="1000"
+        Height="820" Width="1240" MinHeight="500" MinWidth="480"
         WindowBackdropType="Mica"
         ExtendsContentIntoTitleBar="True"
         WindowStartupLocation="CenterScreen"
@@ -17,7 +17,8 @@
         Foreground="{DynamicResource TextPrimaryBrush}"
         AllowDrop="True"
         Drop="OnWindowDrop"
-        SizeChanged="OnWindowSizeChanged">
+        SizeChanged="OnWindowSizeChanged"
+        PreviewKeyDown="OnWindowPreviewKeyDown">
 
     <Window.Resources>
         <!-- Reusable Track Context Menu -->
@@ -206,10 +207,10 @@
                 </StackPanel>
             </StackPanel>
 
-            <!-- Top-Left "Volver a la biblioteca" Button in TitleBar (Visible ONLY in Reproducción en curso) -->
-            <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="10,0,0,0">
-                <StackPanel.Style>
-                    <Style TargetType="StackPanel">
+            <!-- Top-Left "Volver" Button in TitleBar (Visible ONLY in Reproducción en curso, cubre toda la altura de la barra) -->
+            <Grid Grid.Column="0" VerticalAlignment="Stretch">
+                <Grid.Style>
+                    <Style TargetType="Grid">
                         <Setter Property="Visibility" Value="Collapsed" />
                         <Style.Triggers>
                             <DataTrigger Binding="{Binding IsNowPlayingActive}" Value="True">
@@ -217,40 +218,74 @@
                             </DataTrigger>
                         </Style.Triggers>
                     </Style>
-                </StackPanel.Style>
+                </Grid.Style>
 
                 <Button Command="{Binding CloseNowPlayingCommand}"
                         Cursor="Hand" ToolTip="Volver a la biblioteca"
-                        Height="32" VerticalAlignment="Center">
+                        Height="38" VerticalAlignment="Stretch">
                     <Button.Template>
                         <ControlTemplate TargetType="Button">
-                            <Border x:Name="BtnBorder" Background="#33FFFFFF" BorderBrush="#4DFFFFFF" BorderThickness="1"
-                                    CornerRadius="8" Padding="16,4" VerticalAlignment="Center">
+                            <Border x:Name="BtnBorder" Background="#26FFFFFF" BorderBrush="#33FFFFFF" BorderThickness="0,0,1,0"
+                                    Padding="18,0" VerticalAlignment="Stretch">
                                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                    <ui:SymbolIcon x:Name="BtnIcon" Symbol="ArrowLeft24" FontSize="16" Foreground="#FFFFFF" Margin="0,0,10,0" VerticalAlignment="Center" />
-                                    <TextBlock x:Name="BtnText" Text="Volver a la biblioteca" FontSize="13" FontWeight="SemiBold" Foreground="#FFFFFF" VerticalAlignment="Center" />
+                                    <ui:SymbolIcon x:Name="BtnIcon" Symbol="ArrowLeft24" FontSize="16" Foreground="#FFFFFF" Margin="0,0,8,0" VerticalAlignment="Center">
+                                        <ui:SymbolIcon.RenderTransform>
+                                            <TranslateTransform X="0" />
+                                        </ui:SymbolIcon.RenderTransform>
+                                    </ui:SymbolIcon>
+                                    <TextBlock x:Name="BtnText" Text="Volver" FontSize="13" FontWeight="SemiBold" Foreground="#FFFFFF" VerticalAlignment="Center" />
                                 </StackPanel>
                             </Border>
                             <ControlTemplate.Triggers>
                                 <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter TargetName="BtnBorder" Property="Background" Value="#59FFFFFF" />
-                                    <Setter TargetName="BtnBorder" Property="BorderBrush" Value="#80FFFFFF" />
+                                    <Setter TargetName="BtnBorder" Property="Background" Value="#4DFFFFFF" />
+                                    <Trigger.EnterActions>
+                                        <BeginStoryboard>
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetName="BtnIcon"
+                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)"
+                                                                 To="-3" Duration="0:0:0.18">
+                                                    <DoubleAnimation.EasingFunction>
+                                                        <CubicEase EasingMode="EaseOut" />
+                                                    </DoubleAnimation.EasingFunction>
+                                                </DoubleAnimation>
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </Trigger.EnterActions>
+                                    <Trigger.ExitActions>
+                                        <BeginStoryboard>
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetName="BtnIcon"
+                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.X)"
+                                                                 To="0" Duration="0:0:0.18">
+                                                    <DoubleAnimation.EasingFunction>
+                                                        <CubicEase EasingMode="EaseOut" />
+                                                    </DoubleAnimation.EasingFunction>
+                                                </DoubleAnimation>
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </Trigger.ExitActions>
                                 </Trigger>
                                 <Trigger Property="IsPressed" Value="True">
-                                    <Setter TargetName="BtnBorder" Property="Background" Value="#73FFFFFF" />
-                                    <Setter TargetName="BtnBorder" Property="Opacity" Value="0.9" />
+                                    <Setter TargetName="BtnBorder" Property="Background" Value="#66FFFFFF" />
+                                    <Setter TargetName="BtnBorder" Property="Opacity" Value="0.85" />
                                 </Trigger>
                             </ControlTemplate.Triggers>
                         </ControlTemplate>
                     </Button.Template>
                 </Button>
-            </StackPanel>
+            </Grid>
 
             <!-- Center Draggable Area -->
             <Border Grid.Column="1" Background="Transparent" />
 
             <!-- Window Controls (Minimize, Maximize, Close - always accessible including in Reproducción en curso) -->
-            <ui:TitleBar Grid.Column="2" VerticalAlignment="Top" Background="Transparent" />
+            <!-- Con Effect de sombra sutil para legibilidad en modo claro o fondos luminosos sin alterar pantalla completa -->
+            <ui:TitleBar Grid.Column="2" VerticalAlignment="Top" Background="Transparent">
+                <ui:TitleBar.Effect>
+                    <DropShadowEffect BlurRadius="8" ShadowDepth="1" Direction="270" Color="#000000" Opacity="0.32" />
+                </ui:TitleBar.Effect>
+            </ui:TitleBar>
         </Grid>
 
         <!-- ============================================================== -->
@@ -258,26 +293,59 @@
         <!-- ============================================================== -->
         <Grid Grid.Row="1">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="Auto" /> <!-- Navigation Sidebar -->
-                <ColumnDefinition Width="*" />    <!-- Content Pages -->
+                <ColumnDefinition x:Name="SidebarColumn" Width="240" /> <!-- Navigation Sidebar Column (Dinámico: 240/48 en desktop, 48 en móvil) -->
+                <ColumnDefinition Width="*" />  <!-- Content Pages -->
             </Grid.ColumnDefinitions>
 
             <!-- ========================================================== -->
             <!-- 1. NAVIGATION SIDEBAR (GROOVE MUSIC STYLE WITH MICA)       -->
             <!-- ========================================================== -->
-            <Border Grid.Column="0" Background="{DynamicResource NavPaneBackgroundBrush}" BorderBrush="{DynamicResource DividerBrush}" BorderThickness="0,0,1,0">
-                <Grid>
-                    <Grid.Style>
-                        <Style TargetType="Grid">
-                            <Setter Property="Width" Value="240" />
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding IsNavPaneOpen}" Value="False">
-                                    <Setter Property="Width" Value="58" />
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </Grid.Style>
+            <!-- Backdrop Click-Away (Solo visible en modo móvil cuando está expandido) -->
+            <Border x:Name="NavPaneBackdrop" Grid.Column="0" Grid.ColumnSpan="2" Panel.ZIndex="40"
+                    Background="#66000000" Opacity="0" Visibility="Collapsed"
+                    MouseDown="OnNavPaneBackdropMouseDown" />
 
+            <Border x:Name="SidebarBorder" Grid.Column="0" Grid.ColumnSpan="2" Panel.ZIndex="50"
+                    Background="{DynamicResource NavPaneBackgroundBrush}"
+                    BorderBrush="{DynamicResource DividerBrush}" BorderThickness="0,0,1,0"
+                    HorizontalAlignment="Left">
+                <Border.Effect>
+                    <DropShadowEffect x:Name="SidebarShadow" BlurRadius="24" ShadowDepth="4" Direction="0" Color="#000000" Opacity="0" />
+                </Border.Effect>
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Setter Property="Width" Value="240" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsNavPaneOpen}" Value="False">
+                                <DataTrigger.EnterActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetProperty="Width"
+                                                             To="48" Duration="0:0:0.25">
+                                                <DoubleAnimation.EasingFunction>
+                                                    <CubicEase EasingMode="EaseOut" />
+                                                </DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </DataTrigger.EnterActions>
+                                <DataTrigger.ExitActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetProperty="Width"
+                                                             To="240" Duration="0:0:0.25">
+                                                <DoubleAnimation.EasingFunction>
+                                                    <CubicEase EasingMode="EaseOut" />
+                                                </DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </DataTrigger.ExitActions>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+                <Grid Width="240" HorizontalAlignment="Left">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" /> <!-- Hamburger & SearchBox -->
                         <RowDefinition Height="*" />    <!-- Main Nav Items & Playlists -->
@@ -285,9 +353,9 @@
                     </Grid.RowDefinitions>
 
                     <!-- Hamburger Button & SearchBox -->
-                    <StackPanel Grid.Row="0" Margin="8,10,8,12">
-                        <!-- Hamburger Toggle Button -->
-                        <Button Width="40" Height="40" Cursor="Hand" Margin="2,0,0,8"
+                    <StackPanel Grid.Row="0" Margin="4,8,4,8">
+                        <!-- Hamburger Toggle Button (Aligned with 48px slot: Left 0, Width 40) -->
+                        <Button Width="40" Height="40" Cursor="Hand" Margin="0,0,0,4"
                                 Command="{Binding ToggleNavPaneCommand}"
                                 ToolTip="Colapsar / Expandir panel de navegación"
                                 HorizontalAlignment="Left">
@@ -319,12 +387,13 @@
                                         PlaceholderText="Buscar música..."
                                         Background="{DynamicResource SurfaceCardBrush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource SurfaceCardBorderBrush}"
                                         Padding="8,5"
+                                        GotFocus="OnSidebarSearchBoxGotFocus"
                                         KeyDown="OnSidebarSearchBoxKeyDown" />
 
                             <Popup x:Name="SidebarSearchSuggestionsPopup"
                                    PlacementTarget="{Binding ElementName=SidebarSearchBox}"
                                    Placement="Bottom"
-                                   IsOpen="{Binding Search.IsSuggestionsOpen, Mode=TwoWay}"
+                                   IsOpen="{Binding Search.IsSidebarSuggestionsOpen, Mode=TwoWay}"
                                    StaysOpen="False"
                                    AllowsTransparency="True"
                                    PopupAnimation="Fade"
@@ -336,22 +405,46 @@
                                     </Border.Effect>
                                     <ScrollViewer MaxHeight="300" VerticalScrollBarVisibility="Auto">
                                         <ItemsControl ItemsSource="{Binding Search.Suggestions}">
+                                            <ItemsControl.ItemContainerStyle>
+                                                <Style TargetType="ContentPresenter">
+                                                    <Setter Property="HorizontalAlignment" Value="Stretch" />
+                                                </Style>
+                                            </ItemsControl.ItemContainerStyle>
                                             <ItemsControl.ItemTemplate>
                                                 <DataTemplate DataType="{x:Type vm:SearchSuggestionItem}">
-                                                    <Button Padding="8,6" Margin="0,1" HorizontalContentAlignment="Stretch" Cursor="Hand"
+                                                    <Button Padding="8,6" Margin="0,1" HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Cursor="Hand"
                                                             Command="{Binding DataContext.Search.SelectSuggestionCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                                             CommandParameter="{Binding}">
                                                         <Button.Template>
                                                             <ControlTemplate TargetType="Button">
-                                                                <Border x:Name="BtnBrd" Background="Transparent" CornerRadius="6" Padding="{TemplateBinding Padding}">
-                                                                    <Grid>
+                                                                <Border x:Name="BtnBrd" Background="Transparent" CornerRadius="6" Padding="{TemplateBinding Padding}" HorizontalAlignment="Stretch">
+                                                                    <Grid HorizontalAlignment="Stretch">
                                                                         <Grid.ColumnDefinitions>
                                                                             <ColumnDefinition Width="Auto" />
                                                                             <ColumnDefinition Width="*" />
                                                                         </Grid.ColumnDefinitions>
-                                                                        <ui:SymbolIcon Symbol="{Binding Icon}" FontSize="15"
-                                                                                       Foreground="{Binding DataContext.Theme.CurrentAccentBrush, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                                                       Margin="0,0,10,0" VerticalAlignment="Center" />
+
+                                                                        <!-- Thumbnail / Icon Area (28x28) -->
+                                                                        <Grid Grid.Column="0" Width="28" Height="28" Margin="0,0,8,0" VerticalAlignment="Center">
+                                                                            <!-- 1. Fallback Icon for Search / Default -->
+                                                                            <ui:SymbolIcon Symbol="{Binding Icon}" FontSize="15"
+                                                                                           Foreground="{Binding DataContext.Theme.CurrentAccentBrush, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+
+                                                                            <!-- 2. Artist Silhouette Circle -->
+                                                                            <Border Width="28" Height="28" CornerRadius="14" Background="#1F1F28"
+                                                                                    Visibility="{Binding IsArtist, Converter={StaticResource BoolToVisConverter}}">
+                                                                                <ui:SymbolIcon Symbol="Person24" FontSize="14" Foreground="{DynamicResource TextTertiaryBrush}"
+                                                                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                                            </Border>
+
+                                                                            <!-- 3. Album / Track Cached Artwork -->
+                                                                            <Border Width="28" Height="28" CornerRadius="4" ClipToBounds="True"
+                                                                                    Visibility="{Binding HasCoverImage, Converter={StaticResource BoolToVisConverter}}">
+                                                                                <Image Source="{Binding CoverImage}" Stretch="UniformToFill" RenderOptions.BitmapScalingMode="LowQuality" />
+                                                                            </Border>
+                                                                        </Grid>
+
                                                                         <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                                                             <TextBlock Text="{Binding Title}" FontSize="12" FontWeight="SemiBold"
                                                                                        Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis" />
@@ -364,8 +457,11 @@
                                                                     <Trigger Property="IsMouseOver" Value="True">
                                                                         <Setter TargetName="BtnBrd" Property="Background" Value="#26FFFFFF" />
                                                                     </Trigger>
-                                                                    <Trigger Property="IsPressed" Value="True">
+                                                                    <DataTrigger Binding="{Binding IsSelected}" Value="True">
                                                                         <Setter TargetName="BtnBrd" Property="Background" Value="#33FFFFFF" />
+                                                                    </DataTrigger>
+                                                                    <Trigger Property="IsPressed" Value="True">
+                                                                        <Setter TargetName="BtnBrd" Property="Background" Value="#40FFFFFF" />
                                                                     </Trigger>
                                                                 </ControlTemplate.Triggers>
                                                             </ControlTemplate>
@@ -382,7 +478,7 @@
 
                     <!-- Main Navigation Items & Playlists Section -->
                     <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
-                        <StackPanel Margin="6,0,6,0">
+                        <StackPanel Margin="4,0,4,0">
                             <!-- 0. Inicio -->
                             <Button Margin="0,2" Padding="10,9" HorizontalContentAlignment="Left" Cursor="Hand"
                                     Command="{Binding NavigateToCommand}" CommandParameter="Home">
@@ -430,60 +526,6 @@
                                         <Setter Property="Background" Value="Transparent" />
                                         <Style.Triggers>
                                             <DataTrigger Binding="{Binding CurrentView}" Value="Home">
-                                                <Setter Property="Background" Value="{DynamicResource SurfaceCardHoverBrush}" />
-                                            </DataTrigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Button.Style>
-                            </Button>
-
-                            <!-- 0.5 Buscar -->
-                            <Button Margin="0,2" Padding="10,9" HorizontalContentAlignment="Left" Cursor="Hand"
-                                    Command="{Binding NavigateToCommand}" CommandParameter="Search">
-                                <Button.Template>
-                                    <ControlTemplate TargetType="Button">
-                                        <Border CornerRadius="6" Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
-                                            <StackPanel Orientation="Horizontal">
-                                                <ui:SymbolIcon Symbol="Search24" FontSize="18" Margin="0,0,14,0" VerticalAlignment="Center">
-                                                    <ui:SymbolIcon.Style>
-                                                        <Style TargetType="ui:SymbolIcon">
-                                                            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
-                                                            <Style.Triggers>
-                                                                <DataTrigger Binding="{Binding CurrentView}" Value="Search">
-                                                                    <Setter Property="Foreground" Value="{Binding DataContext.Theme.CurrentAccentBrush, RelativeSource={RelativeSource AncestorType={x:Type Window}}}" />
-                                                                </DataTrigger>
-                                                            </Style.Triggers>
-                                                        </Style>
-                                                    </ui:SymbolIcon.Style>
-                                                </ui:SymbolIcon>
-                                                <TextBlock Text="Buscar" FontSize="13" VerticalAlignment="Center"
-                                                           Visibility="{Binding DataContext.IsNavPaneOpen, RelativeSource={RelativeSource AncestorType={x:Type Window}}, Converter={StaticResource BoolToVisConverter}}">
-                                                    <TextBlock.Style>
-                                                        <Style TargetType="TextBlock">
-                                                            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
-                                                            <Style.Triggers>
-                                                                <DataTrigger Binding="{Binding CurrentView}" Value="Search">
-                                                                    <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
-                                                                    <Setter Property="FontWeight" Value="SemiBold" />
-                                                                </DataTrigger>
-                                                            </Style.Triggers>
-                                                        </Style>
-                                                    </TextBlock.Style>
-                                                </TextBlock>
-                                            </StackPanel>
-                                        </Border>
-                                        <ControlTemplate.Triggers>
-                                            <Trigger Property="IsMouseOver" Value="True">
-                                                <Setter Property="Background" Value="{DynamicResource SurfaceCardHoverBrush}" />
-                                            </Trigger>
-                                        </ControlTemplate.Triggers>
-                                    </ControlTemplate>
-                                </Button.Template>
-                                <Button.Style>
-                                    <Style TargetType="Button">
-                                        <Setter Property="Background" Value="Transparent" />
-                                        <Style.Triggers>
-                                            <DataTrigger Binding="{Binding CurrentView}" Value="Search">
                                                 <Setter Property="Background" Value="{DynamicResource SurfaceCardHoverBrush}" />
                                             </DataTrigger>
                                         </Style.Triggers>
@@ -625,25 +667,100 @@
                                 </Button.Style>
                             </Button>
 
-                            <!-- Subtle Divider -->
-                            <Separator Background="{DynamicResource DividerBrush}" Margin="6,12" />
+                            <!-- Subtle Divider (espacio reducido entre Reproducción en curso y Listas de reproducción) -->
+                            <Separator Background="{DynamicResource DividerBrush}" Margin="6,5" />
 
-                            <!-- Playlists Header with (+) Button -->
-                            <Grid Margin="6,4,6,6" Visibility="{Binding IsNavPaneOpen, Converter={StaticResource BoolToVisConverter}}">
+                            <!-- Playlists Button / Header in Sidebar -->
+                            <Grid Margin="0,2">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
-                                <TextBlock Grid.Column="0" Text="Listas de reproducción" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
-                                <ui:Button Grid.Column="1" Appearance="Transparent" Padding="4"
-                                           Command="{Binding CreatePlaylistQuickCommand}" ToolTip="Crear nueva lista">
+
+                                <!-- Interactive Navigation Button for Listas de reproducción -->
+                                <Button Grid.Column="0" Grid.ColumnSpan="2" Margin="0" Padding="10,9" HorizontalContentAlignment="Left" Cursor="Hand"
+                                        Command="{Binding NavigateToPlaylistsViewCommand}" ToolTip="Listas de reproducción">
+                                    <Button.Template>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border CornerRadius="6" Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto" />
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+
+                                                    <ui:SymbolIcon Grid.Column="0" Symbol="List24" FontSize="18" Margin="0,0,14,0" VerticalAlignment="Center">
+                                                        <ui:SymbolIcon.Style>
+                                                            <Style TargetType="ui:SymbolIcon">
+                                                                <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding CurrentView}" Value="PlaylistDetail">
+                                                                        <Setter Property="Foreground" Value="{Binding DataContext.Theme.CurrentAccentBrush, RelativeSource={RelativeSource AncestorType={x:Type Window}}}" />
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </ui:SymbolIcon.Style>
+                                                    </ui:SymbolIcon>
+
+                                                    <TextBlock Grid.Column="1" Text="Listas de reproducción" FontSize="13" VerticalAlignment="Center"
+                                                               Visibility="{Binding DataContext.IsNavPaneOpen, RelativeSource={RelativeSource AncestorType={x:Type Window}}, Converter={StaticResource BoolToVisConverter}}">
+                                                        <TextBlock.Style>
+                                                            <Style TargetType="TextBlock">
+                                                                <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+                                                                <Style.Triggers>
+                                                                    <DataTrigger Binding="{Binding CurrentView}" Value="PlaylistDetail">
+                                                                        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+                                                                        <Setter Property="FontWeight" Value="SemiBold" />
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </TextBlock.Style>
+                                                    </TextBlock>
+                                                </Grid>
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter Property="Background" Value="{DynamicResource SurfaceCardHoverBrush}" />
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Button.Template>
+                                    <Button.Style>
+                                        <Style TargetType="Button">
+                                            <Setter Property="Background" Value="Transparent" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding CurrentView}" Value="PlaylistDetail">
+                                                    <Setter Property="Background" Value="{DynamicResource SurfaceCardHoverBrush}" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Button.Style>
+                                </Button>
+
+                                <!-- (+) Quick Add Button -->
+                                <ui:Button Grid.Column="1" Appearance="Transparent" Width="28" Height="28" Padding="0" Margin="0,0,6,0"
+                                           VerticalAlignment="Center"
+                                           Command="{Binding CreatePlaylistQuickCommand}"
+                                           ToolTip="Crear nueva lista"
+                                           Visibility="{Binding IsNavPaneOpen, Converter={StaticResource BoolToVisConverter}}">
                                     <ui:SymbolIcon Symbol="Add24" FontSize="14" Foreground="{DynamicResource TextPrimaryBrush}" />
                                 </ui:Button>
                             </Grid>
 
-                            <!-- Playlists Sub-items -->
+                            <!-- Playlists Sub-items (Si hay listas) -->
                             <ItemsControl ItemsSource="{Binding Playlists.Playlists}"
                                           Visibility="{Binding IsNavPaneOpen, Converter={StaticResource BoolToVisConverter}}">
+                                <ItemsControl.Style>
+                                    <Style TargetType="ItemsControl">
+                                        <Setter Property="Visibility" Value="{Binding IsNavPaneOpen, Converter={StaticResource BoolToVisConverter}}" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Playlists.Playlists.Count}" Value="0">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </ItemsControl.Style>
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate DataType="{x:Type models:Playlist}">
                                         <Grid Margin="0,1">
@@ -725,6 +842,67 @@
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
+
+                            <!-- Empty State: Cuando no hay listas creadas -->
+                            <Border Margin="6,4,6,6" Padding="12,10" CornerRadius="8" Background="{DynamicResource SurfaceCardBrush}">
+                                <Border.Style>
+                                    <Style TargetType="Border">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <MultiDataTrigger>
+                                                <MultiDataTrigger.Conditions>
+                                                    <Condition Binding="{Binding IsNavPaneOpen}" Value="True" />
+                                                    <Condition Binding="{Binding Playlists.Playlists.Count}" Value="0" />
+                                                </MultiDataTrigger.Conditions>
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </MultiDataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                                <StackPanel>
+                                    <TextBlock Text="No tienes listas aún" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,2" />
+                                    <TextBlock Text="Crea tu primera lista para agrupar tu música favorita." FontSize="11" Foreground="{DynamicResource TextTertiaryBrush}" TextWrapping="Wrap" Margin="0,0,0,8" />
+                                    
+                                    <Button Margin="0,2" Padding="8,5" HorizontalAlignment="Stretch" Cursor="Hand"
+                                            Command="{Binding CreatePlaylistQuickCommand}">
+                                        <Button.Template>
+                                            <ControlTemplate TargetType="Button">
+                                                <Border Background="{DynamicResource SurfaceCardHoverBrush}" CornerRadius="4" Padding="{TemplateBinding Padding}">
+                                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                                        <ui:SymbolIcon Symbol="Add24" FontSize="13" Foreground="{Binding DataContext.Theme.CurrentAccentBrush, RelativeSource={RelativeSource AncestorType={x:Type Window}}}" Margin="0,0,6,0" />
+                                                        <TextBlock Text="Crear lista" FontSize="11" FontWeight="Medium" Foreground="{DynamicResource TextPrimaryBrush}" />
+                                                    </StackPanel>
+                                                </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter Property="Opacity" Value="0.85" />
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Button.Template>
+                                    </Button>
+
+                                    <!-- Sugerencia rápida -->
+                                    <Button Margin="0,3,0,0" Padding="8,4" HorizontalAlignment="Stretch" Cursor="Hand"
+                                            Command="{Binding CreateSuggestedPlaylistCommand}" CommandParameter="Favorites">
+                                        <Button.Template>
+                                            <ControlTemplate TargetType="Button">
+                                                <Border Background="Transparent" BorderBrush="{DynamicResource DividerBrush}" BorderThickness="1" CornerRadius="4" Padding="{TemplateBinding Padding}">
+                                                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                                        <ui:SymbolIcon Symbol="Sparkle24" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,5,0" />
+                                                        <TextBlock Text="Sugerir: Favoritas" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" />
+                                                    </StackPanel>
+                                                </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter Property="Background" Value="{DynamicResource SurfaceCardHoverBrush}" />
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Button.Template>
+                                    </Button>
+                                </StackPanel>
+                            </Border>
                         </StackPanel>
                     </ScrollViewer>
 
@@ -1006,17 +1184,25 @@
         <!-- FULL-WINDOW NOWPLAYINGVIEW INMERSIVE SCREEN (EDGE-TO-EDGE)     -->
         <!-- ============================================================== -->
         <views:NowPlayingView Grid.Row="0" Grid.RowSpan="3" Panel.ZIndex="100">
+            <views:NowPlayingView.RenderTransform>
+                <TranslateTransform Y="0" />
+            </views:NowPlayingView.RenderTransform>
             <views:NowPlayingView.Style>
                 <Style TargetType="views:NowPlayingView">
                     <Setter Property="Visibility" Value="Collapsed" />
-                    <Setter Property="Opacity" Value="1" />
+                    <Setter Property="Opacity" Value="0" />
                     <Style.Triggers>
                         <DataTrigger Binding="{Binding IsNowPlayingActive}" Value="True">
                             <Setter Property="Visibility" Value="Visible" />
                             <DataTrigger.EnterActions>
                                 <BeginStoryboard>
-                                    <Storyboard FillBehavior="Stop">
-                                        <DoubleAnimation Storyboard.TargetProperty="Opacity" From="0.0" To="1.0" Duration="0:0:1.0">
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetProperty="Opacity" From="0.0" To="1.0" Duration="0:0:0.35">
+                                            <DoubleAnimation.EasingFunction>
+                                                <CubicEase EasingMode="EaseOut" />
+                                            </DoubleAnimation.EasingFunction>
+                                        </DoubleAnimation>
+                                        <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.Y)" From="120" To="0" Duration="0:0:0.35">
                                             <DoubleAnimation.EasingFunction>
                                                 <CubicEase EasingMode="EaseOut" />
                                             </DoubleAnimation.EasingFunction>
@@ -1024,6 +1210,23 @@
                                     </Storyboard>
                                 </BeginStoryboard>
                             </DataTrigger.EnterActions>
+                            <DataTrigger.ExitActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetProperty="Opacity" To="0.0" Duration="0:0:0.25">
+                                            <DoubleAnimation.EasingFunction>
+                                                <CubicEase EasingMode="EaseIn" />
+                                            </DoubleAnimation.EasingFunction>
+                                        </DoubleAnimation>
+                                        <!-- Tipo persiana que baja al volver a la biblioteca (animación simétrica e inversa) -->
+                                        <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.Y)" To="120" Duration="0:0:0.25">
+                                            <DoubleAnimation.EasingFunction>
+                                                <CubicEase EasingMode="EaseIn" />
+                                            </DoubleAnimation.EasingFunction>
+                                        </DoubleAnimation>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </DataTrigger.ExitActions>
                         </DataTrigger>
                     </Style.Triggers>
                 </Style>
@@ -1031,9 +1234,10 @@
         </views:NowPlayingView>
 
         <!-- ============================================================== -->
-        <!-- ROW 2: PERSISTENT BOTTOM MINIPLAYERBAR                         -->
+        <!-- ROW 2: PERSISTENT BOTTOM MINIPLAYERBAR (GROOVE MUSIC EXACT LAYOUT) -->
         <!-- ============================================================== -->
-        <Border Grid.Row="2" Height="90" Background="{DynamicResource MiniPlayerBackgroundBrush}" BorderBrush="{DynamicResource DividerBrush}" BorderThickness="0,1,0,0">
+        <Border x:Name="MiniPlayerBar" Grid.Row="2" Height="100" Background="{DynamicResource MiniPlayerBackgroundBrush}" BorderBrush="{DynamicResource DividerBrush}" BorderThickness="0,1,0,0"
+                PreviewMouseWheel="OnMiniPlayerBarPreviewMouseWheel">
             <Border.Style>
                 <Style TargetType="Border">
                     <Setter Property="Visibility" Value="Visible" />
@@ -1045,18 +1249,23 @@
                 </Style>
             </Border.Style>
 
-            <Grid Margin="12,0,16,0">
+            <Grid Margin="0,0,16,0">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="320" /> <!-- Zone 1: Big Interactive Button -->
-                    <ColumnDefinition Width="*" />   <!-- Zone 2: Transport & Seekbar -->
-                    <ColumnDefinition Width="280" /> <!-- Zone 3: Volume & DAC Selector -->
+                    <!-- Columna 0: Carátula e info canción (Izquierda con peso 1*) -->
+                    <ColumnDefinition Width="*" MinWidth="220" />
+                    <!-- Columna 1: Centro fijo matemático con Controles de transporte y Seekbar abajo -->
+                    <ColumnDefinition Width="Auto" />
+                    <!-- Columna 2: Derecha con Volumen, Mini-player / DAC, Más opciones (Mismo peso 1*) -->
+                    <ColumnDefinition Width="*" MinWidth="220" />
                 </Grid.ColumnDefinitions>
 
                 <!-- ====================================================== -->
-                <!-- ZONE 1: EL "BOTÓN GRANDE" DE ACCESO A NOWPLAYINGVIEW    -->
+                <!-- COLUMNA 0: CARÁTULA CUADRADA + TÍTULO Y ARTISTA        -->
                 <!-- ====================================================== -->
                 <Button x:Name="MiniPlayerBigButton" Grid.Column="0" Command="{Binding OpenNowPlayingCommand}"
-                        HorizontalContentAlignment="Left" VerticalContentAlignment="Center"
+                        HorizontalAlignment="Left" MaxWidth="380"
+                        HorizontalContentAlignment="Left" VerticalContentAlignment="Stretch"
+                        VerticalAlignment="Stretch" Padding="0" Margin="0" BorderThickness="0" Background="Transparent"
                         Cursor="Hand" ToolTip="Clic izquierdo: Abrir vista inmersiva | Clic derecho: Opciones de pista">
                     <Button.ContextMenu>
                         <ContextMenu Opened="OnMiniPlayerContextMenuOpened">
@@ -1090,30 +1299,35 @@
                     </Button.ContextMenu>
                     <Button.Template>
                         <ControlTemplate TargetType="Button">
-                            <Border x:Name="BigButtonBorder" CornerRadius="8" Background="Transparent" Padding="6,6,12,6">
-                                <Grid x:Name="MiniPlayerTrackInfoContainer">
+                            <Border x:Name="BigButtonBorder" Background="Transparent" VerticalAlignment="Stretch" Padding="0,0,12,0">
+                                <Grid x:Name="MiniPlayerTrackInfoContainer" VerticalAlignment="Stretch">
                                     <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="100" />
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
 
-                                    <!-- Square Album Art pinned to corner -->
-                                    <Border Grid.Column="0" Width="60" Height="60" CornerRadius="6" ClipToBounds="True" Background="#26FFFFFF">
+                                    <!-- Carátula cuadrada a ras de la barra (100x100 ocupando todo el alto) -->
+                                    <Border Grid.Column="0" Width="100" Height="100" Background="#26FFFFFF"
+                                            VerticalAlignment="Stretch" HorizontalAlignment="Left" SnapsToDevicePixels="True">
                                         <Image Source="{Binding NowPlaying.AlbumArt}" Stretch="UniformToFill" RenderOptions.BitmapScalingMode="HighQuality" />
                                     </Border>
 
-                                    <!-- Title & Artist -->
-                                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="12,0,0,0">
-                                        <TextBlock Text="{Binding NowPlaying.Title}" FontSize="13" FontWeight="Bold"
+                                    <!-- Título y Artista con tamaños legibles y armoniosos -->
+                                    <StackPanel x:Name="MiniTrackInfoPanel" Grid.Column="1" VerticalAlignment="Center" Margin="16,0,12,0" ClipToBounds="True">
+                                        <StackPanel.RenderTransform>
+                                            <TranslateTransform x:Name="MiniTrackInfoTranslate" X="0" />
+                                        </StackPanel.RenderTransform>
+
+                                        <TextBlock Text="{Binding NowPlaying.Title}" FontSize="15" FontWeight="SemiBold"
                                                    Foreground="#FFFFFF" TextTrimming="CharacterEllipsis" />
-                                        <TextBlock Text="{Binding NowPlaying.Artist}" FontSize="11"
-                                                   Foreground="#A0FFFFFF" TextTrimming="CharacterEllipsis" Margin="0,3,0,0" />
+                                        <TextBlock Text="{Binding NowPlaying.Artist}" FontSize="13" FontWeight="Normal"
+                                                   Foreground="#D0FFFFFF" TextTrimming="CharacterEllipsis" Margin="0,4,0,0" />
                                     </StackPanel>
                                 </Grid>
                             </Border>
                             <ControlTemplate.Triggers>
                                 <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter TargetName="BigButtonBorder" Property="Background" Value="#22FFFFFF" />
+                                    <Setter TargetName="BigButtonBorder" Property="Background" Value="#1AFFFFFF" />
                                 </Trigger>
                             </ControlTemplate.Triggers>
                         </ControlTemplate>
@@ -1121,23 +1335,23 @@
                 </Button>
 
                 <!-- ====================================================== -->
-                <!-- ZONE 2 (CENTER): TRANSPORT CONTROLS & SEEKBAR          -->
+                <!-- COLUMNA 1: CONTROLES DE TRANSPORTE Y SEEKBAR ALINEADA  -->
                 <!-- ====================================================== -->
-                <Grid Grid.Column="1" VerticalAlignment="Center" Margin="16,0">
+                <Grid Grid.Column="1" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="10,0">
                     <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" /> <!-- Transport Buttons -->
-                        <RowDefinition Height="Auto" /> <!-- Seekbar Slider -->
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
 
-                    <!-- Transport Buttons Centered -->
-                    <StackPanel Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,0,0,0">
+                    <!-- Fila 0: Botones de transporte estilo NowPlayingView (Shuffle, Prev, Play Circular, Next, Repeat) -->
+                    <StackPanel Grid.Row="0" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,0,0,8">
                         <!-- Shuffle Button -->
-                        <Button Command="{Binding NowPlaying.ToggleShuffleCommand}" Cursor="Hand" Padding="0" Margin="0,0,4,0" ToolTip="Reproducción aleatoria">
+                        <Button Command="{Binding NowPlaying.ToggleShuffleCommand}" Cursor="Hand" Padding="0" Margin="0,0,10,0" ToolTip="Reproducción aleatoria">
                             <Button.Template>
                                 <ControlTemplate TargetType="Button">
-                                    <Border x:Name="BtnBorder" CornerRadius="8" Padding="7,5" Background="Transparent" BorderThickness="1" BorderBrush="Transparent">
+                                    <Border x:Name="BtnBorder" CornerRadius="8" Padding="8,5" Background="Transparent" BorderThickness="1" BorderBrush="Transparent">
                                         <StackPanel Orientation="Vertical" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                            <ui:SymbolIcon x:Name="BtnIcon" Symbol="ArrowShuffle24" FontSize="16" Foreground="#D9FFFFFF" HorizontalAlignment="Center" />
+                                            <ui:SymbolIcon x:Name="BtnIcon" Symbol="ArrowShuffle24" FontSize="18" Foreground="#D9FFFFFF" HorizontalAlignment="Center" />
                                             <Ellipse x:Name="ActiveDot" Width="4" Height="4" Fill="{DynamicResource AccentBrush}" Margin="0,2,0,0" Visibility="Collapsed" HorizontalAlignment="Center" />
                                         </StackPanel>
                                     </Border>
@@ -1162,25 +1376,28 @@
                             </Button.Template>
                         </Button>
 
-                        <ui:Button Appearance="Transparent" Padding="8" Margin="0,0,4,0" Command="{Binding NowPlaying.PreviousCommand}">
-                            <ui:SymbolIcon Symbol="Previous24" FontSize="18" Foreground="#E0FFFFFF" />
+                        <!-- Previous Button -->
+                        <ui:Button Appearance="Transparent" Padding="9" Margin="0,0,4,0" Command="{Binding NowPlaying.PreviousCommand}" ToolTip="Anterior">
+                            <ui:SymbolIcon Symbol="Previous24" FontSize="20" Foreground="#E0FFFFFF" />
                         </ui:Button>
 
+                        <!-- Circular Play/Pause Button (Estilo exacto de NowPlayingView) -->
                         <Button Style="{StaticResource CircularPlayPauseButtonStyle}"
                                 Command="{Binding NowPlaying.PlayPauseCommand}"
-                                Margin="6,0" />
+                                Margin="4,0,8,0" />
 
-                        <ui:Button Appearance="Transparent" Padding="8" Margin="0,0,4,0" Command="{Binding NowPlaying.NextCommand}">
-                            <ui:SymbolIcon Symbol="Next24" FontSize="18" Foreground="#E0FFFFFF" />
+                        <!-- Next Button -->
+                        <ui:Button Appearance="Transparent" Padding="9" Margin="0,0,4,0" Command="{Binding NowPlaying.NextCommand}" ToolTip="Siguiente">
+                            <ui:SymbolIcon Symbol="Next24" FontSize="20" Foreground="#E0FFFFFF" />
                         </ui:Button>
 
                         <!-- Repeat Button -->
-                        <Button Command="{Binding NowPlaying.CycleRepeatCommand}" Cursor="Hand" Padding="0" Margin="0,0,4,0" ToolTip="Modo de repetición">
+                        <Button Command="{Binding NowPlaying.CycleRepeatCommand}" Cursor="Hand" Padding="0" Margin="0,0,10,0" ToolTip="Modo de repetición">
                             <Button.Template>
                                 <ControlTemplate TargetType="Button">
-                                    <Border x:Name="BtnBorder" CornerRadius="8" Padding="7,5" Background="Transparent" BorderThickness="1" BorderBrush="Transparent">
+                                    <Border x:Name="BtnBorder" CornerRadius="8" Padding="8,5" Background="Transparent" BorderThickness="1" BorderBrush="Transparent">
                                         <StackPanel Orientation="Vertical" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                            <ui:SymbolIcon x:Name="BtnIcon" Symbol="{Binding NowPlaying.RepeatMode, Converter={StaticResource RepeatModeToSymbolConverter}}" FontSize="16" Foreground="#D9FFFFFF" HorizontalAlignment="Center" />
+                                            <ui:SymbolIcon x:Name="BtnIcon" Symbol="{Binding NowPlaying.RepeatMode, Converter={StaticResource RepeatModeToSymbolConverter}}" FontSize="18" Foreground="#D9FFFFFF" HorizontalAlignment="Center" />
                                             <Ellipse x:Name="ActiveDot" Width="4" Height="4" Fill="{DynamicResource AccentBrush}" Margin="0,2,0,0" Visibility="Collapsed" HorizontalAlignment="Center" />
                                         </StackPanel>
                                     </Border>
@@ -1206,83 +1423,105 @@
                         </Button>
                     </StackPanel>
 
-                    <!-- Seekbar Slider with Wide Single-Click Hitbox -->
-                    <Grid Grid.Row="1" Margin="16,0,16,0">
+                    <!-- Fila 1: Seekbar compacta y bien visible con tiempos a los lados y Donut Thumb de Groove -->
+                    <Grid Grid.Row="1" Width="480" Height="30" HorizontalAlignment="Center">
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="42" />
+                            <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="42" />
+                            <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
 
-                        <TextBlock Grid.Column="0" Text="{Binding NowPlaying.CurrentTimeText}" FontSize="11" Foreground="#99FFFFFF" VerticalAlignment="Center" HorizontalAlignment="Left" />
+                        <!-- Tiempo actual -->
+                        <TextBlock Grid.Column="0" Text="{Binding NowPlaying.CurrentTimeText}" FontSize="11" Foreground="#C0FFFFFF"
+                                   VerticalAlignment="Center" Margin="0,0,10,0" IsHitTestVisible="False" />
 
-                        <Border Grid.Column="1" Background="Transparent" Padding="0,3" Cursor="Hand"
-                                PreviewMouseLeftButtonDown="OnMiniSeekContainerMouseDown"
-                                PreviewMouseMove="OnMiniSeekContainerMouseMove"
-                                PreviewMouseLeftButtonUp="OnMiniSeekContainerMouseUp">
-                            <Slider x:Name="MiniSeekSlider" Margin="6,0"
-                                    Minimum="0" Maximum="{Binding NowPlaying.TotalDurationSeconds}"
-                                    Value="{Binding NowPlaying.CurrentPositionSeconds, Mode=TwoWay}"
-                                    IsMoveToPointEnabled="True"
-                                    PreviewMouseLeftButtonDown="OnSeekSliderPreviewMouseDown"
-                                    PreviewMouseMove="OnSeekSliderPreviewMouseMove"
-                                    PreviewMouseLeftButtonUp="OnSeekSliderPreviewMouseUp"
-                                    ValueChanged="OnSeekSliderValueChanged" />
-                        </Border>
+                        <!-- Slider con riel de alto contraste visible y barra de progreso rellena estilo NowPlayingView -->
+                        <Slider x:Name="MiniSeekSlider" Grid.Column="1" Height="30" VerticalAlignment="Center" Margin="0"
+                                Minimum="0" Maximum="{Binding NowPlaying.TotalDurationSeconds}"
+                                Value="{Binding NowPlaying.CurrentPositionSeconds, Mode=TwoWay}"
+                                IsMoveToPointEnabled="True"
+                                PreviewMouseLeftButtonDown="OnSeekSliderPreviewMouseDown"
+                                PreviewMouseMove="OnSeekSliderPreviewMouseMove"
+                                PreviewMouseLeftButtonUp="OnSeekSliderPreviewMouseUp"
+                                ValueChanged="OnSeekSliderValueChanged">
+                            <Slider.Template>
+                                <ControlTemplate TargetType="Slider">
+                                    <Border Background="Transparent" VerticalAlignment="Center" Height="30">
+                                        <Grid Background="Transparent" Height="30" VerticalAlignment="Center">
+                                            <Track x:Name="PART_Track" Height="30" VerticalAlignment="Center">
+                                                <Track.DecreaseRepeatButton>
+                                                    <RepeatButton Command="{x:Static Slider.DecreaseLarge}" Style="{StaticResource ModernSliderDecreaseRepeatButtonStyle}" />
+                                                </Track.DecreaseRepeatButton>
+                                                <Track.Thumb>
+                                                    <Thumb Style="{StaticResource ModernSliderThumbStyle}" VerticalAlignment="Center" />
+                                                </Track.Thumb>
+                                                <Track.IncreaseRepeatButton>
+                                                    <RepeatButton Command="{x:Static Slider.IncreaseLarge}" Style="{StaticResource ModernSliderIncreaseRepeatButtonStyle}" />
+                                                </Track.IncreaseRepeatButton>
+                                            </Track>
+                                        </Grid>
+                                    </Border>
+                                </ControlTemplate>
+                            </Slider.Template>
+                        </Slider>
 
-                        <TextBlock Grid.Column="2" Text="{Binding NowPlaying.TotalTimeText}" FontSize="11" Foreground="#99FFFFFF" VerticalAlignment="Center" HorizontalAlignment="Right" />
+                        <!-- Tiempo total -->
+                        <TextBlock Grid.Column="2" Text="{Binding NowPlaying.TotalTimeText}" FontSize="11" Foreground="#C0FFFFFF"
+                                   VerticalAlignment="Center" Margin="10,0,0,0" IsHitTestVisible="False" />
                     </Grid>
                 </Grid>
 
                 <!-- ====================================================== -->
-                <!-- ZONE 3 (RIGHT): VOLUME SLIDER & AUDIO OUTPUT / DAC     -->
+                <!-- COLUMNA 2: VOLUMEN VISIBLE, SELECTOR DAC (PARLANTE) Y MÁS -->
                 <!-- ====================================================== -->
                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Right">
-                    <!-- Volume Icon Button -->
-                    <Button Command="{Binding NowPlaying.ToggleMuteCommand}" Cursor="Hand" Width="36" Height="36" Padding="0" ToolTip="Silenciar / Activar sonido">
-                        <Button.Template>
-                            <ControlTemplate TargetType="Button">
-                                <Border x:Name="BtnBorder" CornerRadius="8" Padding="6,5" Background="Transparent" BorderThickness="1" BorderBrush="Transparent">
-                                    <StackPanel Orientation="Vertical" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                        <ui:SymbolIcon x:Name="BtnIcon" FontSize="17" Foreground="#D9FFFFFF" HorizontalAlignment="Center">
-                                            <ui:SymbolIcon.Symbol>
-                                                <MultiBinding Converter="{StaticResource VolumeToSymbolConverter}">
-                                                    <Binding Path="NowPlaying.Volume" />
-                                                    <Binding Path="NowPlaying.IsMuted" />
-                                                </MultiBinding>
-                                            </ui:SymbolIcon.Symbol>
-                                        </ui:SymbolIcon>
-                                        <Ellipse x:Name="ActiveDot" Width="4" Height="4" Fill="#FF4C4C" Margin="0,2,0,0" Visibility="Collapsed" HorizontalAlignment="Center" />
-                                    </StackPanel>
-                                </Border>
-                                <ControlTemplate.Triggers>
-                                    <DataTrigger Binding="{Binding NowPlaying.IsMuted}" Value="True">
-                                        <Setter TargetName="BtnBorder" Property="Background" Value="#CC121216" />
-                                        <Setter TargetName="BtnBorder" Property="BorderBrush" Value="#66FFFFFF" />
-                                        <Setter TargetName="BtnIcon" Property="Foreground" Value="#FF6B6B" />
-                                        <Setter TargetName="ActiveDot" Property="Visibility" Value="Visible" />
-                                    </DataTrigger>
-                                    <Trigger Property="IsMouseOver" Value="True">
-                                        <Setter TargetName="BtnBorder" Property="Background" Value="#33000000" />
-                                    </Trigger>
-                                </ControlTemplate.Triggers>
-                            </ControlTemplate>
-                        </Button.Template>
+                    <!-- Icono de Volumen -->
+                    <Button Command="{Binding NowPlaying.ToggleMuteCommand}" Cursor="Hand" Width="34" Height="34" Padding="0"
+                            Background="Transparent" BorderThickness="0" ToolTip="Silenciar / Activar sonido" Margin="0,0,4,0">
+                        <ui:SymbolIcon FontSize="18" Foreground="#E0FFFFFF" HorizontalAlignment="Center">
+                            <ui:SymbolIcon.Symbol>
+                                <MultiBinding Converter="{StaticResource VolumeToSymbolConverter}">
+                                    <Binding Path="NowPlaying.Volume" />
+                                    <Binding Path="NowPlaying.IsMuted" />
+                                </MultiBinding>
+                            </ui:SymbolIcon.Symbol>
+                        </ui:SymbolIcon>
                     </Button>
 
-                    <!-- Direct Horizontal Volume Slider with Wide Hitbox -->
-                    <Border Background="Transparent" Padding="0,8" Margin="4,0,12,0" Cursor="Hand">
-                        <Slider Width="110" Minimum="0" Maximum="1"
+                    <!-- Slider de Volumen con riel relleno estilo NowPlayingView -->
+                    <Border Background="Transparent" Padding="0" Margin="0,0,14,0" Cursor="Hand" VerticalAlignment="Center">
+                        <Slider Width="105" Height="30" Minimum="0" Maximum="1"
                                 IsMoveToPointEnabled="True"
                                 Value="{Binding NowPlaying.Volume, Mode=TwoWay}"
                                 PreviewMouseLeftButtonDown="OnVolumeSliderPreviewMouseDown"
                                 PreviewMouseMove="OnVolumeSliderPreviewMouseMove"
                                 PreviewMouseLeftButtonUp="OnVolumeSliderPreviewMouseUp"
-                                VerticalAlignment="Center" />
+                                VerticalAlignment="Center">
+                            <Slider.Template>
+                                <ControlTemplate TargetType="Slider">
+                                    <Border Background="Transparent" VerticalAlignment="Center" Height="30">
+                                        <Grid Background="Transparent" Height="30" VerticalAlignment="Center">
+                                            <Track x:Name="PART_Track" Height="30" VerticalAlignment="Center">
+                                                <Track.DecreaseRepeatButton>
+                                                    <RepeatButton Command="{x:Static Slider.DecreaseLarge}" Style="{StaticResource ModernSliderDecreaseRepeatButtonStyle}" />
+                                                </Track.DecreaseRepeatButton>
+                                                <Track.Thumb>
+                                                    <Thumb Style="{StaticResource ModernSliderThumbStyle}" VerticalAlignment="Center" />
+                                                </Track.Thumb>
+                                                <Track.IncreaseRepeatButton>
+                                                    <RepeatButton Command="{x:Static Slider.IncreaseLarge}" Style="{StaticResource ModernSliderIncreaseRepeatButtonStyle}" />
+                                                </Track.IncreaseRepeatButton>
+                                            </Track>
+                                        </Grid>
+                                    </Border>
+                                </ControlTemplate>
+                            </Slider.Template>
+                        </Slider>
                     </Border>
 
-                    <!-- DAC Output Selector Button -->
-                    <Button Command="{Binding ToggleDeviceSelectorCommand}" Cursor="Hand" Padding="0" Margin="0,0,6,0" ToolTip="Dispositivo de salida / WASAPI Exclusive Bit-Perfect">
+                    <!-- Selector DAC con icono vectorial de parlante/bafle idéntico al de NowPlayingView -->
+                    <Button Command="{Binding ToggleDeviceSelectorCommand}" Cursor="Hand" Padding="0" Margin="0,0,8,0"
+                            ToolTip="Dispositivo de salida / WASAPI Exclusive Bit-Perfect">
                         <Button.Template>
                             <ControlTemplate TargetType="Button">
                                 <Border x:Name="BtnBorder" CornerRadius="8" Padding="7,5" Background="Transparent" BorderThickness="1" BorderBrush="Transparent">
@@ -1311,12 +1550,32 @@
                         </Button.Template>
                     </Button>
 
-                    <!-- More Options (...) Opens on Both Left-Click and Right-Click -->
-                    <ui:Button Appearance="Transparent" Padding="7"
+                    <!-- Botón de Pantalla Completa (Redirige a Reproducción en curso en Fullscreen) -->
+                    <ui:Button Appearance="Transparent" Padding="7" Margin="0,0,6,0"
+                               Command="{Binding EnterFullscreenAndNowPlayingCommand}"
+                               ToolTip="Pantalla completa (F11)">
+                        <ui:SymbolIcon Symbol="FullScreenMaximize24" FontSize="17" Foreground="#E0FFFFFF" />
+                    </ui:Button>
+
+                    <!-- Más opciones (...) -->
+                    <ui:Button Appearance="Transparent" Padding="6"
                                Click="OnMoreOptionsButtonClick"
-                               ToolTip="Más opciones de reproducción y Ecualizador">
+                               ToolTip="Más opciones">
                         <ui:Button.ContextMenu>
                             <ContextMenu>
+                                <MenuItem Header="Dispositivo de audio / DAC..."
+                                          Command="{Binding ToggleDeviceSelectorCommand, Source={x:Static vm:MainViewModel.Instance}}">
+                                    <MenuItem.Icon>
+                                        <ui:SymbolIcon Symbol="Speaker224" />
+                                    </MenuItem.Icon>
+                                </MenuItem>
+                                <MenuItem Header="Silenciar / Activar sonido"
+                                          Command="{Binding NowPlaying.ToggleMuteCommand, Source={x:Static vm:MainViewModel.Instance}}">
+                                    <MenuItem.Icon>
+                                        <ui:SymbolIcon Symbol="SpeakerMute24" />
+                                    </MenuItem.Icon>
+                                </MenuItem>
+                                <Separator />
                                 <MenuItem Header="Lista actual"
                                           Command="{Binding OpenCurrentQueueCommand, Source={x:Static vm:MainViewModel.Instance}}">
                                     <MenuItem.Icon>
@@ -1761,7 +2020,7 @@
         <!-- ============================================================== -->
         <!-- FLOATING PARAMETRIC EQUALIZER & DSP PANEL                      -->
         <!-- ============================================================== -->
-        <Grid Grid.Row="0" Grid.RowSpan="3"
+        <Grid Grid.Row="0" Grid.RowSpan="3" Panel.ZIndex="1060"
               Visibility="{Binding IsEqualizerOpen, Converter={StaticResource BoolToVisConverter}}">
             <Border Background="#77000000" MouseLeftButtonDown="OnDismissEqualizerClick" />
 

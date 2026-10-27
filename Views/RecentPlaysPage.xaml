@@ -8,39 +8,39 @@
              mc:Ignorable="d" 
              d:DesignHeight="700" d:DesignWidth="900">
 
-    <ScrollViewer x:Name="MainScrollViewer" VerticalScrollBarVisibility="Auto" Margin="32,20,32,10">
-        <StackPanel>
+    <ScrollViewer x:Name="MainScrollViewer" VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="20,16,20,30">
             <!-- Header and Shuffle All Button -->
-            <Grid Margin="0,0,0,24">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-
-                <StackPanel Grid.Column="0">
+            <WrapPanel Margin="0,0,0,20" Orientation="Horizontal">
+                <StackPanel Margin="0,0,16,10" MinWidth="240">
                     <TextBlock Text="Reproducciones recientes"
                                FontFamily="Segoe UI Variable Display, Segoe UI"
-                               FontSize="28" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" />
+                               FontSize="26" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" TextWrapping="Wrap" />
                     <TextBlock Text="Álbumes y canciones escuchados recientemente"
-                               FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,4,0,0" />
+                               FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,4,0,0" TextWrapping="Wrap" />
                 </StackPanel>
 
                 <!-- Shuffle All Button -->
-                <ui:Button Grid.Column="1" Appearance="Primary" Padding="16,8"
+                <ui:Button Appearance="Primary" Padding="14,8" Margin="0,0,0,10"
                            Background="{Binding Theme.CurrentAccentBrush}"
                            Command="{Binding RecentPlays.PlayAllRandomCommand}"
-                           VerticalAlignment="Center">
+                           VerticalAlignment="Center"
+                           Visibility="{Binding RecentPlays.HasRecentPlays, Converter={StaticResource BoolToVisConverter}}"
+                           ToolTip="Reproducir toda la música aleatoriamente">
                     <StackPanel Orientation="Horizontal">
                         <ui:SymbolIcon Symbol="ArrowShuffle24" FontSize="16" Foreground="{Binding Theme.AccentForegroundBrush}" Margin="0,0,8,0" />
-                        <TextBlock Text="Reproducir toda la música aleatoriamente"
+                        <TextBlock Text="Reproducir aleatorio"
                                    FontWeight="Bold" Foreground="{Binding Theme.AccentForegroundBrush}" FontSize="13" />
                     </StackPanel>
                 </ui:Button>
-            </Grid>
+            </WrapPanel>
 
-            <!-- Recent Albums Grid -->
-            <TextBlock Text="Álbumes recientes" FontSize="18" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,14" />
-            <ItemsControl ItemsSource="{Binding RecentPlays.RecentAlbums}" Margin="0,0,0,28">
+            <!-- CONTENIDO CON HISTORIAL (Visible si HasRecentPlays == True) -->
+            <StackPanel Visibility="{Binding RecentPlays.HasRecentPlays, Converter={StaticResource BoolToVisConverter}}">
+                <!-- Recent Albums Grid (Visible si RecentAlbums.Count > 0) -->
+                <StackPanel Visibility="{Binding RecentPlays.RecentAlbums.Count, Converter={StaticResource BoolToVisConverter}}">
+                    <TextBlock Text="Álbumes recientes" FontSize="18" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,14" />
+                    <ItemsControl ItemsSource="{Binding RecentPlays.RecentAlbums}" Margin="0,0,0,28">
                 <ItemsControl.ItemsPanel>
                     <ItemsPanelTemplate>
                         <WrapPanel Orientation="Horizontal" />
@@ -185,26 +185,22 @@
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
+            </StackPanel>
 
-            <!-- Recent Tracks List -->
-            <TextBlock Text="Pistas reproducidas recientemente" FontSize="18" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,14" />
-            
-            <!-- Column Header -->
-            <Grid Margin="10,0,10,8">
+            <!-- Recent Tracks List (Visible si RecentTracks.Count > 0) -->
+            <StackPanel Visibility="{Binding RecentPlays.RecentTracks.Count, Converter={StaticResource BoolToVisConverter}}">
+                <TextBlock Text="Pistas reproducidas recientemente" FontSize="18" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,14" />
+                
+                <!-- Column Header -->
+                <Grid Margin="10,0,10,8">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="40" />
-                    <ColumnDefinition Width="44" />
-                    <ColumnDefinition Width="3*" />
-                    <ColumnDefinition Width="2*" />
-                    <ColumnDefinition Width="2*" />
-                    <ColumnDefinition Width="70" />
+                    <ColumnDefinition Width="50" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
-                <TextBlock Grid.Column="0" Text="" />
-                <TextBlock Grid.Column="1" Text="" />
-                <TextBlock Grid.Column="2" Text="TÍTULO" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}" Margin="6,0,0,0" />
-                <TextBlock Grid.Column="3" Text="ARTISTA" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}" />
-                <TextBlock Grid.Column="4" Text="ÁLBUM" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}" />
-                <TextBlock Grid.Column="5" Text="DURACIÓN" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Right" />
+                <TextBlock Grid.Column="0" Text="#" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}" Margin="8,0,0,0" />
+                <TextBlock Grid.Column="1" Text="TÍTULO Y ARTISTA" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}" Margin="6,0,0,0" />
+                <TextBlock Grid.Column="2" Text="DURACIÓN" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Right" Margin="0,0,6,0" />
             </Grid>
 
             <ListView ItemsSource="{Binding RecentPlays.RecentTracks}"
@@ -244,39 +240,88 @@
                     <DataTemplate DataType="{x:Type models:Track}">
                         <Grid HorizontalAlignment="Stretch" ContextMenu="{DynamicResource TrackContextMenu}">
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="40" />
-                                <ColumnDefinition Width="44" />
-                                <ColumnDefinition Width="3*" />
-                                <ColumnDefinition Width="2*" />
-                                <ColumnDefinition Width="2*" />
-                                <ColumnDefinition Width="70" />
+                                <ColumnDefinition Width="50" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
 
-                            <ui:Button Grid.Column="0" Appearance="Transparent" Padding="4" HorizontalAlignment="Center"
-                                       Command="{Binding DataContext.PlayTrackNowCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                       CommandParameter="{Binding}">
-                                <ui:SymbolIcon Symbol="Play24" FontSize="14" Foreground="{Binding DataContext.Theme.CurrentAccentBrush, RelativeSource={RelativeSource AncestorType=ListView}}" />
-                            </ui:Button>
+                            <!-- Col 0: 40x40 Album Art with Play Button -->
+                            <Grid Grid.Column="0" Width="40" Height="40" HorizontalAlignment="Left" VerticalAlignment="Center">
+                                <Border CornerRadius="6" ClipToBounds="True" Background="#1C1C26">
+                                    <Image Source="{Binding CoverImageSource}" Stretch="UniformToFill" RenderOptions.BitmapScalingMode="HighQuality" />
+                                </Border>
+                                <Button x:Name="HoverPlayButton"
+                                        Background="#99000000" BorderThickness="0"
+                                        Width="40" Height="40" Cursor="Hand" Opacity="0"
+                                        Command="{Binding DataContext.PlayTrackNowCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                        CommandParameter="{Binding}">
+                                    <Button.Template>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border CornerRadius="6" Background="{TemplateBinding Background}">
+                                                <Path Data="M 4,2 L 16,10 L 4,18 Z" Fill="White" Stroke="{x:Null}" Width="14" Height="14" Margin="2,0,0,0" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                            </Border>
+                                        </ControlTemplate>
+                                    </Button.Template>
+                                </Button>
+                            </Grid>
 
-                            <Border Grid.Column="1" Width="32" Height="32" CornerRadius="4" ClipToBounds="True" Background="#22FFFFFF" HorizontalAlignment="Center">
-                                <Image Source="{Binding CoverImageSource}" Stretch="UniformToFill" RenderOptions.BitmapScalingMode="HighQuality" />
-                            </Border>
+                            <!-- Col 1: Song Title + Artist -->
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="6,0,8,0">
+                                <TextBlock Text="{Binding Title}" FontSize="13" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis" />
+                                <TextBlock Text="{Binding Artist}" FontSize="11"
+                                           Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" Margin="0,2,0,0" />
+                            </StackPanel>
 
-                            <TextBlock Grid.Column="2" Text="{Binding Title}" FontSize="13" FontWeight="SemiBold"
-                                       Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Margin="6,0,10,0" />
-
-                            <TextBlock Grid.Column="3" Text="{Binding Artist}" FontSize="12"
-                                       Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Margin="0,0,10,0" />
-
-                            <TextBlock Grid.Column="4" Text="{Binding Album}" FontSize="12"
-                                       Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Margin="0,0,10,0" />
-
-                            <TextBlock Grid.Column="5" Text="{Binding DurationFormatted}" FontSize="12"
+                            <!-- Col 2: Duration -->
+                            <TextBlock Grid.Column="2" Text="{Binding DurationFormatted}" FontSize="12"
                                        Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,6,0" />
                         </Grid>
+                        <DataTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="HoverPlayButton" Property="Opacity" Value="1.0" />
+                            </Trigger>
+                        </DataTemplate.Triggers>
                     </DataTemplate>
                 </ListView.ItemTemplate>
             </ListView>
+            </StackPanel>
+            </StackPanel>
+
+            <!-- ESTADO VACÍO (Visible cuando HasRecentPlays == False) -->
+            <Border Visibility="{Binding RecentPlays.HasRecentPlays, Converter={StaticResource InverseBoolToVisConverter}}"
+                    Background="{DynamicResource SurfaceCardBrush}" BorderBrush="{DynamicResource SurfaceCardBorderBrush}"
+                    BorderThickness="1" CornerRadius="12" Padding="28,36" Margin="0,10,0,20"
+                    HorizontalAlignment="Center" VerticalAlignment="Top" MaxWidth="520">
+                <StackPanel HorizontalAlignment="Center">
+                    <Border Width="64" Height="64" CornerRadius="32" Background="#1A3B82F6" HorizontalAlignment="Center" Margin="0,0,0,16">
+                        <ui:SymbolIcon Symbol="History24" FontSize="28" Foreground="#FF3B82F6" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <TextBlock Text="Aún no has reproducido nada por aquí" FontSize="18" FontWeight="Bold"
+                               Foreground="{DynamicResource TextPrimaryBrush}" TextAlignment="Center" Margin="0,0,0,8" />
+                    <TextBlock Text="Tu historial de reproducciones está esperando por ti. Comienza a reproducir tus canciones o álbumes favoritos y aparecerán listados aquí para que puedas retomarlos al instante."
+                               FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" TextAlignment="Center" TextWrapping="Wrap" LineHeight="20" Margin="0,0,0,20" />
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                        <ui:Button Appearance="Primary" Padding="16,8" Margin="0,0,10,0"
+                                   Background="{Binding Theme.CurrentAccentBrush}"
+                                   Command="{Binding DataContext.NavigateToCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                   CommandParameter="MyMusic">
+                            <StackPanel Orientation="Horizontal">
+                                <ui:SymbolIcon Symbol="MusicNote224" FontSize="16" Foreground="{Binding Theme.AccentForegroundBrush}" Margin="0,0,8,0" />
+                                <TextBlock Text="Explorar mi música" FontWeight="Bold" Foreground="{Binding Theme.AccentForegroundBrush}" FontSize="13" />
+                            </StackPanel>
+                        </ui:Button>
+                        <ui:Button Appearance="Secondary" Padding="14,8"
+                                   Command="{Binding DataContext.NavigateToCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                   CommandParameter="Settings">
+                            <StackPanel Orientation="Horizontal">
+                                <ui:SymbolIcon Symbol="FolderAdd24" FontSize="16" Margin="0,0,8,0" />
+                                <TextBlock Text="Configurar biblioteca" FontSize="13" />
+                            </StackPanel>
+                        </ui:Button>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
         </StackPanel>
     </ScrollViewer>
 </UserControl>

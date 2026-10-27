@@ -29,6 +29,16 @@ public partial class SettingsViewModel : ObservableObject
     private string _selectedTheme = "Oscuro";
 
     [ObservableProperty]
+    private bool _highlightLibraryFoldersSection = false;
+
+    public async void TriggerLibraryFolderHighlight()
+    {
+        HighlightLibraryFoldersSection = true;
+        await Task.Delay(3500);
+        HighlightLibraryFoldersSection = false;
+    }
+
+    [ObservableProperty]
     private bool _autoExtractAccent;
 
     [ObservableProperty]
@@ -780,32 +790,26 @@ public partial class SettingsViewModel : ObservableObject
             Services.Audio.AudioPlayerService.Instance.Stop();
             Services.Online.ArtistEnrichmentService.Instance.Cancel();
 
-            // 2. Liberar conexiones de base de datos SQLite
+            // 2. Liberar conexiones de base de datos SQLite y forzar recolección de basura
             Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
 
-            // 3. Borrar base de datos y archivos de datos en %LocalAppData%\BenyComes
             var appData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+
+            // 3. Borrar completamente la carpeta de datos de la aplicación (%LocalAppData%\BenyComes)
+            // Incluye benycomes.db, IndexDB (songs_index.db, albums_index.db, artists_index.db, search_index.db), Playlists, Logs, etc.
             var benyComesDir = Path.Combine(appData, "BenyComes");
             if (Directory.Exists(benyComesDir))
             {
-                var dbFile = Path.Combine(benyComesDir, "benycomes.db");
-                var walFile = Path.Combine(benyComesDir, "benycomes.db-wal");
-                var shmFile = Path.Combine(benyComesDir, "benycomes.db-shm");
-
-                if (File.Exists(dbFile)) File.Delete(dbFile);
-                if (File.Exists(walFile)) File.Delete(walFile);
-                if (File.Exists(shmFile)) File.Delete(shmFile);
+                DeleteDirectoryRecursiveSafe(benyComesDir);
             }
 
-            // 4. Borrar caché de artistas en %LocalAppData%\MusicPlayer\ArtistCache
-            var artistCacheDir = Path.Combine(appData, "MusicPlayer", "ArtistCache");
-            if (Directory.Exists(artistCacheDir))
+            // 4. Borrar cachés de carátulas y artistas en %LocalAppData%\MusicPlayer
+            var musicPlayerDir = Path.Combine(appData, "MusicPlayer");
+            if (Directory.Exists(musicPlayerDir))
             {
-                try
-                {
-                    Directory.Delete(artistCacheDir, true);
-                }
-                catch { }
+                DeleteDirectoryRecursiveSafe(musicPlayerDir);
             }
 
             // 5. Reiniciar la aplicación de forma limpia
@@ -829,6 +833,34 @@ public partial class SettingsViewModel : ObservableObject
                 System.Windows.MessageBoxButton.OK,
                 System.Windows.MessageBoxImage.Error);
         }
+    }
+
+    private static void DeleteDirectoryRecursiveSafe(string dirPath)
+    {
+        try
+        {
+            foreach (var file in Directory.GetFiles(dirPath, "*", SearchOption.AllDirectories))
+            {
+                try
+                {
+                    File.SetAttributes(file, FileAttributes.Normal);
+                    File.Delete(file);
+                }
+                catch { }
+            }
+
+            foreach (var dir in Directory.GetDirectories(dirPath, "*", SearchOption.AllDirectories).OrderByDescending(d => d.Length))
+            {
+                try
+                {
+                    Directory.Delete(dir, false);
+                }
+                catch { }
+            }
+
+            Directory.Delete(dirPath, true);
+        }
+        catch { }
     }
 
     public List<OpenSourceLicenseItem> OpenSourceLicenses { get; } = new()

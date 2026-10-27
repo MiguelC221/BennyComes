@@ -21,12 +21,15 @@ public partial class RecentPlaysViewModel : ObservableObject
     public ObservableCollection<Track> RecentTracks => _cache.RecentTracks;
     public ObservableCollection<AlbumModel> RecentAlbums => _cache.RecentAlbums;
 
+    public bool HasRecentPlays => (RecentTracks.Count > 0) || (RecentAlbums.Count > 0);
+
     public RecentPlaysViewModel()
     {
         _cache.RecentPlaysUpdated += () =>
         {
             OnPropertyChanged(nameof(RecentTracks));
             OnPropertyChanged(nameof(RecentAlbums));
+            OnPropertyChanged(nameof(HasRecentPlays));
         };
         _ = LoadRecentAsync();
     }
@@ -35,6 +38,7 @@ public partial class RecentPlaysViewModel : ObservableObject
     public async Task LoadRecentAsync()
     {
         await _cache.LoadRecentPlaysFromDbAsync();
+        OnPropertyChanged(nameof(HasRecentPlays));
     }
 
     [RelayCommand]
