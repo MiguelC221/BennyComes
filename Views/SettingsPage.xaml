@@ -945,7 +945,7 @@
                                 <TextBlock Text="BennyComes" FontSize="22" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" />
                                 <Border CornerRadius="6" Padding="8,2" Margin="10,0,0,0" VerticalAlignment="Center"
                                         Background="{Binding Theme.CurrentAccentBrush}">
-                                    <TextBlock Text="v1.1" FontSize="11" FontWeight="Bold" Foreground="{Binding Theme.AccentForegroundBrush}" />
+                                    <TextBlock Text="v1.2.001" FontSize="11" FontWeight="Bold" Foreground="{Binding Theme.AccentForegroundBrush}" />
                                 </Border>
                             </StackPanel>
                             <TextBlock Text="{Binding Settings.AppVersion}" FontSize="12" FontWeight="SemiBold" Foreground="{Binding Theme.CurrentAccentBrush}" Margin="0,3,0,5" />
