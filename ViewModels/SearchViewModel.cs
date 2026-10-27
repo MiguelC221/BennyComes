@@ -1,25 +1,36 @@
 using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Threading;
+using BenyComes.Helpers;
 using BenyComes.Models;
 using BenyComes.Services.Audio;
 using BenyComes.Services.Library;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Wpf.Ui.Controls;
 
 namespace BenyComes.ViewModels;
+
+public class SearchSuggestionItem
+{
+    public string Title { get; set; } = string.Empty;
+    public string Subtitle { get; set; } = string.Empty;
+    public string SuggestionType { get; set; } = "Search"; // "Search", "Track", "Artist", "Album"
+    public object? Target { get; set; }
+    public SymbolRegular Icon { get; set; } = SymbolRegular.Search24;
+}
 
 public partial class SearchViewModel : ObservableObject
 {
     private readonly LibraryCacheService _cache = LibraryCacheService.Instance;
     private readonly AudioPlayerService _audio = AudioPlayerService.Instance;
-    private readonly DispatcherTimer _debounceTimer;
+    private readonly DispatcherTimer _suggestionsDebounceTimer;
     private CancellationTokenSource? _searchCts;
+    private CancellationTokenSource? _suggestionsCts;
 
     [ObservableProperty]
     private string _searchQuery = string.Empty;
@@ -49,6 +60,9 @@ public partial class SearchViewModel : ObservableObject
     private bool _isSearching;
 
     [ObservableProperty]
+    private bool _isSuggestionsOpen;
+
+    [ObservableProperty]
     private bool _showArtistsSection;
 
     [ObservableProperty]
@@ -57,25 +71,26 @@ public partial class SearchViewModel : ObservableObject
     [ObservableProperty]
     private bool _showTracksSection;
 
-    public ObservableCollection<Track> MatchingTracks { get; } = new();
-    public ObservableCollection<ArtistModel> MatchingArtists { get; } = new();
-    public ObservableCollection<AlbumModel> MatchingAlbums { get; } = new();
+    public BulkObservableCollection<Track> MatchingTracks { get; } = new();
+    public BulkObservableCollection<ArtistModel> MatchingArtists { get; } = new();
+    public BulkObservableCollection<AlbumModel> MatchingAlbums { get; } = new();
+    public BulkObservableCollection<SearchSuggestionItem> Suggestions { get; } = new();
 
     public SearchViewModel()
     {
-        _debounceTimer = new DispatcherTimer(DispatcherPriority.Background, Application.Current?.Dispatcher ?? Dispatcher.CurrentDispatcher)
+        _suggestionsDebounceTimer = new DispatcherTimer(DispatcherPriority.Background, Application.Current?.Dispatcher ?? Dispatcher.CurrentDispatcher)
         {
-            Interval = TimeSpan.FromMilliseconds(60)
+            Interval = TimeSpan.FromMilliseconds(120)
         };
-        _debounceTimer.Tick += async (s, e) =>
+        _suggestionsDebounceTimer.Tick += async (s, e) =>
         {
-            _debounceTimer.Stop();
-            await ExecuteSearchAsync();
+            _suggestionsDebounceTimer.Stop();
+            await UpdateSuggestionsAsync();
         };
 
         _cache.LibraryCacheUpdated += () =>
         {
-            if (HasSearchQuery)
+            if (HasSearchQuery && HasResults)
             {
                 _ = ExecuteSearchAsync();
             }
@@ -90,18 +105,20 @@ public partial class SearchViewModel : ObservableObject
         }
 
         HasSearchQuery = !string.IsNullOrWhiteSpace(value);
-        _debounceTimer.Stop();
-        _searchCts?.Cancel();
+        _suggestionsDebounceTimer.Stop();
+        _suggestionsCts?.Cancel();
 
         if (string.IsNullOrWhiteSpace(value))
         {
             IsSearching = false;
+            IsSuggestionsOpen = false;
+            Suggestions.Clear();
             ClearResults();
         }
         else
         {
-            IsSearching = true;
-            _debounceTimer.Start();
+            // Lightweight suggestions timer; do not run full search until Enter is pressed
+            _suggestionsDebounceTimer.Start();
         }
     }
 
@@ -119,12 +136,84 @@ public partial class SearchViewModel : ObservableObject
     [RelayCommand]
     public void ClearSearch()
     {
+        _suggestionsDebounceTimer.Stop();
+        _suggestionsCts?.Cancel();
+        _searchCts?.Cancel();
+
         SearchQuery = string.Empty;
         if (MainViewModel.Instance != null)
         {
             MainViewModel.Instance.SearchQuery = string.Empty;
         }
+
+        Suggestions.Clear();
+        IsSuggestionsOpen = false;
         ClearResults();
+    }
+
+    [RelayCommand]
+    public void CloseSuggestions()
+    {
+        IsSuggestionsOpen = false;
+    }
+
+    [RelayCommand]
+    public async Task ExecuteFullSearchAsync()
+    {
+        _suggestionsDebounceTimer.Stop();
+        _suggestionsCts?.Cancel();
+        IsSuggestionsOpen = false;
+
+        string q = SearchQuery?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(q))
+        {
+            ClearResults();
+            return;
+        }
+
+        if (MainViewModel.Instance != null && MainViewModel.Instance.CurrentView != "Search")
+        {
+            MainViewModel.Instance.NavigateToCommand.Execute("Search");
+        }
+
+        await ExecuteSearchAsync();
+    }
+
+    [RelayCommand]
+    public void SelectSuggestion(SearchSuggestionItem? item)
+    {
+        if (item == null) return;
+        IsSuggestionsOpen = false;
+
+        switch (item.SuggestionType)
+        {
+            case "Search":
+                _ = ExecuteFullSearchAsync();
+                break;
+
+            case "Track":
+                if (item.Target is Track track)
+                {
+                    _audio.PlayTrack(track);
+                }
+                break;
+
+            case "Artist":
+                if (item.Target is ArtistModel artist)
+                {
+                    MainViewModel.Instance?.NavigateToCommand.Execute("MyMusic");
+                    MainViewModel.Instance?.MyMusic.OpenArtistDetail(artist);
+                }
+                break;
+
+            case "Album":
+                if (item.Target is AlbumModel album)
+                {
+                    MainViewModel.Instance?.NavigateToCommand.Execute("MyMusic");
+                    MainViewModel.Instance?.MyMusic.OpenAlbumDetail(album);
+                }
+                break;
+        }
     }
 
     public void RefreshResults()
@@ -158,6 +247,150 @@ public partial class SearchViewModel : ObservableObject
             action();
     }
 
+    private async Task UpdateSuggestionsAsync()
+    {
+        string q = SearchQuery?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(q) || q.Length < 1)
+        {
+            Suggestions.Clear();
+            IsSuggestionsOpen = false;
+            return;
+        }
+
+        _suggestionsCts?.Cancel();
+        _suggestionsCts = new CancellationTokenSource();
+        var token = _suggestionsCts.Token;
+
+        try
+        {
+            var suggestions = await Task.Run(async () =>
+            {
+                if (!_cache.IsLoaded)
+                {
+                    await _cache.InitializeAsync();
+                }
+
+                if (token.IsCancellationRequested) return new List<SearchSuggestionItem>();
+
+                string normQuery = AlphaGroupHelper.NormalizeForSearch(q);
+                var terms = normQuery.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                if (terms.Length == 0) return new List<SearchSuggestionItem>();
+
+                static bool MatchesAllTerms(string searchText, string[] queryTerms)
+                {
+                    if (string.IsNullOrEmpty(searchText)) return false;
+                    for (int i = 0; i < queryTerms.Length; i++)
+                    {
+                        if (!searchText.Contains(queryTerms[i], StringComparison.Ordinal))
+                            return false;
+                    }
+                    return true;
+                }
+
+                var list = new List<SearchSuggestionItem>();
+
+                // Primary item: Search all
+                list.Add(new SearchSuggestionItem
+                {
+                    Title = $"Buscar \"{q}\" en todo",
+                    Subtitle = "Presiona Enter para buscar en canciones, artistas y álbumes",
+                    SuggestionType = "Search",
+                    Icon = SymbolRegular.Search24
+                });
+
+                // Top artists (up to 2)
+                var cachedArtists = _cache.CachedArtists;
+                int artistMatches = 0;
+                for (int i = 0; i < cachedArtists.Count && artistMatches < 2; i++)
+                {
+                    var a = cachedArtists[i];
+                    if (MatchesAllTerms(a.SearchText, terms))
+                    {
+                        list.Add(new SearchSuggestionItem
+                        {
+                            Title = a.Name,
+                            Subtitle = a.TrackCount == 1 ? "Artista • 1 canción" : $"Artista • {a.TrackCount} canciones",
+                            SuggestionType = "Artist",
+                            Target = a,
+                            Icon = SymbolRegular.Person24
+                        });
+                        artistMatches++;
+                    }
+                }
+
+                if (token.IsCancellationRequested) return new List<SearchSuggestionItem>();
+
+                // Top albums (up to 2)
+                var cachedAlbums = _cache.CachedAlbums;
+                int albumMatches = 0;
+                for (int i = 0; i < cachedAlbums.Count && albumMatches < 2; i++)
+                {
+                    var al = cachedAlbums[i];
+                    if (MatchesAllTerms(al.SearchText, terms))
+                    {
+                        list.Add(new SearchSuggestionItem
+                        {
+                            Title = al.Name,
+                            Subtitle = $"Álbum • {al.Artist}",
+                            SuggestionType = "Album",
+                            Target = al,
+                            Icon = SymbolRegular.Album24
+                        });
+                        albumMatches++;
+                    }
+                }
+
+                if (token.IsCancellationRequested) return new List<SearchSuggestionItem>();
+
+                // Top tracks (up to 4)
+                var cachedTracks = _cache.CachedTracks;
+                int trackMatches = 0;
+                for (int i = 0; i < cachedTracks.Count && trackMatches < 4; i++)
+                {
+                    var t = cachedTracks[i];
+                    if (MatchesAllTerms(t.SearchText, terms))
+                    {
+                        list.Add(new SearchSuggestionItem
+                        {
+                            Title = t.Title,
+                            Subtitle = $"Canción • {t.Artist}",
+                            SuggestionType = "Track",
+                            Target = t,
+                            Icon = SymbolRegular.MusicNote224
+                        });
+                        trackMatches++;
+                    }
+                }
+
+                return list;
+            }, token);
+
+            if (token.IsCancellationRequested) return;
+
+            var app = Application.Current;
+            Action apply = () =>
+            {
+                if (string.IsNullOrWhiteSpace(SearchQuery))
+                {
+                    Suggestions.Clear();
+                    IsSuggestionsOpen = false;
+                }
+                else
+                {
+                    Suggestions.ReplaceRange(suggestions);
+                    IsSuggestionsOpen = suggestions.Count > 0;
+                }
+            };
+
+            if (app != null && !app.Dispatcher.CheckAccess())
+                app.Dispatcher.Invoke(apply);
+            else
+                apply();
+        }
+        catch (OperationCanceledException) { }
+        catch { }
+    }
+
     private async Task ExecuteSearchAsync()
     {
         string q = SearchQuery?.Trim() ?? string.Empty;
@@ -177,7 +410,6 @@ public partial class SearchViewModel : ObservableObject
         {
             var (tracks, artists, albums, totalT, totalAr, totalAl) = await Task.Run(async () =>
             {
-                // Ensure cache is loaded from partitioned IndexDB if first time
                 if (!_cache.IsLoaded)
                 {
                     await _cache.InitializeAsync();
@@ -185,7 +417,7 @@ public partial class SearchViewModel : ObservableObject
 
                 if (token.IsCancellationRequested) return (new List<Track>(), new List<ArtistModel>(), new List<AlbumModel>(), 0, 0, 0);
 
-                string normQuery = Helpers.AlphaGroupHelper.NormalizeForSearch(q);
+                string normQuery = AlphaGroupHelper.NormalizeForSearch(q);
                 var terms = normQuery.Split(' ', StringSplitOptions.RemoveEmptyEntries);
                 if (terms.Length == 0) return (new List<Track>(), new List<ArtistModel>(), new List<AlbumModel>(), 0, 0, 0);
 
@@ -237,7 +469,6 @@ public partial class SearchViewModel : ObservableObject
                     }
                 }
 
-                // Cap results displayed in unified view to prevent UI thread freezing
                 var displayTracks = allFoundTracks.Count > 100 ? allFoundTracks.GetRange(0, 100) : allFoundTracks;
                 var displayArtists = allFoundArtists.Count > 30 ? allFoundArtists.GetRange(0, 30) : allFoundArtists;
                 var displayAlbums = allFoundAlbums.Count > 30 ? allFoundAlbums.GetRange(0, 30) : allFoundAlbums;
@@ -250,17 +481,9 @@ public partial class SearchViewModel : ObservableObject
             var app = Application.Current;
             Action updateUi = () =>
             {
-                MatchingTracks.Clear();
-                foreach (var t in tracks)
-                    MatchingTracks.Add(t);
-
-                MatchingArtists.Clear();
-                foreach (var a in artists)
-                    MatchingArtists.Add(a);
-
-                MatchingAlbums.Clear();
-                foreach (var al in albums)
-                    MatchingAlbums.Add(al);
+                MatchingTracks.ReplaceRange(tracks);
+                MatchingArtists.ReplaceRange(artists);
+                MatchingAlbums.ReplaceRange(albums);
 
                 TrackCount = totalT;
                 ArtistCount = totalAr;

@@ -40,4 +40,28 @@ public partial class SearchPage : UserControl
             }
         }
     }
+
+    private void OnPageSearchBoxKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Enter)
+        {
+            e.Handled = true;
+            if (DataContext is MainViewModel vm)
+            {
+                _ = vm.Search.ExecuteFullSearchAsync();
+            }
+            if (sender is UIElement uie)
+            {
+                uie.MoveFocus(new TraversalRequest(FocusNavigationDirection.Next));
+            }
+        }
+        else if (e.Key == Key.Escape)
+        {
+            e.Handled = true;
+            if (DataContext is MainViewModel vm)
+            {
+                vm.Search.CloseSuggestionsCommand.Execute(null);
+            }
+        }
+    }
 }

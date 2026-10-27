@@ -4,6 +4,35 @@ Todas las modificaciones notables realizadas en la aplicación BennyComes se doc
 
 ---
 
+## [Versión 1.1.9] - 2026-10-17
+
+### ⚡ Carga Asíncrona de Miniaturas y Rework del Backend de "Mi Música"
+- **Miniaturas Asíncronas en `Track.CoverImageSource` ([Track.cs](file:///C:/Users/Miguquis/.gemini/antigravity/scratch/BenyComes/Models/Track.cs) y [MetadataService.cs](file:///C:/Users/Miguquis/.gemini/antigravity/scratch/BenyComes/Services/Metadata/MetadataService.cs)):**
+  - La propiedad `CoverImageSource` ya no bloquea el hilo de UI leyendo el disco o extrayendo etiquetas TagLib al cargar canciones.
+  - Retorna instantáneamente (0 ms) un degradado suave procedural de respaldo o la imagen previamente en memoria caché.
+  - La carga y decodificación de miniaturas se encola en segundo plano mediante `Task.Run` con un semáforo de concurrencia de 4 hilos (`SemaphoreSlim(4, 4)`). Al completarse, la imagen congelada (`Freeze()`) se asigna en `AlbumArtImage` con prioridad `DispatcherPriority.Background`, actualizando la interfaz con total suavidad.
+- **Optimización de Cambio de Pestañas y Agrupación A-Z ([MyMusicViewModel.cs](file:///C:/Users/Miguquis/.gemini/antigravity/scratch/BenyComes/ViewModels/MyMusicViewModel.cs)):**
+  - En `ApplyGroupingToCollection`, se verifica si la colección ya se encuentra agrupada antes de limpiar y reasignar `GroupDescriptions`, evitando que WPF destruya y reconstruya la jerarquía visual de contenedores al alternar pestañas.
+  - Se implementó paginación inteligente de 60 elementos iniciales para *Álbumes* y *Artistas* en orden A-Z, evitando el bloqueo del hilo de interfaz por la creación simultánea de cientos de tarjetas en el `WrapPanel`.
+  - El salto alfabético rápido (`SelectJumpLetter`) ahora precarga dinámicamente hasta la letra objetivo (`EnsureAlbumsLoadedForLetter` y `EnsureArtistsLoadedForLetter`), asegurando desplazamiento instantáneo sin congelamientos.
+
+### 🔍 Rework del Buscador: Sugerencias al Escribir y Búsqueda Global con Enter
+- **Sugerencias Rápidas y Ligeras al Escribir ([SearchViewModel.cs](file:///C:/Users/Miguquis/.gemini/antigravity/scratch/BenyComes/ViewModels/SearchViewModel.cs)):**
+  - Al escribir en la barra de búsqueda (tanto en la barra lateral de [MainWindow.xaml](file:///C:/Users/Miguquis/.gemini/antigravity/scratch/BenyComes/MainWindow.xaml) como en [SearchPage.xaml](file:///C:/Users/Miguquis/.gemini/antigravity/scratch/BenyComes/Views/SearchPage.xaml)), ya no se dispara una búsqueda masiva de toda la biblioteca en cada pulsación ni se fuerza la navegación inmediata.
+  - Se despliega un menú flotante (*AutoSuggest Popup*) con sugerencias instantáneas: opción para buscar en todo, mejores coincidencias de canciones, artistas y álbumes.
+  - Al hacer clic en una sugerencia, se reproduce directamente la canción o se abre el detalle del artista/álbum.
+- **Búsqueda Global con Enter y `BulkObservableCollection`:**
+  - Al presionar **Enter** o el icono de búsqueda, se ejecuta la búsqueda global exhaustiva en segundo plano y se navega a la página de resultados unificada.
+  - `MatchingTracks`, `MatchingArtists` y `MatchingAlbums` ahora usan `BulkObservableCollection<T>.ReplaceRange()`, emitiendo una única notificación de reseteo en lugar de cientos de eventos individuales, eliminando por completo cualquier congelamiento o cierre abrupto de la aplicación.
+
+### 🔊 Corrección del Selector de Salida de Audio / DAC en Reproducción en Curso
+- **Resolución de Bloqueo Visual por Z-Index ([MainWindow.xaml](file:///C:/Users/Miguquis/.gemini/antigravity/scratch/BenyComes/MainWindow.xaml)):**
+  - El modal de selección de dispositivo y modo WASAPI Exclusive Bit-Perfect se configuró con `Grid.Row="0" Grid.RowSpan="3" Panel.ZIndex="1050"`, garantizando que se superponga por encima de `NowPlayingView` (`Panel.ZIndex="100"`).
+- **Diseño Hi-Fi Vectorial Unificado ([NowPlayingView.xaml](file:///C:/Users/Miguquis/.gemini/antigravity/scratch/BenyComes/Views/NowPlayingView.xaml)):**
+  - Se sustituyó el icono genérico por el mismo diseño vectorial minicomponente / bafle Hi-Fi que figura en el reproductor principal, con punto de indicación acentuado y feedback táctil reactivo.
+
+---
+
 ## [Versión 1.1.8] - 2026-10-17
 
 ### 🎨 Animación y Estabilidad en el Encabezado de Detalle de Artista

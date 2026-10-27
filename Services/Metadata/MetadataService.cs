@@ -22,6 +22,48 @@ public class MetadataService
     );
 
     private readonly ConcurrentDictionary<string, BitmapImage> _artCache = new();
+    private readonly System.Threading.SemaphoreSlim _thumbLoadThrottle = new(4, 4);
+
+    public bool TryGetMemoryCachedImage(Track? track, int decodeWidth, out BitmapImage? image)
+    {
+        image = null;
+        if (track == null) return false;
+        string hash = GetAlbumArtHash(track.Artist, track.Album);
+        string memKey = $"{hash}_{decodeWidth}";
+        return _artCache.TryGetValue(memKey, out image);
+    }
+
+    public BitmapImage GetFastPlaceholder(Track? track)
+    {
+        if (track == null) return ProceduralPalette[0];
+        int seed = Math.Abs(((track.Title ?? "") + (track.Artist ?? "")).GetHashCode());
+        return ProceduralPalette[seed % ProceduralPalette.Length];
+    }
+
+    public void QueueTrackThumbnailLoad(Track track, int decodeWidth, Action<BitmapImage?> onLoaded)
+    {
+        _ = Task.Run(async () =>
+        {
+            await _thumbLoadThrottle.WaitAsync().ConfigureAwait(false);
+            try
+            {
+                var img = GetAlbumArtImage(track, decodeWidth);
+                if (img != null)
+                {
+                    var dispatcher = Application.Current?.Dispatcher;
+                    if (dispatcher != null && !dispatcher.HasShutdownStarted)
+                    {
+                        _ = dispatcher.BeginInvoke(() => onLoaded(img), System.Windows.Threading.DispatcherPriority.Background);
+                    }
+                }
+            }
+            catch { }
+            finally
+            {
+                _thumbLoadThrottle.Release();
+            }
+        });
+    }
 
     private MetadataService()
     {

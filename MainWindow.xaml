@@ -314,10 +314,69 @@
 
                         <!-- SearchBox (AutoSuggestBox style) -->
                         <Grid Margin="4,0,4,0" Visibility="{Binding IsNavPaneOpen, Converter={StaticResource BoolToVisConverter}}">
-                            <ui:TextBox Text="{Binding SearchQuery, UpdateSourceTrigger=PropertyChanged}"
+                            <ui:TextBox x:Name="SidebarSearchBox"
+                                        Text="{Binding SearchQuery, UpdateSourceTrigger=PropertyChanged}"
                                         PlaceholderText="Buscar música..."
                                         Background="{DynamicResource SurfaceCardBrush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource SurfaceCardBorderBrush}"
-                                        Padding="8,5" />
+                                        Padding="8,5"
+                                        KeyDown="OnSidebarSearchBoxKeyDown" />
+
+                            <Popup x:Name="SidebarSearchSuggestionsPopup"
+                                   PlacementTarget="{Binding ElementName=SidebarSearchBox}"
+                                   Placement="Bottom"
+                                   IsOpen="{Binding Search.IsSuggestionsOpen, Mode=TwoWay}"
+                                   StaysOpen="False"
+                                   AllowsTransparency="True"
+                                   PopupAnimation="Fade"
+                                   Width="230"
+                                   VerticalOffset="4">
+                                <Border Background="#F21C1D26" BorderBrush="#33FFFFFF" BorderThickness="1" CornerRadius="10" Padding="4">
+                                    <Border.Effect>
+                                        <DropShadowEffect BlurRadius="16" Color="#000000" Opacity="0.5" ShadowDepth="4" />
+                                    </Border.Effect>
+                                    <ScrollViewer MaxHeight="300" VerticalScrollBarVisibility="Auto">
+                                        <ItemsControl ItemsSource="{Binding Search.Suggestions}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate DataType="{x:Type vm:SearchSuggestionItem}">
+                                                    <Button Padding="8,6" Margin="0,1" HorizontalContentAlignment="Stretch" Cursor="Hand"
+                                                            Command="{Binding DataContext.Search.SelectSuggestionCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                            CommandParameter="{Binding}">
+                                                        <Button.Template>
+                                                            <ControlTemplate TargetType="Button">
+                                                                <Border x:Name="BtnBrd" Background="Transparent" CornerRadius="6" Padding="{TemplateBinding Padding}">
+                                                                    <Grid>
+                                                                        <Grid.ColumnDefinitions>
+                                                                            <ColumnDefinition Width="Auto" />
+                                                                            <ColumnDefinition Width="*" />
+                                                                        </Grid.ColumnDefinitions>
+                                                                        <ui:SymbolIcon Symbol="{Binding Icon}" FontSize="15"
+                                                                                       Foreground="{Binding DataContext.Theme.CurrentAccentBrush, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                                       Margin="0,0,10,0" VerticalAlignment="Center" />
+                                                                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                                            <TextBlock Text="{Binding Title}" FontSize="12" FontWeight="SemiBold"
+                                                                                       Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis" />
+                                                                            <TextBlock Text="{Binding Subtitle}" FontSize="10"
+                                                                                       Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,1,0,0" TextTrimming="CharacterEllipsis" />
+                                                                        </StackPanel>
+                                                                    </Grid>
+                                                                </Border>
+                                                                <ControlTemplate.Triggers>
+                                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                                        <Setter TargetName="BtnBrd" Property="Background" Value="#26FFFFFF" />
+                                                                    </Trigger>
+                                                                    <Trigger Property="IsPressed" Value="True">
+                                                                        <Setter TargetName="BtnBrd" Property="Background" Value="#33FFFFFF" />
+                                                                    </Trigger>
+                                                                </ControlTemplate.Triggers>
+                                                            </ControlTemplate>
+                                                        </Button.Template>
+                                                    </Button>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </ScrollViewer>
+                                </Border>
+                            </Popup>
                         </Grid>
                     </StackPanel>
 
@@ -1328,7 +1387,7 @@
         <!-- ============================================================== -->
 
         <!-- DAC & OUTPUT SELECTOR DIALOG -->
-        <Grid Grid.Row="1" Visibility="{Binding IsDeviceSelectorOpen, Converter={StaticResource BoolToVisConverter}}">
+        <Grid Grid.Row="0" Grid.RowSpan="3" Panel.ZIndex="1050" Visibility="{Binding IsDeviceSelectorOpen, Converter={StaticResource BoolToVisConverter}}">
             <Border Background="#66000000" MouseLeftButtonDown="OnDismissDialogClick" />
             <Border Style="{StaticResource GlassPanelStyle}" HorizontalAlignment="Stretch" MaxWidth="760" Margin="48,24" MaxHeight="580" VerticalAlignment="Center">
                 <Grid Margin="24" HorizontalAlignment="Stretch">

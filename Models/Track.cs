@@ -38,14 +38,45 @@ public partial class Track : ObservableObject
     private bool _isPlaying;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CoverImageSource))]
     private BitmapImage? _albumArtImage;
 
-    public BitmapImage CoverImageSource => AlbumArtImage ??= Services.Metadata.MetadataService.Instance.GetAlbumArtImage(this, decodeWidth: 120);
+    private bool _isLoadingCover;
+
+    public BitmapImage CoverImageSource
+    {
+        get
+        {
+            if (AlbumArtImage != null) return AlbumArtImage;
+
+            if (Services.Metadata.MetadataService.Instance.TryGetMemoryCachedImage(this, 120, out var cached) && cached != null)
+            {
+                AlbumArtImage = cached;
+                return cached;
+            }
+
+            if (!_isLoadingCover)
+            {
+                _isLoadingCover = true;
+                Services.Metadata.MetadataService.Instance.QueueTrackThumbnailLoad(this, 120, img =>
+                {
+                    _isLoadingCover = false;
+                    if (img != null)
+                    {
+                        AlbumArtImage = img;
+                    }
+                });
+            }
+
+            return Services.Metadata.MetadataService.Instance.GetFastPlaceholder(this);
+        }
+    }
 
     public void ReleaseArtFromMemory()
     {
         AlbumArtImage = null;
         AlbumArtData = null;
+        _isLoadingCover = false;
     }
 
     public string ArtistAndAlbum => string.IsNullOrWhiteSpace(Album) || Album == "Unknown Album"

@@ -645,13 +645,19 @@
                                     VerticalAlignment="Center" />
                         </Border>
 
-                        <!-- Speaker / DAC Button -->
-                        <Button Command="{Binding ToggleDeviceSelectorCommand}" Cursor="Hand" Padding="0" Margin="0,0,4,0" ToolTip="Dispositivo de salida / WASAPI Exclusive Bit-Perfect">
+                        <!-- DAC Output Selector Button -->
+                        <Button Command="{Binding ToggleDeviceSelectorCommand}" Cursor="Hand" Padding="0" Margin="0,0,6,0" ToolTip="Dispositivo de salida / WASAPI Exclusive Bit-Perfect">
                             <Button.Template>
                                 <ControlTemplate TargetType="Button">
                                     <Border x:Name="BtnBorder" CornerRadius="8" Padding="7,5" Background="Transparent" BorderThickness="1" BorderBrush="Transparent">
                                         <StackPanel Orientation="Vertical" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                            <ui:SymbolIcon x:Name="BtnIcon" Symbol="Speaker224" FontSize="18" Foreground="#D9FFFFFF" HorizontalAlignment="Center" />
+                                            <!-- Hi-Fi Speaker Minicomponente / Bafle Vector Icon -->
+                                            <Grid Width="16" Height="19" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                <Rectangle Width="14" Height="17.5" RadiusX="2.5" RadiusY="2.5" Stroke="#D9FFFFFF" StrokeThickness="1.5" Fill="#1AFFFFFF" />
+                                                <Ellipse Width="3.5" Height="3.5" Fill="#D9FFFFFF" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,3.5,0,0" />
+                                                <Ellipse Width="7.5" Height="7.5" Stroke="#D9FFFFFF" StrokeThickness="1.2" Fill="Transparent" HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,2.5" />
+                                                <Ellipse Width="2.5" Height="2.5" Fill="#D9FFFFFF" HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,5" />
+                                            </Grid>
                                             <Ellipse x:Name="ActiveDot" Width="4" Height="4" Fill="{DynamicResource AccentBrush}" Margin="0,2,0,0" Visibility="Collapsed" HorizontalAlignment="Center" />
                                         </StackPanel>
                                     </Border>
@@ -659,7 +665,6 @@
                                         <DataTrigger Binding="{Binding IsDeviceSelectorOpen}" Value="True">
                                             <Setter TargetName="BtnBorder" Property="Background" Value="#CC121216" />
                                             <Setter TargetName="BtnBorder" Property="BorderBrush" Value="#66FFFFFF" />
-                                            <Setter TargetName="BtnIcon" Property="Foreground" Value="#FFFFFF" />
                                             <Setter TargetName="ActiveDot" Property="Visibility" Value="Visible" />
                                         </DataTrigger>
                                         <Trigger Property="IsMouseOver" Value="True">

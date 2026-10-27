@@ -553,7 +553,13 @@ public partial class MainViewModel : ObservableObject
         {
             Search.SearchQuery = value;
         }
-        if (CurrentView != "Search" && !string.IsNullOrWhiteSpace(value))
+    }
+
+    [RelayCommand]
+    public void ExecuteSearchFromHeader()
+    {
+        if (string.IsNullOrWhiteSpace(SearchQuery)) return;
+        if (CurrentView != "Search")
         {
             PushCurrentNavigationState();
             if (CurrentView == "MyMusic")
@@ -564,6 +570,7 @@ public partial class MainViewModel : ObservableObject
             IsNowPlayingActive = false;
             UpdateCanGoBack();
         }
+        _ = Search.ExecuteFullSearchAsync();
     }
 
     [RelayCommand]

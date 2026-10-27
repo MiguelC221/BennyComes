@@ -412,7 +412,8 @@ public partial class MyMusicViewModel : ObservableObject
             if (forceAll || SelectedTabIndex == 2)
             {
                 _allFilteredAlbums = _cache.GetFilteredAlbums(sortKey, SelectedGenre, string.Empty, IsSortDescending);
-                var targetAlbums = isAlphaAtoZ ? _allFilteredAlbums : _allFilteredAlbums.Take(PageSize).ToList();
+                int initialCount = isAlphaAtoZ ? Math.Min(_allFilteredAlbums.Count, 60) : Math.Min(_allFilteredAlbums.Count, PageSize);
+                var targetAlbums = _allFilteredAlbums.Take(initialCount).ToList();
                 Albums.ReplaceRange(targetAlbums);
                 _loadedAlbumsCount = targetAlbums.Count;
             }
@@ -420,7 +421,8 @@ public partial class MyMusicViewModel : ObservableObject
             if (forceAll || SelectedTabIndex == 1)
             {
                 _allFilteredArtists = _cache.GetFilteredArtists(sortKey, string.Empty, IsSortDescending);
-                var targetArtists = isAlphaAtoZ ? _allFilteredArtists : _allFilteredArtists.Take(PageSize).ToList();
+                int initialCount = isAlphaAtoZ ? Math.Min(_allFilteredArtists.Count, 60) : Math.Min(_allFilteredArtists.Count, PageSize);
+                var targetArtists = _allFilteredArtists.Take(initialCount).ToList();
                 Artists.ReplaceRange(targetArtists);
                 _loadedArtistsCount = targetArtists.Count;
             }
@@ -748,7 +750,65 @@ public partial class MyMusicViewModel : ObservableObject
     {
         if (string.IsNullOrEmpty(letter)) return;
         IsJumpListOpen = false;
+
+        if (SelectedTabIndex == 2) // Álbumes
+        {
+            EnsureAlbumsLoadedForLetter(letter);
+        }
+        else if (SelectedTabIndex == 1) // Artistas
+        {
+            EnsureArtistsLoadedForLetter(letter);
+        }
+
         RequestScrollToLetter?.Invoke(letter);
+    }
+
+    private void EnsureAlbumsLoadedForLetter(string letter)
+    {
+        if (_loadedAlbumsCount >= _allFilteredAlbums.Count) return;
+        int targetIdx = -1;
+        for (int i = 0; i < _allFilteredAlbums.Count; i++)
+        {
+            if (string.Equals(_allFilteredAlbums[i].AlphaGroup, letter, StringComparison.OrdinalIgnoreCase))
+            {
+                targetIdx = i;
+            }
+            else if (targetIdx >= 0)
+            {
+                break;
+            }
+        }
+        if (targetIdx >= _loadedAlbumsCount)
+        {
+            int countToTake = Math.Min(_allFilteredAlbums.Count, targetIdx + 20);
+            var nextBatch = _allFilteredAlbums.Skip(_loadedAlbumsCount).Take(countToTake - _loadedAlbumsCount).ToList();
+            foreach (var a in nextBatch) Albums.Add(a);
+            _loadedAlbumsCount = Albums.Count;
+        }
+    }
+
+    private void EnsureArtistsLoadedForLetter(string letter)
+    {
+        if (_loadedArtistsCount >= _allFilteredArtists.Count) return;
+        int targetIdx = -1;
+        for (int i = 0; i < _allFilteredArtists.Count; i++)
+        {
+            if (string.Equals(_allFilteredArtists[i].AlphaGroup, letter, StringComparison.OrdinalIgnoreCase))
+            {
+                targetIdx = i;
+            }
+            else if (targetIdx >= 0)
+            {
+                break;
+            }
+        }
+        if (targetIdx >= _loadedArtistsCount)
+        {
+            int countToTake = Math.Min(_allFilteredArtists.Count, targetIdx + 20);
+            var nextBatch = _allFilteredArtists.Skip(_loadedArtistsCount).Take(countToTake - _loadedArtistsCount).ToList();
+            foreach (var ar in nextBatch) Artists.Add(ar);
+            _loadedArtistsCount = Artists.Count;
+        }
     }
 
     public void UpdateGrouping()
@@ -768,10 +828,16 @@ public partial class MyMusicViewModel : ObservableObject
         var view = System.Windows.Data.CollectionViewSource.GetDefaultView(collection);
         if (view == null) return;
 
-        view.GroupDescriptions.Clear();
-        if (shouldGroup)
+        bool isCurrentlyGrouped = view.GroupDescriptions.Count > 0;
+        if (isCurrentlyGrouped == shouldGroup) return;
+
+        using (view.DeferRefresh())
         {
-            view.GroupDescriptions.Add(new System.Windows.Data.PropertyGroupDescription("AlphaGroup"));
+            view.GroupDescriptions.Clear();
+            if (shouldGroup)
+            {
+                view.GroupDescriptions.Add(new System.Windows.Data.PropertyGroupDescription("AlphaGroup"));
+            }
         }
     }
 

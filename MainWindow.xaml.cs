@@ -478,6 +478,24 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         }
     }
 
+    private void OnSidebarSearchBoxKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Enter)
+        {
+            e.Handled = true;
+            ViewModel.ExecuteSearchFromHeaderCommand.Execute(null);
+            if (sender is UIElement uie)
+            {
+                uie.MoveFocus(new TraversalRequest(FocusNavigationDirection.Next));
+            }
+        }
+        else if (e.Key == Key.Escape)
+        {
+            e.Handled = true;
+            ViewModel.Search.CloseSuggestionsCommand.Execute(null);
+        }
+    }
+
     private static T? FindVisualParent<T>(DependencyObject? child) where T : DependencyObject
     {
         while (child != null)
