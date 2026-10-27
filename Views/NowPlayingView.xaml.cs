@@ -424,19 +424,82 @@ public partial class NowPlayingView : UserControl
         StartBackgroundCinematicMotion();
     }
 
+    private int _currentMotionMode = 0;
+
     private void StartBackgroundCinematicMotion()
     {
-        var duration = TimeSpan.FromSeconds(24);
-        var ease = new QuadraticEase { EasingMode = EasingMode.EaseInOut };
+        if (BackgroundScale == null || BackgroundTranslate == null) return;
 
-        var scaleAnim = new DoubleAnimation(1.02, 1.14, duration)
+        // Alternar entre los 4 modos cinemáticos direccionales tipo documental (Pan & Scan)
+        _currentMotionMode = (_currentMotionMode + 1) % 4;
+
+        var duration = TimeSpan.FromSeconds(28);
+        var ease = new SineEase { EasingMode = EasingMode.EaseInOut };
+
+        double fromX = 0, toX = 0;
+        double fromY = 0, toY = 0;
+        double fromScale = 1.05, toScale = 1.15;
+
+        switch (_currentMotionMode)
+        {
+            case 0:
+                // Modo 1: Paneo Panorámico Horizontal (Izquierda a Derecha)
+                // Inicia encuadrando el extremo izquierdo y recorre lentamente hacia la derecha
+                fromX = -65.0;
+                toX = 65.0;
+                fromY = -12.0;
+                toY = 12.0;
+                fromScale = 1.06;
+                toScale = 1.15;
+                break;
+
+            case 1:
+                // Modo 2: Recorrido Vertical (De arriba -zona de rostros o arte superior- hacia abajo con Zoom)
+                // Permite apreciar los rostros al inicio y desciende para revelar toda la escena o carátula
+                fromX = 12.0;
+                toX = -12.0;
+                fromY = -52.0;
+                toY = 48.0;
+                fromScale = 1.05;
+                toScale = 1.16;
+                break;
+
+            case 2:
+                // Modo 3: Paneo Horizontal Inverso con Zoom Out sutil (Derecha a Izquierda)
+                fromX = 65.0;
+                toX = -65.0;
+                fromY = 14.0;
+                toY = -14.0;
+                fromScale = 1.17;
+                toScale = 1.06;
+                break;
+
+            case 3:
+                // Modo 4: Diagonal Cinemático de Esquina a Esquina (Superior izquierda a inferior derecha)
+                fromX = -55.0;
+                toX = 55.0;
+                fromY = -42.0;
+                toY = 38.0;
+                fromScale = 1.05;
+                toScale = 1.18;
+                break;
+        }
+
+        var scaleAnim = new DoubleAnimation(fromScale, toScale, duration)
         {
             AutoReverse = true,
             RepeatBehavior = RepeatBehavior.Forever,
             EasingFunction = ease
         };
 
-        var panAnim = new DoubleAnimation(-20.0, 20.0, duration)
+        var panXAnim = new DoubleAnimation(fromX, toX, duration)
+        {
+            AutoReverse = true,
+            RepeatBehavior = RepeatBehavior.Forever,
+            EasingFunction = ease
+        };
+
+        var panYAnim = new DoubleAnimation(fromY, toY, duration)
         {
             AutoReverse = true,
             RepeatBehavior = RepeatBehavior.Forever,
@@ -445,7 +508,8 @@ public partial class NowPlayingView : UserControl
 
         BackgroundScale.BeginAnimation(ScaleTransform.ScaleXProperty, scaleAnim);
         BackgroundScale.BeginAnimation(ScaleTransform.ScaleYProperty, scaleAnim);
-        BackgroundTranslate.BeginAnimation(TranslateTransform.YProperty, panAnim);
+        BackgroundTranslate.BeginAnimation(TranslateTransform.XProperty, panXAnim);
+        BackgroundTranslate.BeginAnimation(TranslateTransform.YProperty, panYAnim);
     }
 
     private bool _isDraggingSeek;

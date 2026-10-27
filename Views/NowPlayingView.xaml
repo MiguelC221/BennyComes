@@ -14,8 +14,8 @@
         <!-- BACKGROUND LAYER: DYNAMIC ARTIST GALLERY & KEN BURNS EFFECT    -->
         <!-- ============================================================== -->
         <Grid x:Name="BackgroundContainer" ClipToBounds="True">
-            <!-- Ken Burns Animated Zoom Container (with -60 overscan margin so pan/zoom out never exposes borders) -->
-            <Grid x:Name="BackgroundTransformContainer" Margin="-60" RenderTransformOrigin="0.5,0.5">
+            <!-- Ken Burns Animated Zoom Container (with -90 overscan margin so pan/zoom out never exposes borders) -->
+            <Grid x:Name="BackgroundTransformContainer" Margin="-90" RenderTransformOrigin="0.5,0.5">
                 <Grid.RenderTransform>
                     <TransformGroup>
                         <ScaleTransform x:Name="BackgroundScale" ScaleX="1.0" ScaleY="1.0" />

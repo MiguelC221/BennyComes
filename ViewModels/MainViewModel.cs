@@ -381,7 +381,7 @@ public partial class MainViewModel : ObservableObject
                 {
                     var art = MetadataService.Instance.GetHighResAlbumArt(currentTrack);
                     NowPlaying.AlbumArt = art;
-                    NowPlaying.BackgroundImage = MetadataService.Instance.GetBlurredBackgroundArt(currentTrack);
+                    NowPlaying.BackgroundImage = art;
                     ThemeService.Instance.OnTrackArtChanged(art);
                 }
 

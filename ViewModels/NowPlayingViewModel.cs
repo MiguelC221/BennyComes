@@ -373,7 +373,7 @@ public partial class NowPlayingViewModel : ObservableObject
 
         var art = MetadataService.Instance.GetHighResAlbumArt(track);
         AlbumArt = art;
-        BackgroundImage = MetadataService.Instance.GetBlurredBackgroundArt(track);
+        BackgroundImage = art;
         ThemeService.Instance.OnTrackArtChanged(art);
 
         TotalDurationSeconds = Math.Max(1, track.Duration.TotalSeconds);
