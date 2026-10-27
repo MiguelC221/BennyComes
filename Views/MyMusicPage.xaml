@@ -563,6 +563,7 @@
 
                     <ListView.ItemContainerStyle>
                         <Style TargetType="ListViewItem">
+                            <EventSetter Event="MouseDoubleClick" Handler="OnSongItemDoubleClick" />
                             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
                             <Setter Property="FocusVisualStyle" Value="{x:Null}" />
                             <Setter Property="Background" Value="Transparent" />
@@ -1390,6 +1391,7 @@
                                                       MouseDoubleClick="OnSongItemDoubleClick">
                                                 <ListView.ItemContainerStyle>
                                                     <Style TargetType="ListViewItem">
+                                                        <EventSetter Event="MouseDoubleClick" Handler="OnSongItemDoubleClick" />
                                                         <Setter Property="HorizontalContentAlignment" Value="Stretch" />
                                                         <Setter Property="FocusVisualStyle" Value="{x:Null}" />
                                                         <Setter Property="Background" Value="Transparent" />
@@ -1931,6 +1933,7 @@
                               MouseDoubleClick="OnSongItemDoubleClick">
                         <ListView.ItemContainerStyle>
                             <Style TargetType="ListViewItem">
+                                <EventSetter Event="MouseDoubleClick" Handler="OnSongItemDoubleClick" />
                                 <Setter Property="HorizontalContentAlignment" Value="Stretch" />
                                 <Setter Property="FocusVisualStyle" Value="{x:Null}" />
                                 <Setter Property="Background" Value="Transparent" />

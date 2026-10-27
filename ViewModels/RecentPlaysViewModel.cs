@@ -38,10 +38,19 @@ public partial class RecentPlaysViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void PlayTrack(Track? track)
+    public void PlayTrack(Track? track)
     {
         if (track == null) return;
-        _audio.PlayTrack(track);
+        var list = RecentTracks.ToList();
+        int idx = list.IndexOf(track);
+        if (idx >= 0 && list.Count > 0)
+        {
+            _audio.PlayQueue(list, idx);
+        }
+        else
+        {
+            _audio.PlayTrack(track);
+        }
         MainViewModel.Instance?.ForceUiPlaybackUpdate(track, true);
     }
 

@@ -1080,6 +1080,7 @@
                           MouseDoubleClick="OnQueueItemDoubleClick">
                     <ListView.ItemContainerStyle>
                         <Style TargetType="ListViewItem">
+                            <EventSetter Event="MouseDoubleClick" Handler="OnQueueItemDoubleClick" />
                             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
                             <Setter Property="FocusVisualStyle" Value="{x:Null}" />
                             <Setter Property="Padding" Value="0" />

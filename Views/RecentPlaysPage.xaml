@@ -209,10 +209,12 @@
 
             <ListView ItemsSource="{Binding RecentPlays.RecentTracks}"
                       PreviewMouseWheel="OnListViewPreviewMouseWheel"
+                      MouseDoubleClick="OnTrackItemDoubleClick"
                       Background="Transparent" BorderThickness="0"
                       ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                 <ListView.ItemContainerStyle>
                     <Style TargetType="ListViewItem">
+                        <EventSetter Event="MouseDoubleClick" Handler="OnTrackItemDoubleClick" />
                         <Setter Property="HorizontalContentAlignment" Value="Stretch" />
                         <Setter Property="FocusVisualStyle" Value="{x:Null}" />
                         <Setter Property="Background" Value="Transparent" />

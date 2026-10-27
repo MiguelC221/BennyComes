@@ -565,10 +565,44 @@ public partial class NowPlayingView : UserControl
 
     private void OnQueueItemDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
     {
-        if (DataContext is MainViewModel vm && vm.Queue.SelectedTrack != null)
+        if (e.OriginalSource is DependencyObject dep && FindVisualParent<System.Windows.Controls.Primitives.ButtonBase>(dep) != null)
         {
-            vm.Queue.PlayTrackCommand.Execute(vm.Queue.SelectedTrack);
+            return;
         }
+
+        Track? track = null;
+        if (sender is ListViewItem lvi && lvi.DataContext is Track t1)
+        {
+            track = t1;
+        }
+        else if (sender is ListView lv && lv.SelectedItem is Track t2)
+        {
+            track = t2;
+        }
+        else if (e.OriginalSource is DependencyObject depObj)
+        {
+            track = FindVisualParent<ListViewItem>(depObj)?.DataContext as Track;
+        }
+
+        if (track == null && DataContext is MainViewModel vm0)
+        {
+            track = vm0.Queue.SelectedTrack;
+        }
+
+        if (track != null && DataContext is MainViewModel vm)
+        {
+            vm.Queue.PlayTrackCommand.Execute(track);
+        }
+    }
+
+    private static T? FindVisualParent<T>(DependencyObject? child) where T : DependencyObject
+    {
+        while (child != null)
+        {
+            if (child is T parent) return parent;
+            child = System.Windows.Media.VisualTreeHelper.GetParent(child);
+        }
+        return null;
     }
 }
 

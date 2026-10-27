@@ -4,6 +4,20 @@ Todas las modificaciones notables realizadas en la aplicación BennyComes se doc
 
 ---
 
+## [Versión 1.2.2] - 2026-10-17
+
+### 🎵 Doble Clic Global para Reproducir Canciones en Todas las Vistas
+- **Soporte de Doble Clic en Listas y Tablas de Canciones:**
+  - **Inicio ([HomePage.xaml](file:///C:/Users/Miguquis/.gemini/antigravity/scratch/BenyComes/Views/HomePage.xaml) y [HomePage.xaml.cs](file:///C:/Users/Miguquis/.gemini/antigravity/scratch/BenyComes/Views/HomePage.xaml.cs)):** Al hacer doble clic sobre cualquier fila del listado *Top Canciones*, se inicia la reproducción inmediata cargando la cola de canciones correspondientes.
+  - **Buscar ([SearchPage.xaml](file:///C:/Users/Miguquis/.gemini/antigravity/scratch/BenyComes/Views/SearchPage.xaml) y [SearchPage.xaml.cs](file:///C:/Users/Miguquis/.gemini/antigravity/scratch/BenyComes/Views/SearchPage.xaml.cs)):** Doble clic en cualquiera de los resultados de búsqueda de canciones inicia la reproducción de la pista seleccionada y encola las pistas coincidentes.
+  - **Reproducciones Recientes ([RecentPlaysPage.xaml](file:///C:/Users/Miguquis/.gemini/antigravity/scratch/BenyComes/Views/RecentPlaysPage.xaml) y [RecentPlaysPage.xaml.cs](file:///C:/Users/Miguquis/.gemini/antigravity/scratch/BenyComes/Views/RecentPlaysPage.xaml.cs)):** Doble clic en cualquier pista del historial reciente reproduce la canción y carga la lista en la cola activa.
+  - **Playlists ([PlaylistDetailPage.xaml](file:///C:/Users/Miguquis/.gemini/antigravity/scratch/BenyComes/Views/PlaylistDetailPage.xaml) y [PlaylistDetailPage.xaml.cs](file:///C:/Users/Miguquis/.gemini/antigravity/scratch/BenyComes/Views/PlaylistDetailPage.xaml.cs)):** Doble clic sobre cualquier canción de una lista de reproducción reproduce la pista e indexa la lista a partir de ella.
+  - **Reproducción en Curso ([NowPlayingView.xaml](file:///C:/Users/Miguquis/.gemini/antigravity/scratch/BenyComes/Views/NowPlayingView.xaml) y [NowPlayingView.xaml.cs](file:///C:/Users/Miguquis/.gemini/antigravity/scratch/BenyComes/Views/NowPlayingView.xaml.cs)):** Doble clic en las canciones de la cola activa salta inmediatamente a la reproducción de dicha pista.
+  - **Mi Música ([MyMusicPage.xaml](file:///C:/Users/Miguquis/.gemini/antigravity/scratch/BenyComes/Views/MyMusicPage.xaml) y [MyMusicPage.xaml.cs](file:///C:/Users/Miguquis/.gemini/antigravity/scratch/BenyComes/Views/MyMusicPage.xaml.cs)):** Se optimizó la captura de eventos a nivel de contenedor (`ListViewItem` con `EventSetter`), garantizando que el doble clic responda en todas las pestañas de canciones, pistas de artista y pistas de álbum.
+- **Filtrado Inteligente de Clics:** Se protege la interacción evitando que dobles clics sobre botones de acción internos (como el corazón de favoritos o el menú contextual) provoquen reproducciones indeseadas.
+
+---
+
 ## [Versión 1.2.1] - 2026-10-17
 
 ### 🚨 Botón de Emergencia para Restablecer la Aplicación desde Cero

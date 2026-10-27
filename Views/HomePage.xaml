@@ -248,11 +248,13 @@
             <!-- Top Tracks List with Scroll pass-through -->
             <ListView ItemsSource="{Binding Home.TopTracks}"
                       PreviewMouseWheel="OnListViewPreviewMouseWheel"
+                      MouseDoubleClick="OnTopTrackDoubleClick"
                       Background="Transparent" BorderThickness="0"
                       ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                       Margin="0,0,0,28">
                 <ListView.ItemContainerStyle>
                     <Style TargetType="ListViewItem">
+                        <EventSetter Event="MouseDoubleClick" Handler="OnTopTrackDoubleClick" />
                         <Setter Property="HorizontalContentAlignment" Value="Stretch" />
                         <Setter Property="FocusVisualStyle" Value="{x:Null}" />
                         <Setter Property="Background" Value="Transparent" />

@@ -367,6 +367,23 @@ public partial class HomeViewModel : ObservableObject
     }
 
     [RelayCommand]
+    public void PlayTrack(Track? track)
+    {
+        if (track == null) return;
+        var list = TopTracks.ToList();
+        int idx = list.IndexOf(track);
+        if (idx >= 0 && list.Count > 0)
+        {
+            _audio.PlayQueue(list, idx);
+        }
+        else
+        {
+            _audio.PlayTrack(track);
+        }
+        MainViewModel.Instance?.ForceUiPlaybackUpdate(track, true);
+    }
+
+    [RelayCommand]
     public async Task PlayMixFavoritesAsync()
     {
         var favs = await _dao.GetFavoriteTracksAsync();
