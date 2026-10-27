@@ -70,36 +70,18 @@ public partial class MyMusicPage : UserControl
                 }
                 else if (vm.MyMusic.SelectedTabIndex == 1) // Artistas
                 {
-                    var group = ArtistsItemsControl.ItemContainerGenerator.Items.OfType<CollectionViewGroup>()
-                        .FirstOrDefault(g => string.Equals(g.Name?.ToString(), letter, StringComparison.OrdinalIgnoreCase));
-
-                    if (group != null && ArtistsItemsControl.ItemContainerGenerator.ContainerFromItem(group) is FrameworkElement groupElement)
-                    {
-                        groupElement.BringIntoView();
-                        return;
-                    }
-
                     var artist = vm.MyMusic.Artists.FirstOrDefault(a => string.Equals(a.AlphaGroup, letter, StringComparison.OrdinalIgnoreCase));
-                    if (artist != null && ArtistsItemsControl.ItemContainerGenerator.ContainerFromItem(artist) is FrameworkElement artistElement)
+                    if (artist != null)
                     {
-                        artistElement.BringIntoView();
+                        ArtistsListView.ScrollIntoView(artist);
                     }
                 }
                 else if (vm.MyMusic.SelectedTabIndex == 2) // Álbumes
                 {
-                    var group = AlbumsItemsControl.ItemContainerGenerator.Items.OfType<CollectionViewGroup>()
-                        .FirstOrDefault(g => string.Equals(g.Name?.ToString(), letter, StringComparison.OrdinalIgnoreCase));
-
-                    if (group != null && AlbumsItemsControl.ItemContainerGenerator.ContainerFromItem(group) is FrameworkElement groupElement)
-                    {
-                        groupElement.BringIntoView();
-                        return;
-                    }
-
                     var album = vm.MyMusic.Albums.FirstOrDefault(a => string.Equals(a.AlphaGroup, letter, StringComparison.OrdinalIgnoreCase));
-                    if (album != null && AlbumsItemsControl.ItemContainerGenerator.ContainerFromItem(album) is FrameworkElement albumElement)
+                    if (album != null)
                     {
-                        albumElement.BringIntoView();
+                        AlbumsListView.ScrollIntoView(album);
                     }
                 }
             }

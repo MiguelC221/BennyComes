@@ -289,6 +289,31 @@ public partial class MyMusicViewModel : ObservableObject
         UpdateSortOptions();
         _cache.LibraryCacheUpdated += OnLibraryCacheUpdated;
         _ = InitializeAsync();
+
+        // Step b: Subscribe to low-memory / full GC notifications instead of clearing on navigation.
+        System.Threading.Tasks.Task.Run(() => MonitorMemoryPressure());
+    }
+
+    private void MonitorMemoryPressure()
+    {
+        try
+        {
+            GC.RegisterForFullGCNotification(10, 10);
+            while (true)
+            {
+                var status = GC.WaitForFullGCApproach(10000);
+                if (status == GCNotificationStatus.Succeeded)
+                {
+                    System.Diagnostics.Debug.WriteLine("[PERF] High memory pressure detected! Evicting inactive image caches.");
+                    App.Current?.Dispatcher?.InvokeAsync(() =>
+                    {
+                        ReleaseUnusedThumbnailsFromMemory(leavingMyMusicEntirely: false);
+                    }, System.Windows.Threading.DispatcherPriority.Background);
+                }
+                System.Threading.Thread.Sleep(5000);
+            }
+        }
+        catch { }
     }
 
     private void OnLibraryCacheUpdated()
@@ -296,7 +321,14 @@ public partial class MyMusicViewModel : ObservableObject
         App.Current?.Dispatcher?.Invoke(() =>
         {
             LoadGenresFromCache();
-            RefreshData();
+            if (MainViewModel.Instance?.CurrentView == "MyMusic")
+            {
+                RefreshData();
+            }
+            else
+            {
+                MarkLibraryDirty();
+            }
         });
     }
 
@@ -345,7 +377,7 @@ public partial class MyMusicViewModel : ObservableObject
         SelectedArtistDetail = null;
         UpdateSortOptions();
         OnPropertyChanged(nameof(ShuffleButtonText));
-        RefreshCurrentTabData();
+        EnsureCurrentTabFresh();
     }
 
     private async Task InitializeAsync()
@@ -388,22 +420,64 @@ public partial class MyMusicViewModel : ObservableObject
         RefreshCurrentTabData();
     }
 
+    // True when scan/import/delete changed the library since the tabs were last built.
+    private bool _libraryDirty = true;
+    public void MarkLibraryDirty() => _libraryDirty = true;
+
+    /// <summary>Navigation entry point: full rebuild only if the library changed, else just validate current tab.</summary>
+    public Task RefreshIfLibraryChangedAsync()
+    {
+        if (_libraryDirty) return RefreshDataAsync();
+        EnsureCurrentTabFresh();
+        return Task.CompletedTask;
+    }
+
     [RelayCommand]
     public void RefreshData()
     {
         RefreshCurrentTabData(forceAll: true);
+        _libraryDirty = false;
+    }
+
+    // Per-tab "what was this tab built with" signature. null = dirty.
+    private readonly string?[] _tabSignature = new string?[3];
+
+    private string CurrentSignature() => $"{SelectedSort}|{SelectedGenre}|{IsSortDescending}";
+
+    /// <summary>Tab switch fast path: rebuild only if the tab's data/filter/sort changed.</summary>
+    private void EnsureCurrentTabFresh()
+    {
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        int tab = Math.Clamp(SelectedTabIndex, 0, 2);
+        bool rebuilt = false;
+        if (_tabSignature[tab] != CurrentSignature())
+        {
+            RefreshCurrentTabData();
+            rebuilt = true;
+        }
+        else
+        {
+            UpdateGrouping();
+            OnPropertyChanged(nameof(ShuffleButtonText));
+            SyncPlayingTrack(AudioPlayerService.Instance.CurrentTrack, AudioPlayerService.Instance.IsPlaying);
+        }
+        sw.Stop();
+        System.Diagnostics.Debug.WriteLine($"[PERF] Tab {tab} switch: {sw.Elapsed.TotalMilliseconds:F1} ms (rebuilt={rebuilt})");
     }
 
     public void RefreshCurrentTabData(bool forceAll = false)
     {
-        IsLoading = true;
+        var swTotal = System.Diagnostics.Stopwatch.StartNew();
+        if (forceAll) Array.Clear(_tabSignature);
         try
         {
             string sortKey = SelectedSort;
             bool isAlphaAtoZ = sortKey == "Nombre (A-Z)" && !IsSortDescending;
+            string signature = CurrentSignature();
 
             if (forceAll || SelectedTabIndex == 0)
             {
+                _tabSignature[0] = signature;
                 var tracks = _cache.GetFilteredTracks(sortKey, SelectedGenre, string.Empty, IsSortDescending);
                 Songs.ReplaceRange(tracks);
                 TotalTracksCount = tracks.Count;
@@ -411,6 +485,7 @@ public partial class MyMusicViewModel : ObservableObject
 
             if (forceAll || SelectedTabIndex == 2)
             {
+                _tabSignature[2] = signature;
                 _allFilteredAlbums = _cache.GetFilteredAlbums(sortKey, SelectedGenre, string.Empty, IsSortDescending);
                 int initialCount = isAlphaAtoZ ? Math.Min(_allFilteredAlbums.Count, 60) : Math.Min(_allFilteredAlbums.Count, PageSize);
                 var targetAlbums = _allFilteredAlbums.Take(initialCount).ToList();
@@ -420,6 +495,7 @@ public partial class MyMusicViewModel : ObservableObject
 
             if (forceAll || SelectedTabIndex == 1)
             {
+                _tabSignature[1] = signature;
                 _allFilteredArtists = _cache.GetFilteredArtists(sortKey, string.Empty, IsSortDescending);
                 int initialCount = isAlphaAtoZ ? Math.Min(_allFilteredArtists.Count, 60) : Math.Min(_allFilteredArtists.Count, PageSize);
                 var targetArtists = _allFilteredArtists.Take(initialCount).ToList();
@@ -433,7 +509,8 @@ public partial class MyMusicViewModel : ObservableObject
         }
         finally
         {
-            IsLoading = false;
+            swTotal.Stop();
+            System.Diagnostics.Debug.WriteLine($"[PERF] RefreshCurrentTabData(forceAll={forceAll}, tab={SelectedTabIndex}): {swTotal.Elapsed.TotalMilliseconds:F1} ms");
         }
     }
 

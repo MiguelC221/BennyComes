@@ -318,7 +318,6 @@ public partial class MainViewModel : ObservableObject
                 CurrentView = "Home";
                 MyMusic.SelectedAlbumDetail = null;
                 MyMusic.SelectedArtistDetail = null;
-                MyMusic.ReleaseUnusedThumbnailsFromMemory(leavingMyMusicEntirely: true);
                 ClearNavigationHistory();
                 _ = Home.LoadHomeDataAsync();
                 return;
@@ -332,15 +331,9 @@ public partial class MainViewModel : ObservableObject
                 MyMusic.SelectedTabIndex = prev.MyMusicTabIndex;
                 MyMusic.SelectedArtistDetail = prev.ArtistDetail;
                 MyMusic.SelectedAlbumDetail = prev.AlbumDetail;
-                MyMusic.ReleaseUnusedThumbnailsFromMemory(leavingMyMusicEntirely: false);
             }
             else
             {
-                if (wasMyMusic)
-                {
-                    MyMusic.ReleaseUnusedThumbnailsFromMemory(leavingMyMusicEntirely: true);
-                }
-
                 if (prev.ViewName == "PlaylistDetail" && prev.PlaylistDetail != null)
                 {
                     SelectedPlaylistForDetail = prev.PlaylistDetail;
@@ -440,6 +433,9 @@ public partial class MainViewModel : ObservableObject
         IsNotificationVisible = false;
     }
 
+    /// <summary>[PERF] Stopwatch started at the beginning of the last NavigateTo call.</summary>
+    public static System.Diagnostics.Stopwatch? NavPerf { get; private set; }
+
     [RelayCommand]
     public void NavigateTo(string viewName)
     {
@@ -461,6 +457,9 @@ public partial class MainViewModel : ObservableObject
 
         bool leavingMyMusic = CurrentView == "MyMusic" && viewName != "MyMusic";
 
+        var swNav = System.Diagnostics.Stopwatch.StartNew();
+        NavPerf = swNav;
+
         IsNowPlayingActive = false;
         CurrentView = viewName;
         UpdateCanGoBack();
@@ -469,7 +468,6 @@ public partial class MainViewModel : ObservableObject
         {
             MyMusic.SelectedAlbumDetail = null;
             MyMusic.SelectedArtistDetail = null;
-            MyMusic.ReleaseUnusedThumbnailsFromMemory(leavingMyMusicEntirely: true);
         }
 
         if (viewName == "Home")
@@ -481,7 +479,7 @@ public partial class MainViewModel : ObservableObject
         {
             MyMusic.SelectedAlbumDetail = null;
             MyMusic.SelectedArtistDetail = null;
-            _ = MyMusic.RefreshDataAsync();
+            _ = MyMusic.RefreshIfLibraryChangedAsync();
         }
         else if (viewName == "RecentPlays")
         {
@@ -495,6 +493,14 @@ public partial class MainViewModel : ObservableObject
         {
             _ = Settings.LoadFoldersAsync();
         }
+
+        var dispatcher = System.Windows.Application.Current?.Dispatcher;
+        dispatcher?.BeginInvoke(new Action(() =>
+            System.Diagnostics.Debug.WriteLine($"[PERF] Nav {viewName}: Render pass finished (TOTAL {swNav.Elapsed.TotalMilliseconds:F1} ms)")),
+            System.Windows.Threading.DispatcherPriority.Render);
+        dispatcher?.BeginInvoke(new Action(() =>
+            System.Diagnostics.Debug.WriteLine($"[PERF] Nav {viewName}: ContextIdle reached (TOTAL {swNav.Elapsed.TotalMilliseconds:F1} ms)")),
+            System.Windows.Threading.DispatcherPriority.ContextIdle);
     }
 
     [RelayCommand]
@@ -527,11 +533,6 @@ public partial class MainViewModel : ObservableObject
     {
         if (playlist == null) return;
         PushCurrentNavigationState();
-
-        if (CurrentView == "MyMusic")
-        {
-            MyMusic.ReleaseUnusedThumbnailsFromMemory(leavingMyMusicEntirely: true);
-        }
 
         SelectedPlaylistForDetail = playlist;
 
@@ -573,10 +574,6 @@ public partial class MainViewModel : ObservableObject
         if (CurrentView != "Search")
         {
             PushCurrentNavigationState();
-            if (CurrentView == "MyMusic")
-            {
-                MyMusic.ReleaseUnusedThumbnailsFromMemory(leavingMyMusicEntirely: true);
-            }
             CurrentView = "Search";
             IsNowPlayingActive = false;
             UpdateCanGoBack();

@@ -333,7 +333,7 @@
         <!-- ============================================================== -->
         <!-- STATE A: NORMAL IMMERSIVE VIEW (QUEUE COLLAPSED)               -->
         <!-- ============================================================== -->
-        <Grid x:Name="NormalImmersiveContainer" Margin="48,56,48,20" RenderTransformOrigin="0.5,0.5">
+        <Grid x:Name="NormalImmersiveContainer" Margin="0" RenderTransformOrigin="0.5,0.5">
             <Grid.RenderTransform>
                 <TranslateTransform x:Name="NormalImmersiveTranslate" Y="0" />
             </Grid.RenderTransform>
@@ -343,8 +343,10 @@
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
-            <!-- Bottom-Left Main Info Block -->
-            <Grid x:Name="TrackInfoContainer" Grid.Row="0" VerticalAlignment="Bottom" HorizontalAlignment="Left" Margin="0,0,0,24">
+            <!-- Bottom-Left Main Info Block (Groove Music style) -->
+            <Grid x:Name="TrackInfoContainer" Grid.Row="0"
+                  HorizontalAlignment="Left" VerticalAlignment="Bottom"
+                  Margin="48,0,0,16">
                 <Grid.RenderTransform>
                     <TranslateTransform x:Name="TrackInfoTranslate" X="0" Y="0" />
                 </Grid.RenderTransform>
@@ -353,8 +355,9 @@
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
 
-                <!-- Album Art with CornerRadius="12" & DropShadow & Bass Pulse -->
-                <Border Grid.Column="0" Width="220" Height="220" CornerRadius="12" ClipToBounds="True" Background="#1C1C24"
+                <!-- Album Art: fixed 160x160 with CornerRadius="12" & DropShadow & Bass Pulse -->
+                <Border Grid.Column="0" Width="160" Height="160" VerticalAlignment="Bottom"
+                        CornerRadius="12" ClipToBounds="True" Background="#1C1C24"
                         RenderTransformOrigin="0.5,0.5">
                     <Border.RenderTransform>
                         <ScaleTransform ScaleX="{Binding NowPlaying.Visualizer.BassScale}"
@@ -367,14 +370,14 @@
                     <Image Source="{Binding NowPlaying.AlbumArt}" Stretch="UniformToFill" RenderOptions.BitmapScalingMode="HighQuality" />
                 </Border>
 
-                <!-- Track Info & Audio Badges Stack -->
-                <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="28,0,0,0" MaxWidth="720">
-                    <!-- Interactive Song Info (Title & Artist) redirects to Album -->
+                <!-- Track Info, Visualizer & Audio Badges Stack -->
+                <StackPanel Grid.Column="1" VerticalAlignment="Bottom" Margin="24,0,0,0">
+                    <!-- Interactive Song Info (Title & Artist • Album) redirects to Album -->
                     <Button Command="{Binding DataContext.ViewCurrentAlbumCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                             Background="Transparent"
                             BorderThickness="0"
                             Padding="0"
-                            Margin="0,0,0,16"
+                            Margin="0,0,0,0"
                             HorizontalAlignment="Left"
                             HorizontalContentAlignment="Left"
                             Cursor="Hand"
@@ -386,11 +389,11 @@
                                 </Border>
                             </ControlTemplate>
                         </Button.Template>
-                        <StackPanel>
+                        <StackPanel MaxWidth="560">
                             <!-- Title -->
                             <TextBlock Text="{Binding NowPlaying.Title}"
                                        FontFamily="Segoe UI Variable Display, Segoe UI"
-                                       FontSize="30" FontWeight="Bold" Foreground="#FFFFFF"
+                                       FontSize="28" FontWeight="Bold" Foreground="#FFFFFF"
                                        TextTrimming="CharacterEllipsis">
                                 <TextBlock.Effect>
                                     <DropShadowEffect BlurRadius="12" Color="#000000" Opacity="0.5" ShadowDepth="2" />
@@ -398,10 +401,11 @@
                             </TextBlock>
 
                             <!-- Interactive Artist • Album -->
-                            <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                            <StackPanel Orientation="Horizontal" Margin="0,4,0,0">
                                 <TextBlock Text="{Binding NowPlaying.Artist}"
                                            FontFamily="Segoe UI Variable Text, Segoe UI"
-                                           FontSize="16" Foreground="#D0FFFFFF">
+                                           FontSize="15" Foreground="#D0FFFFFF"
+                                           TextTrimming="CharacterEllipsis" MaxWidth="320">
                                     <TextBlock.Effect>
                                         <DropShadowEffect BlurRadius="8" Color="#000000" Opacity="0.4" ShadowDepth="2" />
                                     </TextBlock.Effect>
@@ -409,7 +413,7 @@
 
                                 <!-- Dot Separator -->
                                 <TextBlock Text=" • " FontFamily="Segoe UI Variable Text, Segoe UI"
-                                           FontSize="16" Foreground="#80FFFFFF" VerticalAlignment="Center">
+                                           FontSize="15" Foreground="#80FFFFFF" VerticalAlignment="Center">
                                     <TextBlock.Effect>
                                         <DropShadowEffect BlurRadius="8" Color="#000000" Opacity="0.4" ShadowDepth="2" />
                                     </TextBlock.Effect>
@@ -418,7 +422,8 @@
                                 <!-- Album -->
                                 <TextBlock Text="{Binding NowPlaying.Album}"
                                            FontFamily="Segoe UI Variable Text, Segoe UI"
-                                           FontSize="16" Foreground="#D0FFFFFF">
+                                           FontSize="15" Foreground="#D0FFFFFF"
+                                           TextTrimming="CharacterEllipsis" MaxWidth="220">
                                     <TextBlock.Effect>
                                         <DropShadowEffect BlurRadius="8" Color="#000000" Opacity="0.4" ShadowDepth="2" />
                                     </TextBlock.Effect>
@@ -427,8 +432,55 @@
                         </StackPanel>
                     </Button>
 
+                    <!-- Visualizer Display Area (Left aligned with title, separated ~16px from text) -->
+                    <Grid x:Name="VisualizerContainer" Height="36" Width="260" Margin="0,16,0,0" HorizontalAlignment="Left" VerticalAlignment="Bottom">
+                        <!-- 1. Spectrum Bars -->
+                        <ItemsControl x:Name="SpectrumItems" ItemsSource="{Binding NowPlaying.Visualizer.SpectrumBars}"
+                                      HorizontalAlignment="Left" VerticalAlignment="Bottom">
+                            <ItemsControl.Style>
+                                <Style TargetType="ItemsControl">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding NowPlaying.Visualizer.SelectedVisualizerMode}" Value="Barras de Espectro">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </ItemsControl.Style>
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Bottom" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Width="5" Height="{Binding}" CornerRadius="2.5" Margin="1.5,0"
+                                            VerticalAlignment="Bottom"
+                                            Background="{Binding DataContext.Theme.CurrentAccentBrush, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <!-- 2. Reactive Waveform -->
+                        <Polyline x:Name="WaveformLine" Points="{Binding NowPlaying.Visualizer.WaveformPoints}"
+                                  Stroke="{Binding Theme.CurrentAccentBrush}"
+                                  StrokeThickness="2.5"
+                                  HorizontalAlignment="Left" VerticalAlignment="Center">
+                            <Polyline.Style>
+                                <Style TargetType="Polyline">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding NowPlaying.Visualizer.SelectedVisualizerMode}" Value="Onda Reactiva">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Polyline.Style>
+                        </Polyline>
+                    </Grid>
+
                     <!-- Real-Time Audio Technical Badges -->
-                    <WrapPanel x:Name="TechBadgesPanel" Orientation="Horizontal" VerticalAlignment="Center">
+                    <WrapPanel x:Name="TechBadgesPanel" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,10,0,0">
                         <Border Style="{StaticResource TechBadgeStyle}">
                             <StackPanel Orientation="Horizontal">
                                 <ui:SymbolIcon Symbol="SoundSource24" FontSize="13" Foreground="#FFFFFF" Margin="0,0,5,0" />
@@ -451,58 +503,8 @@
                 </StackPanel>
             </Grid>
 
-            <!-- Bottom Visualizer, Transport & Seekbar -->
-            <StackPanel x:Name="BottomRowPanel" Grid.Row="1">
-                <!-- Visualizer Display Area -->
-                <Grid x:Name="VisualizerContainer" Height="55" Margin="0,0,0,10" VerticalAlignment="Bottom">
-                    <Grid.RenderTransform>
-                        <TranslateTransform x:Name="VisualizerTranslate" X="0" Y="0" />
-                    </Grid.RenderTransform>
-                    <!-- 1. Spectrum Bars -->
-                    <ItemsControl x:Name="SpectrumItems" ItemsSource="{Binding NowPlaying.Visualizer.SpectrumBars}"
-                                  HorizontalAlignment="Center" VerticalAlignment="Bottom">
-                        <ItemsControl.Style>
-                            <Style TargetType="ItemsControl">
-                                <Setter Property="Visibility" Value="Collapsed" />
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding NowPlaying.Visualizer.SelectedVisualizerMode}" Value="Barras de Espectro">
-                                        <Setter Property="Visibility" Value="Visible" />
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </ItemsControl.Style>
-                        <ItemsControl.ItemsPanel>
-                            <ItemsPanelTemplate>
-                                <StackPanel Orientation="Horizontal" VerticalAlignment="Bottom" />
-                            </ItemsPanelTemplate>
-                        </ItemsControl.ItemsPanel>
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <Border Width="6" Height="{Binding}" CornerRadius="3" Margin="2,0"
-                                        VerticalAlignment="Bottom"
-                                        Background="{Binding DataContext.Theme.CurrentAccentBrush, RelativeSource={RelativeSource AncestorType=UserControl}}" />
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-
-                    <!-- 2. Reactive Waveform -->
-                    <Polyline x:Name="WaveformLine" Points="{Binding NowPlaying.Visualizer.WaveformPoints}"
-                              Stroke="{Binding Theme.CurrentAccentBrush}"
-                              StrokeThickness="2.5"
-                              HorizontalAlignment="Center" VerticalAlignment="Center">
-                        <Polyline.Style>
-                            <Style TargetType="Polyline">
-                                <Setter Property="Visibility" Value="Collapsed" />
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding NowPlaying.Visualizer.SelectedVisualizerMode}" Value="Onda Reactiva">
-                                        <Setter Property="Visibility" Value="Visible" />
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </Polyline.Style>
-                    </Polyline>
-                </Grid>
-
+            <!-- Bottom Transport & Seekbar (HUD) -->
+            <StackPanel x:Name="BottomRowPanel" Grid.Row="1" VerticalAlignment="Bottom" Margin="48,0,48,20">
                 <!-- AUTO-HIDE HUD CONTROLS: Seekbar & Transport/Volume Bar -->
                 <StackPanel x:Name="BottomHudControlsContainer">
                     <!-- Seekbar with Wide Single-Click Hitbox -->

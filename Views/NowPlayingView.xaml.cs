@@ -126,14 +126,11 @@ public partial class NowPlayingView : UserControl
         BottomHudControlsContainer.IsHitTestVisible = false;
         TechBadgesPanel.IsHitTestVisible = false;
 
-        // Al estar inactivo el mouse, subir suavemente unos píxeles la carátula, canción, artista y álbum
-        const double trackLift = -26.0;
+        // Al estar inactivo el mouse, subir suavemente unos píxeles el bloque único (carátula, canción, artista, álbum y visualizador)
+        double hudRowHeight = NormalImmersiveContainer.RowDefinitions[1].ActualHeight;
+        double trackLift = Math.Max(0, hudRowHeight - 28.0);
         TrackInfoTranslate.BeginAnimation(TranslateTransform.YProperty,
             new DoubleAnimation(TrackInfoTranslate.Y, trackLift, moveDuration) { EasingFunction = easeInOut });
-
-        // Visualizer: se eleva armónicamente al unísono
-        VisualizerTranslate.BeginAnimation(TranslateTransform.YProperty,
-            new DoubleAnimation(VisualizerTranslate.Y, trackLift, moveDuration) { EasingFunction = easeInOut });
     }
 
     private void FadeInHud()
@@ -151,15 +148,9 @@ public partial class NowPlayingView : UserControl
         BottomHudControlsContainer.IsHitTestVisible = true;
         TechBadgesPanel.IsHitTestVisible = true;
 
-        // Restore track info smoothly to original position
+        // Restore track info container smoothly to original position
         var restoreTrackInfo = new DoubleAnimation(0.0, returnDuration) { EasingFunction = ease };
         TrackInfoTranslate.BeginAnimation(TranslateTransform.YProperty, restoreTrackInfo);
-
-        // Restore visualizer smoothly to original position
-        var restoreVisualizerX = new DoubleAnimation(0.0, returnDuration) { EasingFunction = ease };
-        var restoreVisualizerY = new DoubleAnimation(0.0, returnDuration) { EasingFunction = ease };
-        VisualizerTranslate.BeginAnimation(TranslateTransform.XProperty, restoreVisualizerX);
-        VisualizerTranslate.BeginAnimation(TranslateTransform.YProperty, restoreVisualizerY);
     }
 
     private void OnMainViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
