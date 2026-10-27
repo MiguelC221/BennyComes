@@ -2675,6 +2675,14 @@
                         </StackPanel>
 
                         <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                            <!-- Source selector -->
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,10,0">
+                                <TextBlock Text="Fuente:" FontSize="12" Foreground="{DynamicResource TextTertiaryBrush}" VerticalAlignment="Center" Margin="0,0,6,0" FontWeight="SemiBold" />
+                                <ComboBox ItemsSource="{Binding GallerySources}"
+                                          SelectedItem="{Binding SelectedGallerySource, Mode=TwoWay}"
+                                          MinWidth="115" FontSize="12" Padding="8,4" />
+                            </StackPanel>
+
                             <ui:Button Appearance="Secondary" Padding="10,6" Margin="0,0,8,0"
                                        Command="{Binding AddLocalArtistPhotoCommand}"
                                        ToolTip="Añadir una foto desde tu equipo a la galería">
@@ -2686,10 +2694,10 @@
 
                             <ui:Button Appearance="Secondary" Padding="10,6" Margin="0,0,10,0"
                                        Command="{Binding RefreshGalleryFromLastFmCommand}"
-                                       ToolTip="Descargar fotos y biografía actualizadas desde Last.fm">
+                                       ToolTip="Descargar fotos para el artista desde la fuente seleccionada">
                                 <StackPanel Orientation="Horizontal">
                                     <ui:SymbolIcon Symbol="ArrowSync24" FontSize="13" Margin="0,0,6,0" />
-                                    <TextBlock Text="Actualizar Last.fm" FontSize="11" FontWeight="SemiBold" />
+                                    <TextBlock Text="Obtener fotos" FontSize="11" FontWeight="SemiBold" />
                                 </StackPanel>
                             </ui:Button>
 

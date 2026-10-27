@@ -58,7 +58,7 @@ public partial class NowPlayingView : UserControl
         StartBackgroundCinematicMotion();
         if (DataContext is MainViewModel vm && vm.IsNowPlayingQueueExpanded)
         {
-            Dispatcher.BeginInvoke(new Action(() => ScrollToCurrentTrack(center: true)),
+            Dispatcher.BeginInvoke(new Action(() => ScrollToCurrentTrack()),
                 System.Windows.Threading.DispatcherPriority.Loaded);
         }
     }
@@ -233,7 +233,7 @@ public partial class NowPlayingView : UserControl
             QueueTranslate.BeginAnimation(TranslateTransform.YProperty,
                 new DoubleAnimation(80.0, 0.0, TimeSpan.FromMilliseconds(320)) { EasingFunction = easeOut });
 
-            Dispatcher.BeginInvoke(new Action(() => ScrollToCurrentTrack(center: true)),
+            Dispatcher.BeginInvoke(new Action(() => ScrollToCurrentTrack()),
                 System.Windows.Threading.DispatcherPriority.Loaded);
         }
         else
@@ -262,10 +262,10 @@ public partial class NowPlayingView : UserControl
 
     private void OnLocateCurrentTrackClick(object sender, RoutedEventArgs e)
     {
-        ScrollToCurrentTrack(center: true);
+        ScrollToCurrentTrack();
     }
 
-    private void ScrollToCurrentTrack(bool center)
+    private void ScrollToCurrentTrack()
     {
         var current = Services.Audio.AudioPlayerService.Instance.CurrentTrack;
         if (current == null || QueueListView.Items.Count == 0) return;
@@ -281,31 +281,42 @@ public partial class NowPlayingView : UserControl
         }
         if (index < 0) return;
 
-        QueueListView.ScrollIntoView(QueueListView.Items[index]);
-        if (!center) return;
-
-        QueueListView.UpdateLayout();
         var sv = FindScrollViewer(QueueListView);
-        if (sv == null) return;
-
-        if (QueueListView.ItemContainerGenerator.ContainerFromIndex(index) is FrameworkElement item)
+        if (sv != null)
         {
-            var transform = item.TransformToAncestor(sv);
-            Point pt = transform.Transform(new Point(0, 0));
-            double itemAbsoluteTop = sv.VerticalOffset + pt.Y;
-            double itemCenter = itemAbsoluteTop + (item.ActualHeight / 2.0);
-            double viewportHalf = sv.ViewportHeight / 2.0;
-            double targetOffset = itemCenter - viewportHalf;
-            double maxOffset = Math.Max(0, sv.ScrollableHeight);
-            targetOffset = Math.Clamp(targetOffset, 0, maxOffset);
-
-            sv.ScrollToVerticalOffset(targetOffset);
+            if (sv.CanContentScroll)
+            {
+                // En desplazamiento lógico (CanContentScroll = true), vertical offset representa el índice del elemento.
+                // Colocar vertical offset en 'index' posiciona la pista en la PRIMERA posición visible (tope de la pantalla).
+                double maxOffset = Math.Max(0, sv.ScrollableHeight);
+                double targetOffset = Math.Clamp(index, 0, maxOffset);
+                sv.ScrollToVerticalOffset(targetOffset);
+            }
+            else
+            {
+                // En desplazamiento físico por píxeles, alinear el borde superior del elemento al tope del viewport
+                QueueListView.ScrollIntoView(QueueListView.Items[index]);
+                QueueListView.UpdateLayout();
+                if (QueueListView.ItemContainerGenerator.ContainerFromIndex(index) is FrameworkElement item)
+                {
+                    try
+                    {
+                        var transform = item.TransformToAncestor(sv);
+                        Point pt = transform.Transform(new Point(0, 0));
+                        double itemAbsoluteTop = sv.VerticalOffset + pt.Y;
+                        double maxOffset = Math.Max(0, sv.ScrollableHeight);
+                        sv.ScrollToVerticalOffset(Math.Clamp(itemAbsoluteTop, 0, maxOffset));
+                    }
+                    catch
+                    {
+                        QueueListView.ScrollIntoView(QueueListView.Items[index]);
+                    }
+                }
+            }
         }
-        else if (sv.CanContentScroll)
+        else
         {
-            double viewportHalf = sv.ViewportHeight / 2.0;
-            double targetOffset = Math.Clamp(index - viewportHalf, 0, Math.Max(0, sv.ScrollableHeight));
-            sv.ScrollToVerticalOffset(targetOffset);
+            QueueListView.ScrollIntoView(QueueListView.Items[index]);
         }
     }
 

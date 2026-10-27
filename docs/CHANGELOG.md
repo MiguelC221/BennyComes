@@ -4,6 +4,33 @@ Todas las modificaciones notables realizadas en la aplicación BennyComes se doc
 
 ---
 
+## [Versión 1.2.0] - 2026-10-17
+
+### 🖼️ Selector de Fuentes y Extracción Limpia de Imágenes de Artista
+- **Extracción de Fuente Única sin Peticiones Duplicadas ([FanartTvImageProvider.cs](file:///C:/Users/Miguquis/.gemini/antigravity/scratch/BenyComes/Services/Online/FanartTvImageProvider.cs), [DeezerImageProvider.cs](file:///C:/Users/Miguquis/.gemini/antigravity/scratch/BenyComes/Services/Online/DeezerImageProvider.cs) y [LastFmService.cs](file:///C:/Users/Miguquis/.gemini/antigravity/scratch/BenyComes/Services/Online/LastFmService.cs)):**
+  - Se desacopló la consulta a Deezer dentro de `FanartTvImageProvider` y se eliminó la segunda consulta duplicada de álbumes de Deezer en `LastFmService`.
+  - Se implementó `FetchImageUrlsBySourceAsync` bajo la regla de fuente única: extrae estrictamente de UNA sola fuente si responde con éxito sin errores ni duplicaciones.
+  - En modo *Automático*: prioriza Fanart.tv; si responde con imágenes, finaliza de inmediato sin tocar Deezer. Si Fanart.tv no tiene clave configurada, produce un error o devuelve 0 fotos, recurre limpiamente a Deezer como alternativa de respaldo.
+- **Selector de Fuentes en la Galería del Artista ([MainWindow.xaml](file:///C:/Users/Miguquis/.gemini/antigravity/scratch/BenyComes/MainWindow.xaml) y [MainViewModel.cs](file:///C:/Users/Miguquis/.gemini/antigravity/scratch/BenyComes/ViewModels/MainViewModel.cs)):**
+  - Se incorporó un menú desplegable de fuentes (`Automático`, `Fanart.tv`, `Deezer`) en la cabecera del modal de selección de fotos de artista.
+  - El botón *"Obtener fotos"* consulta y descarga fotos exclusivamente desde la fuente elegida.
+
+### 🔝 Auto-scroll al Inicio de la Pantalla en la Cola de Reproducción
+- **Posicionamiento en la Primera Fila Visible ([NowPlayingView.xaml.cs](file:///C:/Users/Miguquis/.gemini/antigravity/scratch/BenyComes/Views/NowPlayingView.xaml.cs)):**
+  - Se corrigió el cálculo de desplazamiento de la cola en `ScrollToCurrentTrack`. Anteriormente, el cálculo de píxeles interfería con el modo lógico `CanContentScroll = true` de la lista de WPF, desplazando el elemento fuera del campo visible.
+  - Ahora al cambiar de canción, la cola se desplaza inmediatamente para situar la pista en reproducción en la **primera posición visible (tope de la vista)**, manteniéndola perfectamente encuadrada y visible.
+
+### 🚀 Optimización de Rendimiento en Pestaña Artistas y Álbumes
+- **Reducción de Objetos Visuales Compartiendo `ContextMenu` ([MyMusicPage.xaml](file:///C:/Users/Miguquis/.gemini/antigravity/scratch/BenyComes/Views/MyMusicPage.xaml)):**
+  - Se extrajeron los menús contextuales de cada tarjeta de artista y álbum a recursos estáticos compartidos (`SharedArtistCardContextMenu` y `SharedAlbumCardContextMenu`).
+  - Esto erradica más de 7,000 elementos visuales duplicados en memoria (`MenuItem`, `SymbolIcon`, `Separator`) que se creaban innecesariamente para cada tarjeta.
+- **Filtro Bilineal Rápido de Imágenes ([MyMusicPage.xaml](file:///C:/Users/Miguquis/.gemini/antigravity/scratch/BenyComes/Views/MyMusicPage.xaml)):**
+  - Se cambió `BitmapScalingMode="HighQuality"` por `BitmapScalingMode="LowQuality"` en las miniaturas de artista y álbumes, eliminando el coste excesivo de filtrado bicúbico durante el desplazamiento continuo.
+- **Carga en Lote con `BulkObservableCollection.AddRange` ([MyMusicViewModel.cs](file:///C:/Users/Miguquis/.gemini/antigravity/scratch/BenyComes/ViewModels/MyMusicViewModel.cs)):**
+  - En `LoadMoreArtists()` y `LoadMoreAlbums()`, se reemplazó el bucle `foreach Add()` por `AddRange()`, emitiendo una única notificación para todo el bloque y añadiendo banderas de control de reentrada (`_isLoadingMoreArtists` y `_isLoadingMoreAlbums`).
+
+---
+
 ## [Versión 1.1.9] - 2026-10-17
 
 ### 🎬 Zoom Instantáneo en Reproducción en Curso y Opciones de Foto de Artista

@@ -10,6 +10,58 @@
              d:DesignHeight="750" d:DesignWidth="980">
 
     <UserControl.Resources>
+        <!-- Shared ContextMenu for Artist Cards (prevents instantiating 1000+ context menus) -->
+        <ContextMenu x:Key="SharedArtistCardContextMenu">
+            <MenuItem Header="Reproducir discografía"
+                      Command="{Binding Source={x:Static vm:MainViewModel.Instance}, Path=PlayArtistCommand}"
+                      CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                <MenuItem.Icon>
+                    <ui:SymbolIcon Symbol="Play24" />
+                </MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Header="Agregar a la cola de reproducción"
+                      Command="{Binding Source={x:Static vm:MainViewModel.Instance}, Path=MyMusic.AddArtistToQueueCommand}"
+                      CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                <MenuItem.Icon>
+                    <ui:SymbolIcon Symbol="Add24" />
+                </MenuItem.Icon>
+            </MenuItem>
+            <Separator />
+            <MenuItem Header="Ver discografía y álbumes"
+                      Command="{Binding Source={x:Static vm:MainViewModel.Instance}, Path=MyMusic.OpenArtistDetailCommand}"
+                      CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                <MenuItem.Icon>
+                    <ui:SymbolIcon Symbol="Person24" />
+                </MenuItem.Icon>
+            </MenuItem>
+        </ContextMenu>
+
+        <!-- Shared ContextMenu for Album Cards (prevents instantiating 1000+ context menus) -->
+        <ContextMenu x:Key="SharedAlbumCardContextMenu">
+            <MenuItem Header="Reproducir álbum"
+                      Command="{Binding Source={x:Static vm:MainViewModel.Instance}, Path=PlayAlbumCommand}"
+                      CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                <MenuItem.Icon>
+                    <ui:SymbolIcon Symbol="Play24" />
+                </MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Header="Agregar a la cola de reproducción"
+                      Command="{Binding Source={x:Static vm:MainViewModel.Instance}, Path=MyMusic.AddAlbumToQueueCommand}"
+                      CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                <MenuItem.Icon>
+                    <ui:SymbolIcon Symbol="Add24" />
+                </MenuItem.Icon>
+            </MenuItem>
+            <Separator />
+            <MenuItem Header="Ver detalles del álbum"
+                      Command="{Binding Source={x:Static vm:MainViewModel.Instance}, Path=MyMusic.OpenAlbumDetailCommand}"
+                      CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                <MenuItem.Icon>
+                    <ui:SymbolIcon Symbol="Album24" />
+                </MenuItem.Icon>
+            </MenuItem>
+        </ContextMenu>
+
         <!-- Alpha Group Header Button Style -->
         <Style x:Key="AlphaGroupHeaderButtonStyle" TargetType="Button">
             <Setter Property="Background" Value="Transparent" />
@@ -722,33 +774,8 @@
                         <ItemsControl.ItemTemplate>
                             <DataTemplate DataType="{x:Type models:ArtistModel}">
                                 <Border Style="{StaticResource ScaleCardBorderStyle}" Width="176" Margin="0,0,20,24" CornerRadius="14"
-                                        Background="{DynamicResource SurfaceCardBrush}" BorderBrush="{DynamicResource SurfaceCardBorderBrush}" BorderThickness="1" Padding="8" Cursor="Hand">
-                                    <Border.ContextMenu>
-                                        <ContextMenu>
-                                            <MenuItem Header="Reproducir discografía"
-                                                      Command="{Binding DataContext.PlayArtistCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                      CommandParameter="{Binding}">
-                                                <MenuItem.Icon>
-                                                    <ui:SymbolIcon Symbol="Play24" />
-                                                </MenuItem.Icon>
-                                            </MenuItem>
-                                            <MenuItem Header="Agregar a la cola de reproducción"
-                                                      Command="{Binding DataContext.MyMusic.AddArtistToQueueCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                      CommandParameter="{Binding}">
-                                                <MenuItem.Icon>
-                                                    <ui:SymbolIcon Symbol="Add24" />
-                                                </MenuItem.Icon>
-                                            </MenuItem>
-                                            <Separator />
-                                            <MenuItem Header="Ver discografía y álbumes"
-                                                      Command="{Binding DataContext.MyMusic.OpenArtistDetailCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                      CommandParameter="{Binding}">
-                                                <MenuItem.Icon>
-                                                    <ui:SymbolIcon Symbol="Person24" />
-                                                </MenuItem.Icon>
-                                            </MenuItem>
-                                        </ContextMenu>
-                                    </Border.ContextMenu>
+                                        Background="{DynamicResource SurfaceCardBrush}" BorderBrush="{DynamicResource SurfaceCardBorderBrush}" BorderThickness="1" Padding="8" Cursor="Hand"
+                                        ContextMenu="{StaticResource SharedArtistCardContextMenu}">
                                     <Border.InputBindings>
                                         <MouseBinding MouseAction="LeftClick"
                                                       Command="{Binding DataContext.MyMusic.OpenArtistDetailCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
@@ -762,7 +789,7 @@
                                             <ui:SymbolIcon Symbol="Person24" FontSize="56" Foreground="{DynamicResource TextTertiaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
 
                                             <!-- Artist Cover Image (Circular Clipped) -->
-                                            <Image Source="{Binding AvatarImageSource}" Width="160" Height="160" Stretch="UniformToFill" RenderOptions.BitmapScalingMode="HighQuality">
+                                            <Image Source="{Binding AvatarImageSource}" Width="160" Height="160" Stretch="UniformToFill" RenderOptions.BitmapScalingMode="LowQuality">
                                                 <Image.Clip>
                                                     <EllipseGeometry Center="80,80" RadiusX="80" RadiusY="80" />
                                                 </Image.Clip>
@@ -1628,33 +1655,8 @@
                         <ItemsControl.ItemTemplate>
                             <DataTemplate DataType="{x:Type models:AlbumModel}">
                                 <Border Style="{StaticResource ScaleCardBorderStyle}" Width="176" Margin="0,0,20,24" CornerRadius="12"
-                                        Background="{DynamicResource SurfaceCardBrush}" BorderBrush="{DynamicResource SurfaceCardBorderBrush}" BorderThickness="1" Padding="8" Cursor="Hand">
-                                    <Border.ContextMenu>
-                                        <ContextMenu>
-                                            <MenuItem Header="Reproducir álbum"
-                                                      Command="{Binding DataContext.PlayAlbumCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                      CommandParameter="{Binding}">
-                                                <MenuItem.Icon>
-                                                    <ui:SymbolIcon Symbol="Play24" />
-                                                </MenuItem.Icon>
-                                            </MenuItem>
-                                            <MenuItem Header="Agregar a la cola de reproducción"
-                                                      Command="{Binding DataContext.MyMusic.AddAlbumToQueueCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                      CommandParameter="{Binding}">
-                                                <MenuItem.Icon>
-                                                    <ui:SymbolIcon Symbol="Add24" />
-                                                </MenuItem.Icon>
-                                            </MenuItem>
-                                            <Separator />
-                                            <MenuItem Header="Ver detalles del álbum"
-                                                      Command="{Binding DataContext.MyMusic.OpenAlbumDetailCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
-                                                      CommandParameter="{Binding}">
-                                                <MenuItem.Icon>
-                                                    <ui:SymbolIcon Symbol="Album24" />
-                                                </MenuItem.Icon>
-                                            </MenuItem>
-                                        </ContextMenu>
-                                    </Border.ContextMenu>
+                                        Background="{DynamicResource SurfaceCardBrush}" BorderBrush="{DynamicResource SurfaceCardBorderBrush}" BorderThickness="1" Padding="8" Cursor="Hand"
+                                        ContextMenu="{StaticResource SharedAlbumCardContextMenu}">
                                     <Border.InputBindings>
                                         <MouseBinding MouseAction="LeftClick"
                                                       Command="{Binding DataContext.MyMusic.OpenAlbumDetailCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
@@ -1665,7 +1667,7 @@
                                         <Grid Width="160" Height="160" HorizontalAlignment="Center">
                                             <!-- Album Cover Image -->
                                             <Border CornerRadius="6" ClipToBounds="True" Background="#1F1F28">
-                                                <Image Source="{Binding CoverImageSource}" Stretch="UniformToFill" RenderOptions.BitmapScalingMode="HighQuality" />
+                                                <Image Source="{Binding CoverImageSource}" Stretch="UniformToFill" RenderOptions.BitmapScalingMode="LowQuality" />
                                             </Border>
 
                                             <!-- Hover Overlay with 0.2s Fade-In -->

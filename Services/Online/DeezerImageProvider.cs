@@ -58,6 +58,35 @@ public class DeezerImageProvider : IArtistImageProvider
                         urls.Add(pBig.GetString()!);
                     }
 
+                    // Complement with top album covers for this artist to provide gallery variety
+                    if (item.TryGetProperty("id", out var idProp) && !ct.IsCancellationRequested)
+                    {
+                        long artistId = idProp.GetInt64();
+                        try
+                        {
+                            string albumsUrl = $"https://api.deezer.com/artist/{artistId}/albums?limit=6";
+                            using var albResp = await _http.GetAsync(albumsUrl, ct).ConfigureAwait(false);
+                            if (albResp.IsSuccessStatusCode)
+                            {
+                                string albJson = await albResp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+                                using var albDoc = JsonDocument.Parse(albJson);
+                                if (albDoc.RootElement.TryGetProperty("data", out var albArr))
+                                {
+                                    foreach (var alb in albArr.EnumerateArray())
+                                    {
+                                        if (alb.TryGetProperty("cover_xl", out var cXl) && !string.IsNullOrWhiteSpace(cXl.GetString()))
+                                            urls.Add(cXl.GetString()!);
+                                        else if (alb.TryGetProperty("cover_big", out var cBig) && !string.IsNullOrWhiteSpace(cBig.GetString()))
+                                            urls.Add(cBig.GetString()!);
+
+                                        if (urls.Count >= 8) break;
+                                    }
+                                }
+                            }
+                        }
+                        catch { }
+                    }
+
                     if (urls.Count > 0) break; // Found exact matching artist
                 }
             }

@@ -332,12 +332,12 @@ public partial class ArtistEnrichmentService : ObservableObject
             }
         }
 
-        // 2. Fetch Images via pluggable provider (DeezerImageProvider) if missing
+        // 2. Fetch Images via unified single-source fallback (Automático) if missing
         bool isImageNotFound = false;
-        if (!hasImages && _imageProvider != null)
+        if (!hasImages)
         {
             var imageUrls = await ExecuteWithBackoffAsync(
-                async token => await _imageProvider.GetArtistImageUrlsAsync(artistName, token),
+                async token => await _lastFm.FetchImageUrlsBySourceAsync(artistName, "Automático", token),
                 ct
             );
 

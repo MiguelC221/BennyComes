@@ -1826,6 +1826,16 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private bool _hasMultipleGalleryArtists;
 
+    public ObservableCollection<string> GallerySources { get; } = new()
+    {
+        "Automático",
+        "Fanart.tv",
+        "Deezer"
+    };
+
+    [ObservableProperty]
+    private string _selectedGallerySource = "Automático";
+
     partial void OnSelectedGalleryArtistChanged(string value)
     {
         if (string.IsNullOrWhiteSpace(value) || value.Equals(GalleryArtistName, StringComparison.OrdinalIgnoreCase))
@@ -2064,11 +2074,15 @@ public partial class MainViewModel : ObservableObject
     {
         if (string.IsNullOrWhiteSpace(GalleryArtistName)) return;
         IsGalleryLoading = true;
-        ShowToast("Descargando", $"Consultando nuevas imágenes y biografía para {GalleryArtistName}...", false, 3000);
+        ShowToast("Descargando", $"Consultando nuevas imágenes ({SelectedGallerySource}) y biografía para {GalleryArtistName}...", false, 3000);
 
         try
         {
-            var info = await Services.Online.LastFmService.Instance.GetArtistInfoAsync(GalleryArtistName, forceRefresh: true);
+            var info = await Services.Online.LastFmService.Instance.GetArtistInfoAsync(
+                GalleryArtistName, 
+                forceRefresh: true, 
+                source: SelectedGallerySource
+            );
             await LoadGalleryPhotosAsync(GalleryArtistName);
 
             var artistModel = MyMusic.Artists.FirstOrDefault(a => a.Name.Equals(GalleryArtistName, StringComparison.OrdinalIgnoreCase));

@@ -42,7 +42,8 @@ public class LastFmService
     public string ApiKey { get; set; } = string.Empty;
     public string FanartTvApiKey { get; set; } = string.Empty;
 
-    private readonly FanartTvImageProvider _imageProvider;
+    private readonly FanartTvImageProvider _fanartProvider;
+    private readonly DeezerImageProvider _deezerProvider;
 
     private LastFmService()
     {
@@ -51,7 +52,8 @@ public class LastFmService
             Timeout = TimeSpan.FromSeconds(15)
         };
         _http.DefaultRequestHeaders.Add("User-Agent", "BenyComesMusicPlayer/1.1 (Windows NT; HiFi Player)");
-        _imageProvider = new FanartTvImageProvider(_http);
+        _fanartProvider = new FanartTvImageProvider(_http);
+        _deezerProvider = new DeezerImageProvider(_http);
 
         try
         {
@@ -175,7 +177,83 @@ public class LastFmService
         }
     }
 
-    public async Task<ArtistOnlineInfo> GetArtistInfoAsync(string artistName, bool forceRefresh = false)
+    /// <summary>
+    /// Fetches artist image URLs strictly from ONE source if it succeeds without error,
+    /// or falls back to an alternative source in Automático mode.
+    /// Sources: "Automático", "Fanart.tv", "Deezer".
+    /// </summary>
+    public async Task<List<string>> FetchImageUrlsBySourceAsync(string artistName, string source = "Automático", System.Threading.CancellationToken ct = default)
+    {
+        var urls = new List<string>();
+        if (string.IsNullOrWhiteSpace(artistName)) return urls;
+
+        string normalized = source?.Trim().ToLowerInvariant() ?? "automático";
+
+        if (normalized.Contains("fanart"))
+        {
+            // Strictly Fanart.tv
+            try
+            {
+                urls = await _fanartProvider.GetArtistImageUrlsAsync(artistName, ct).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[LastFmService] Error fetching from Fanart.tv: {ex.Message}");
+            }
+            return urls;
+        }
+
+        if (normalized.Contains("deezer"))
+        {
+            // Strictly Deezer
+            try
+            {
+                urls = await _deezerProvider.GetArtistImageUrlsAsync(artistName, ct).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[LastFmService] Error fetching from Deezer: {ex.Message}");
+            }
+            return urls;
+        }
+
+        // Modo "Automático": extrae solo de UNA fuente si no da error; de lo contrario intentar con otra fuente
+        // 1. Intentar con Fanart.tv primero si hay clave configurada
+        if (!string.IsNullOrWhiteSpace(FanartTvApiKey))
+        {
+            try
+            {
+                var fanartUrls = await _fanartProvider.GetArtistImageUrlsAsync(artistName, ct).ConfigureAwait(false);
+                if (fanartUrls != null && fanartUrls.Count > 0)
+                {
+                    // Éxito: Fanart.tv devolvió imágenes sin error. No se consulta Deezer.
+                    return fanartUrls;
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[LastFmService] Fanart.tv falló, intentando Deezer como alternativa: {ex.Message}");
+            }
+        }
+
+        // 2. Si Fanart.tv no devolvió imágenes, no tiene clave, o falló: intentar con Deezer
+        try
+        {
+            var deezerUrls = await _deezerProvider.GetArtistImageUrlsAsync(artistName, ct).ConfigureAwait(false);
+            if (deezerUrls != null && deezerUrls.Count > 0)
+            {
+                return deezerUrls;
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[LastFmService] Error en Deezer: {ex.Message}");
+        }
+
+        return urls;
+    }
+
+    public async Task<ArtistOnlineInfo> GetArtistInfoAsync(string artistName, bool forceRefresh = false, string source = "Automático")
     {
         var result = new ArtistOnlineInfo { ArtistName = artistName };
         if (string.IsNullOrWhiteSpace(artistName) || artistName.Equals("Unknown Artist", StringComparison.OrdinalIgnoreCase))
@@ -230,61 +308,10 @@ public class LastFmService
             }
         }
 
-        // 3. Obtain high-resolution artist images via official REST APIs (Fanart.tv + Deezer)
-        var imageUrls = await _imageProvider.GetArtistImageUrlsAsync(artistName);
+        // 3. Obtain high-resolution artist images strictly from ONE source if no error (or fallback in Automático)
+        var imageUrls = await FetchImageUrlsBySourceAsync(artistName, source);
 
-        // 4. Complement with Deezer album covers if gallery needs additional images
-        if (imageUrls.Count < 8)
-        {
-            try
-            {
-                string deezerUrl = $"https://api.deezer.com/search/artist?q={Uri.EscapeDataString(artistName)}&limit=3";
-                using var dzResp = await _http.GetAsync(deezerUrl);
-                if (dzResp.IsSuccessStatusCode)
-                {
-                    string dzJson = await dzResp.Content.ReadAsStringAsync();
-                    using var dzDoc = JsonDocument.Parse(dzJson);
-                    if (dzDoc.RootElement.TryGetProperty("data", out var dataArr) && dataArr.GetArrayLength() > 0)
-                    {
-                        string normTarget = DeezerImageProvider.NormalizeName(artistName);
-                        foreach (var candidate in dataArr.EnumerateArray())
-                        {
-                            string candName = candidate.TryGetProperty("name", out var nProp) ? (nProp.GetString() ?? "") : "";
-                            if (!DeezerImageProvider.AreNamesMatching(normTarget, DeezerImageProvider.NormalizeName(candName)))
-                                continue;
-
-                            if (candidate.TryGetProperty("id", out var idProp))
-                            {
-                                long artistId = idProp.GetInt64();
-                                string albumsUrl = $"https://api.deezer.com/artist/{artistId}/albums?limit=8";
-                                using var albResp = await _http.GetAsync(albumsUrl);
-                                if (albResp.IsSuccessStatusCode)
-                                {
-                                    string albJson = await albResp.Content.ReadAsStringAsync();
-                                    using var albDoc = JsonDocument.Parse(albJson);
-                                    if (albDoc.RootElement.TryGetProperty("data", out var albArr))
-                                    {
-                                        foreach (var alb in albArr.EnumerateArray())
-                                        {
-                                            if (alb.TryGetProperty("cover_xl", out var cXl) && !string.IsNullOrWhiteSpace(cXl.GetString()))
-                                                imageUrls.Add(cXl.GetString()!);
-                                            else if (alb.TryGetProperty("cover_big", out var cBig) && !string.IsNullOrWhiteSpace(cBig.GetString()))
-                                                imageUrls.Add(cBig.GetString()!);
-
-                                            if (imageUrls.Count >= 12) break;
-                                        }
-                                    }
-                                }
-                            }
-                            break;
-                        }
-                    }
-                }
-            }
-            catch { }
-        }
-
-        // 5. Download and cache up to 12 images as img_{idx}.jpg
+        // 4. Download and cache up to 12 images as img_{idx}.jpg
         int idx = 0;
         foreach (var imgUrl in imageUrls.Distinct().Take(12))
         {
@@ -442,51 +469,9 @@ public class LastFmService
         var existing = GetLocalArtistImages(artistDir, includeOmitted: false);
         if (existing.Count > 0) return existing[0];
 
-        string? thumbUrl = null;
-
-        // 1. Try Fanart.tv if user configured a Fanart.tv API Key
-        if (!string.IsNullOrWhiteSpace(FanartTvApiKey) && !ct.IsCancellationRequested)
-        {
-            var urls = await _imageProvider.GetArtistImageUrlsAsync(artistName, ct).ConfigureAwait(false);
-            if (urls.Count > 0)
-            {
-                thumbUrl = urls[0];
-            }
-        }
-
-        // 2. Fallback to Deezer official REST API (validated artist name match)
-        if (string.IsNullOrEmpty(thumbUrl) && !ct.IsCancellationRequested)
-        {
-            try
-            {
-                string deezerUrl = $"https://api.deezer.com/search/artist?q={Uri.EscapeDataString(artistName.Trim())}&limit=5";
-                using var dzResp = await _http.GetAsync(deezerUrl, ct).ConfigureAwait(false);
-                if (dzResp.IsSuccessStatusCode)
-                {
-                    string dzJson = await dzResp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
-                    using var dzDoc = JsonDocument.Parse(dzJson);
-                    if (dzDoc.RootElement.TryGetProperty("data", out var dataArr) && dataArr.GetArrayLength() > 0)
-                    {
-                        string normTarget = DeezerImageProvider.NormalizeName(artistName);
-                        foreach (var item in dataArr.EnumerateArray())
-                        {
-                            string returnedName = item.TryGetProperty("name", out var nProp) ? (nProp.GetString() ?? "") : "";
-                            if (DeezerImageProvider.AreNamesMatching(normTarget, DeezerImageProvider.NormalizeName(returnedName)))
-                            {
-                                if (item.TryGetProperty("picture_medium", out var pMed) && !string.IsNullOrWhiteSpace(pMed.GetString()))
-                                    thumbUrl = pMed.GetString()!;
-                                else if (item.TryGetProperty("picture_big", out var pBig) && !string.IsNullOrWhiteSpace(pBig.GetString()))
-                                    thumbUrl = pBig.GetString()!;
-                                break;
-                            }
-                        }
-                    }
-                }
-            }
-            catch { }
-        }
-
-        if (string.IsNullOrEmpty(thumbUrl) || ct.IsCancellationRequested) return null;
+        var urls = await FetchImageUrlsBySourceAsync(artistName, "Automático", ct).ConfigureAwait(false);
+        if (urls.Count == 0 || ct.IsCancellationRequested) return null;
+        string thumbUrl = urls[0];
 
         // 3. Download only this 1 thumbnail file
         try

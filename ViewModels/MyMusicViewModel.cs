@@ -437,30 +437,51 @@ public partial class MyMusicViewModel : ObservableObject
         }
     }
 
+    private bool _isLoadingMoreAlbums;
+    private bool _isLoadingMoreArtists;
+
     [RelayCommand]
     public void LoadMoreAlbums()
     {
+        if (_isLoadingMoreAlbums) return;
         if (_loadedAlbumsCount >= _allFilteredAlbums.Count) return;
 
-        var nextBatch = _allFilteredAlbums.Skip(_loadedAlbumsCount).Take(PageSize).ToList();
-        foreach (var a in nextBatch)
+        try
         {
-            Albums.Add(a);
+            _isLoadingMoreAlbums = true;
+            var nextBatch = _allFilteredAlbums.Skip(_loadedAlbumsCount).Take(PageSize).ToList();
+            if (nextBatch.Count > 0)
+            {
+                Albums.AddRange(nextBatch);
+                _loadedAlbumsCount += nextBatch.Count;
+            }
         }
-        _loadedAlbumsCount += nextBatch.Count;
+        finally
+        {
+            _isLoadingMoreAlbums = false;
+        }
     }
 
     [RelayCommand]
     public void LoadMoreArtists()
     {
+        if (_isLoadingMoreArtists) return;
         if (_loadedArtistsCount >= _allFilteredArtists.Count) return;
 
-        var nextBatch = _allFilteredArtists.Skip(_loadedArtistsCount).Take(PageSize).ToList();
-        foreach (var ar in nextBatch)
+        try
         {
-            Artists.Add(ar);
+            _isLoadingMoreArtists = true;
+            var nextBatch = _allFilteredArtists.Skip(_loadedArtistsCount).Take(PageSize).ToList();
+            if (nextBatch.Count > 0)
+            {
+                Artists.AddRange(nextBatch);
+                _loadedArtistsCount += nextBatch.Count;
+            }
         }
-        _loadedArtistsCount += nextBatch.Count;
+        finally
+        {
+            _isLoadingMoreArtists = false;
+        }
     }
 
     public async Task RefreshDataAsync()

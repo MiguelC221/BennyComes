@@ -9,18 +9,16 @@ namespace BenyComes.Services.Online;
 
 /// <summary>
 /// Fetches high-resolution artist portraits (artistthumb) and backgrounds (artistbackground)
-/// via official MusicBrainz MBID resolution + Fanart.tv v3 API, with automatic fallback to DeezerImageProvider.
+/// via official MusicBrainz MBID resolution + Fanart.tv v3 API.
 /// </summary>
 public class FanartTvImageProvider : IArtistImageProvider
 {
-    public string ProviderName => "Fanart.tv + Deezer";
+    public string ProviderName => "Fanart.tv";
     private readonly HttpClient _http;
-    private readonly DeezerImageProvider _deezerFallback;
 
     public FanartTvImageProvider(HttpClient http)
     {
         _http = http;
-        _deezerFallback = new DeezerImageProvider(http);
     }
 
     public async Task<List<string>> GetArtistImageUrlsAsync(string artistName, CancellationToken ct = default)
@@ -76,19 +74,6 @@ public class FanartTvImageProvider : IArtistImageProvider
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"[FanartTvImageProvider] Error querying Fanart.tv for '{artistName}': {ex.Message}");
-            }
-        }
-
-        // Complement or fallback with Deezer API if fewer than 4 images were found
-        if (urls.Count < 4 && !ct.IsCancellationRequested)
-        {
-            var deezerUrls = await _deezerFallback.GetArtistImageUrlsAsync(artistName, ct).ConfigureAwait(false);
-            foreach (var dUrl in deezerUrls)
-            {
-                if (!urls.Contains(dUrl))
-                {
-                    urls.Add(dUrl);
-                }
             }
         }
 
