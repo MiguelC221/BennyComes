@@ -928,7 +928,7 @@
                         <StackPanel Margin="0,0,0,4" ClipToBounds="True">
                             <StackPanel.Style>
                                 <Style TargetType="StackPanel">
-                                    <Setter Property="MaxHeight" Value="220" />
+                                    <Setter Property="MaxHeight" Value="340" />
                                     <Setter Property="Opacity" Value="1.0" />
                                     <Setter Property="IsHitTestVisible" Value="True" />
                                     <Style.Triggers>
@@ -949,7 +949,7 @@
                                             <DataTrigger.ExitActions>
                                                 <BeginStoryboard>
                                                     <Storyboard>
-                                                        <DoubleAnimation Storyboard.TargetProperty="MaxHeight" To="220" Duration="0:0:0.25">
+                                                        <DoubleAnimation Storyboard.TargetProperty="MaxHeight" To="340" Duration="0:0:0.25">
                                                             <DoubleAnimation.EasingFunction>
                                                                 <CubicEase EasingMode="EaseOut" />
                                                             </DoubleAnimation.EasingFunction>
@@ -973,16 +973,20 @@
                             </ui:Button>
 
                             <!-- Ambient Hero Banner Container for Artist -->
-                            <Border CornerRadius="16" Margin="0,0,0,10" ClipToBounds="True" Background="#161620" BorderBrush="{DynamicResource SurfaceCardBorderBrush}" BorderThickness="1">
-                                <Grid>
-                                    <!-- Background Layer 0: Ambient Artist Image with Heavy Blur -->
-                                    <Image Source="{Binding MyMusic.SelectedArtistDetail.AvatarImageSource}"
-                                           Stretch="UniformToFill" HorizontalAlignment="Center" VerticalAlignment="Center"
-                                           Opacity="0.32">
-                                        <Image.Effect>
-                                            <BlurEffect Radius="65" />
-                                        </Image.Effect>
-                                    </Image>
+                            <Border CornerRadius="16" Margin="0,0,0,10" MinHeight="165" ClipToBounds="True" Background="#161620" BorderBrush="{DynamicResource SurfaceCardBorderBrush}" BorderThickness="1">
+                                <Grid x:Name="ArtistHeroGrid">
+                                    <!-- Background Layer 0: Ambient Artist Image with Heavy Blur (Canvas prevents image from inflating container height) -->
+                                    <Canvas ClipToBounds="True">
+                                        <Image Source="{Binding MyMusic.SelectedArtistDetail.AvatarImageSource}"
+                                               Width="{Binding ActualWidth, ElementName=ArtistHeroGrid}"
+                                               Height="{Binding ActualHeight, ElementName=ArtistHeroGrid}"
+                                               Stretch="UniformToFill" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                               Opacity="0.32">
+                                            <Image.Effect>
+                                                <BlurEffect Radius="65" />
+                                            </Image.Effect>
+                                        </Image>
+                                    </Canvas>
 
                                     <!-- Background Layer 1: High-Contrast Dark Gradient Scrim -->
                                     <Border>
@@ -1832,16 +1836,20 @@
                         </ui:Button>
 
                         <!-- Ambient Hero Banner Container for Album -->
-                        <Border CornerRadius="16" Margin="0,0,0,10" ClipToBounds="True" Background="#161620" BorderBrush="{DynamicResource SurfaceCardBorderBrush}" BorderThickness="1">
-                            <Grid>
-                                <!-- Background Layer 0: Ambient Album Cover Image with Heavy Blur -->
-                                <Image Source="{Binding MyMusic.SelectedAlbumDetail.CoverImageSource}"
-                                       Stretch="UniformToFill" HorizontalAlignment="Center" VerticalAlignment="Center"
-                                       Opacity="0.36">
-                                    <Image.Effect>
-                                        <BlurEffect Radius="65" />
-                                    </Image.Effect>
-                                </Image>
+                        <Border CornerRadius="16" Margin="0,0,0,10" MinHeight="172" ClipToBounds="True" Background="#161620" BorderBrush="{DynamicResource SurfaceCardBorderBrush}" BorderThickness="1">
+                            <Grid x:Name="AlbumHeroGrid">
+                                <!-- Background Layer 0: Ambient Album Cover Image with Heavy Blur (Canvas prevents image from inflating container height) -->
+                                <Canvas ClipToBounds="True">
+                                    <Image Source="{Binding MyMusic.SelectedAlbumDetail.CoverImageSource}"
+                                           Width="{Binding ActualWidth, ElementName=AlbumHeroGrid}"
+                                           Height="{Binding ActualHeight, ElementName=AlbumHeroGrid}"
+                                           Stretch="UniformToFill" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                           Opacity="0.36">
+                                        <Image.Effect>
+                                            <BlurEffect Radius="65" />
+                                        </Image.Effect>
+                                    </Image>
+                                </Canvas>
 
                                 <!-- Background Layer 1: High-Contrast Dark Gradient Scrim -->
                                 <Border>

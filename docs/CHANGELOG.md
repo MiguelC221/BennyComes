@@ -4,6 +4,19 @@ Todas las modificaciones notables realizadas en la aplicación BennyComes se doc
 
 ---
 
+## [Versión 1.2.3] - 2026-10-17
+
+### 📐 Corrección de Dimensiones y Visibilidad en Detalle de Artistas y Álbumes
+- **Aislamiento de Medición en Fondos Ambientales ([MyMusicPage.xaml](file:///C:/Users/Miguquis/.gemini/antigravity/scratch/BenyComes/Views/MyMusicPage.xaml)):**
+  - Se aisló la capa difuminada de fondo (`BlurEffect`) dentro de un `Canvas` con acoplamiento `ActualWidth`/`ActualHeight`. En WPF, una imagen de alta resolución con `Stretch="UniformToFill"` dentro de un `StackPanel` sin restricción inflaba el contenedor a su resolución nativa (hasta 2000px). Con el `Canvas`, la imagen ambiental nunca infla el alto del contenedor y se ciñe exactamente al tamaño del contenido real.
+- **Detalle de Álbumes Rectangular y Compacto:**
+  - El banner superior de información del álbum ahora mantiene su proporción rectangular estilizada de `MinHeight="172"`, dejando ver inmediatamente la lista de pistas sin empujarla fuera de la pantalla.
+- **Restitución Total de Nombre y Biografía de Last.fm en Detalle de Artistas:**
+  - Se amplió el límite vertical del encabezado completo a `MaxHeight="340"` (tanto en reposo como en la animación de reapertura).
+  - Al evitar el inflado del fondo ambiental y contar con el espacio vertical adecuado, el nombre del artista, subtítulo, biografía completa/resumen de Last.fm, botón *"Ver más información..."*, botones de acción y selector de vista ("Ver en lista" / "Ver carátulas") quedan 100% visibles, nítidos y legibles.
+
+---
+
 ## [Versión 1.2.2] - 2026-10-17
 
 ### 🎵 Doble Clic Global para Reproducir Canciones en Todas las Vistas
