@@ -5,6 +5,7 @@ using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
+using BenyComes.Models;
 using BenyComes.ViewModels;
 
 namespace BenyComes.Views;
@@ -30,6 +31,36 @@ public partial class NowPlayingView : UserControl
         PreviewKeyDown += OnUserActivity;
 
         Loaded += OnLoaded;
+        IsVisibleChanged += OnIsVisibleChanged;
+        Services.Audio.AudioPlayerService.Instance.TrackChanged += OnAudioTrackChanged;
+    }
+
+    private void OnIsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
+    {
+        if (IsVisible)
+        {
+            _hudInactivityTimer.Start();
+            StartBackgroundCinematicMotion();
+            if (DataContext is MainViewModel vm)
+            {
+                AnimateQueueState(vm.IsNowPlayingQueueExpanded, immediate: true);
+            }
+        }
+        else
+        {
+            _hudInactivityTimer.Stop();
+        }
+    }
+
+    private void OnAudioTrackChanged(object? sender, Track? track)
+    {
+        if (track == null) return;
+        StartBackgroundCinematicMotion();
+        if (DataContext is MainViewModel vm && vm.IsNowPlayingQueueExpanded)
+        {
+            Dispatcher.BeginInvoke(new Action(() => ScrollToCurrentTrack(center: true)),
+                System.Windows.Threading.DispatcherPriority.Loaded);
+        }
     }
 
     private void OnLoaded(object sender, RoutedEventArgs e)
@@ -51,6 +82,7 @@ public partial class NowPlayingView : UserControl
             }
 
             _ = vm.NowPlaying.RefreshArtistBackgroundAsync(vm.NowPlaying.Artist);
+            AnimateQueueState(vm.IsNowPlayingQueueExpanded, immediate: true);
         }
 
         StartBackgroundCinematicMotion();
@@ -144,12 +176,87 @@ public partial class NowPlayingView : UserControl
     private void OnMainViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName == nameof(MainViewModel.IsNowPlayingQueueExpanded) &&
-            sender is MainViewModel vm && vm.IsNowPlayingQueueExpanded)
+            sender is MainViewModel vm)
+        {
+            AnimateQueueState(vm.IsNowPlayingQueueExpanded, immediate: false);
+        }
+    }
+
+    private void AnimateQueueState(bool isExpanded, bool immediate)
+    {
+        if (QueueExpandedContainer == null || NormalImmersiveContainer == null || QueueBackdropOverlay == null)
+            return;
+
+        if (immediate)
+        {
+            if (isExpanded)
+            {
+                NormalImmersiveContainer.Visibility = Visibility.Collapsed;
+                NormalImmersiveContainer.Opacity = 0.0;
+                QueueBackdropOverlay.Visibility = Visibility.Visible;
+                QueueBackdropOverlay.Opacity = 0.9;
+                QueueExpandedContainer.Visibility = Visibility.Visible;
+                QueueExpandedContainer.Opacity = 1.0;
+                QueueTranslate.Y = 0;
+            }
+            else
+            {
+                QueueExpandedContainer.Visibility = Visibility.Collapsed;
+                QueueExpandedContainer.Opacity = 0.0;
+                QueueBackdropOverlay.Visibility = Visibility.Collapsed;
+                QueueBackdropOverlay.Opacity = 0.0;
+                NormalImmersiveContainer.Visibility = Visibility.Visible;
+                NormalImmersiveContainer.Opacity = 1.0;
+                NormalImmersiveTranslate.Y = 0;
+            }
+            return;
+        }
+
+        var easeOut = new CubicEase { EasingMode = EasingMode.EaseOut };
+        var easeIn = new CubicEase { EasingMode = EasingMode.EaseIn };
+
+        if (isExpanded)
         {
             FadeInHud();
-            // Esperar a que el layout de la cola exista antes de desplazar
+
+            var fadeOutNormal = new DoubleAnimation(1.0, 0.0, TimeSpan.FromMilliseconds(220)) { EasingFunction = easeOut };
+            fadeOutNormal.Completed += (s, e) => NormalImmersiveContainer.Visibility = Visibility.Collapsed;
+            NormalImmersiveContainer.BeginAnimation(OpacityProperty, fadeOutNormal);
+
+            QueueBackdropOverlay.Visibility = Visibility.Visible;
+            QueueBackdropOverlay.BeginAnimation(OpacityProperty,
+                new DoubleAnimation(0.0, 0.9, TimeSpan.FromMilliseconds(300)) { EasingFunction = easeOut });
+
+            QueueExpandedContainer.Visibility = Visibility.Visible;
+            QueueExpandedContainer.BeginAnimation(OpacityProperty,
+                new DoubleAnimation(0.0, 1.0, TimeSpan.FromMilliseconds(320)) { EasingFunction = easeOut });
+            QueueTranslate.BeginAnimation(TranslateTransform.YProperty,
+                new DoubleAnimation(80.0, 0.0, TimeSpan.FromMilliseconds(320)) { EasingFunction = easeOut });
+
             Dispatcher.BeginInvoke(new Action(() => ScrollToCurrentTrack(center: true)),
                 System.Windows.Threading.DispatcherPriority.Loaded);
+        }
+        else
+        {
+            // Ocultar cola animado: slide out downwards y fade out de la cola, y fade in suave de la vista normal
+            var fadeOutQueue = new DoubleAnimation(1.0, 0.0, TimeSpan.FromMilliseconds(260)) { EasingFunction = easeIn };
+            var slideOutQueue = new DoubleAnimation(0.0, 80.0, TimeSpan.FromMilliseconds(260)) { EasingFunction = easeIn };
+            fadeOutQueue.Completed += (s, e) =>
+            {
+                QueueExpandedContainer.Visibility = Visibility.Collapsed;
+                QueueBackdropOverlay.Visibility = Visibility.Collapsed;
+            };
+            QueueExpandedContainer.BeginAnimation(OpacityProperty, fadeOutQueue);
+            QueueTranslate.BeginAnimation(TranslateTransform.YProperty, slideOutQueue);
+
+            QueueBackdropOverlay.BeginAnimation(OpacityProperty,
+                new DoubleAnimation(0.9, 0.0, TimeSpan.FromMilliseconds(260)) { EasingFunction = easeIn });
+
+            NormalImmersiveContainer.Visibility = Visibility.Visible;
+            NormalImmersiveContainer.BeginAnimation(OpacityProperty,
+                new DoubleAnimation(0.0, 1.0, TimeSpan.FromMilliseconds(300)) { EasingFunction = easeOut });
+            NormalImmersiveTranslate.BeginAnimation(TranslateTransform.YProperty,
+                new DoubleAnimation(-20.0, 0.0, TimeSpan.FromMilliseconds(300)) { EasingFunction = easeOut });
         }
     }
 
@@ -163,24 +270,42 @@ public partial class NowPlayingView : UserControl
         var current = Services.Audio.AudioPlayerService.Instance.CurrentTrack;
         if (current == null || QueueListView.Items.Count == 0) return;
 
-        int index = QueueListView.Items.IndexOf(current);
+        int index = -1;
+        for (int i = 0; i < QueueListView.Items.Count; i++)
+        {
+            if (QueueListView.Items[i] is Track t && (t.Id == current.Id || t.FilePath == current.FilePath))
+            {
+                index = i;
+                break;
+            }
+        }
         if (index < 0) return;
 
-        QueueListView.ScrollIntoView(current);
+        QueueListView.ScrollIntoView(QueueListView.Items[index]);
         if (!center) return;
 
         QueueListView.UpdateLayout();
         var sv = FindScrollViewer(QueueListView);
         if (sv == null) return;
 
-        if (sv.CanContentScroll)
+        if (QueueListView.ItemContainerGenerator.ContainerFromIndex(index) is FrameworkElement item)
         {
-            sv.ScrollToVerticalOffset(Math.Max(0, index - sv.ViewportHeight / 2.0));
+            var transform = item.TransformToAncestor(sv);
+            Point pt = transform.Transform(new Point(0, 0));
+            double itemAbsoluteTop = sv.VerticalOffset + pt.Y;
+            double itemCenter = itemAbsoluteTop + (item.ActualHeight / 2.0);
+            double viewportHalf = sv.ViewportHeight / 2.0;
+            double targetOffset = itemCenter - viewportHalf;
+            double maxOffset = Math.Max(0, sv.ScrollableHeight);
+            targetOffset = Math.Clamp(targetOffset, 0, maxOffset);
+
+            sv.ScrollToVerticalOffset(targetOffset);
         }
-        else if (QueueListView.ItemContainerGenerator.ContainerFromIndex(index) is FrameworkElement item)
+        else if (sv.CanContentScroll)
         {
-            var pt = item.TranslatePoint(new Point(0, 0), sv);
-            sv.ScrollToVerticalOffset(sv.VerticalOffset + pt.Y - (sv.ViewportHeight - item.ActualHeight) / 2.0);
+            double viewportHalf = sv.ViewportHeight / 2.0;
+            double targetOffset = Math.Clamp(index - viewportHalf, 0, Math.Max(0, sv.ScrollableHeight));
+            sv.ScrollToVerticalOffset(targetOffset);
         }
     }
 
@@ -276,21 +401,23 @@ public partial class NowPlayingView : UserControl
             BackgroundSecondary.BeginAnimation(OpacityProperty, fadeOut);
             _isPrimaryActive = true;
         }
+
+        StartBackgroundCinematicMotion();
     }
 
     private void StartBackgroundCinematicMotion()
     {
-        var duration = TimeSpan.FromSeconds(45);
-        var ease = new SineEase { EasingMode = EasingMode.EaseInOut };
+        var duration = TimeSpan.FromSeconds(24);
+        var ease = new QuadraticEase { EasingMode = EasingMode.EaseInOut };
 
-        var scaleAnim = new DoubleAnimation(1.0, 1.12, duration)
+        var scaleAnim = new DoubleAnimation(1.02, 1.14, duration)
         {
             AutoReverse = true,
             RepeatBehavior = RepeatBehavior.Forever,
             EasingFunction = ease
         };
 
-        var panAnim = new DoubleAnimation(-25.0, 25.0, duration)
+        var panAnim = new DoubleAnimation(-20.0, 20.0, duration)
         {
             AutoReverse = true,
             RepeatBehavior = RepeatBehavior.Forever,

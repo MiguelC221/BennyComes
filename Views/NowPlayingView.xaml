@@ -157,6 +157,37 @@
                                 </StackPanel>
                             </Grid>
 
+                            <!-- Interruptor: Ver siempre la imagen de artista (Visible cuando haya imagen de artista disponible) -->
+                            <Grid Margin="0,0,0,12" Visibility="{Binding NowPlaying.HasAvailableArtistImage, Converter={StaticResource BoolToVisConverter}}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,10,0">
+                                    <TextBlock Text="Ver siempre la imagen de artista" FontWeight="SemiBold" FontSize="12" Foreground="#FFFFFF" />
+                                    <TextBlock Text="Limita el difuminado hasta 4 px y el oscurecimiento al 30%" FontSize="11" Foreground="#99FFFFFF" TextWrapping="Wrap" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Right">
+                                    <TextBlock VerticalAlignment="Center" Margin="0,0,8,0" FontSize="11" Foreground="#99FFFFFF">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Text" Value="Desactivado" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding NowPlaying.AlwaysShowArtistImage}" Value="True">
+                                                        <Setter Property="Text" Value="Activado" />
+                                                        <Setter Property="Foreground" Value="{Binding Theme.CurrentAccentBrush}" />
+                                                        <Setter Property="FontWeight" Value="SemiBold" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                    <ui:ToggleSwitch IsChecked="{Binding NowPlaying.AlwaysShowArtistImage, Mode=TwoWay}"
+                                                     OffContent="" OnContent=""
+                                                     VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Grid>
+
                             <!-- Multi-Artist Collaboration Selector (Visible if song has multiple artists) -->
                             <StackPanel Margin="0,0,0,12" Visibility="{Binding NowPlaying.HasCollaborationArtists, Converter={StaticResource BoolToVisConverter}}">
                                 <TextBlock Text="Descargar / Usar imágenes de:" FontSize="11" Foreground="#CCCCCC" Margin="0,0,0,4" FontWeight="SemiBold" />
@@ -302,17 +333,10 @@
         <!-- ============================================================== -->
         <!-- STATE A: NORMAL IMMERSIVE VIEW (QUEUE COLLAPSED)               -->
         <!-- ============================================================== -->
-        <Grid Margin="48,56,48,20">
-            <Grid.Style>
-                <Style TargetType="Grid">
-                    <Setter Property="Visibility" Value="Visible" />
-                    <Style.Triggers>
-                        <DataTrigger Binding="{Binding IsNowPlayingQueueExpanded}" Value="True">
-                            <Setter Property="Visibility" Value="Collapsed" />
-                        </DataTrigger>
-                    </Style.Triggers>
-                </Style>
-            </Grid.Style>
+        <Grid x:Name="NormalImmersiveContainer" Margin="48,56,48,20" RenderTransformOrigin="0.5,0.5">
+            <Grid.RenderTransform>
+                <TranslateTransform x:Name="NormalImmersiveTranslate" Y="0" />
+            </Grid.RenderTransform>
 
             <Grid.RowDefinitions>
                 <RowDefinition Height="*" />
@@ -751,98 +775,17 @@
         <!-- ============================================================== -->
         <!-- QUEUE ACTIVE BACKGROUND BACKDROP (90% OPACITY FADE-IN)         -->
         <!-- ============================================================== -->
-        <Border x:Name="QueueBackdropOverlay" Background="#0A0B10" IsHitTestVisible="False">
-            <Border.Style>
-                <Style TargetType="Border">
-                    <Setter Property="Visibility" Value="Collapsed" />
-                    <Setter Property="Opacity" Value="0.0" />
-                    <Style.Triggers>
-                        <DataTrigger Binding="{Binding IsNowPlayingQueueExpanded}" Value="True">
-                            <Setter Property="Visibility" Value="Visible" />
-                            <DataTrigger.EnterActions>
-                                <BeginStoryboard>
-                                    <Storyboard>
-                                        <DoubleAnimation Storyboard.TargetProperty="Opacity"
-                                                         From="0.0" To="0.9" Duration="0:0:1.0">
-                                            <DoubleAnimation.EasingFunction>
-                                                <CubicEase EasingMode="EaseOut" />
-                                            </DoubleAnimation.EasingFunction>
-                                        </DoubleAnimation>
-                                    </Storyboard>
-                                </BeginStoryboard>
-                            </DataTrigger.EnterActions>
-                            <DataTrigger.ExitActions>
-                                <BeginStoryboard>
-                                    <Storyboard>
-                                        <DoubleAnimation Storyboard.TargetProperty="Opacity"
-                                                         To="0.0" Duration="0:0:1.0">
-                                            <DoubleAnimation.EasingFunction>
-                                                <CubicEase EasingMode="EaseIn" />
-                                            </DoubleAnimation.EasingFunction>
-                                        </DoubleAnimation>
-                                    </Storyboard>
-                                </BeginStoryboard>
-                            </DataTrigger.ExitActions>
-                        </DataTrigger>
-                    </Style.Triggers>
-                </Style>
-            </Border.Style>
-        </Border>
+        <Border x:Name="QueueBackdropOverlay" Background="#0A0B10" IsHitTestVisible="False"
+                Visibility="Collapsed" Opacity="0.0" />
 
         <!-- ============================================================== -->
         <!-- STATE B: QUEUE EXPANDED VIEW (UP NEXT 4-COLUMN LAYOUT)        -->
         <!-- ============================================================== -->
-        <Grid x:Name="QueueExpandedContainer" Margin="48,46,48,20" RenderTransformOrigin="0.5,0.5">
+        <Grid x:Name="QueueExpandedContainer" Margin="48,46,48,20" RenderTransformOrigin="0.5,0.5"
+              Visibility="Collapsed" Opacity="0.0">
             <Grid.RenderTransform>
                 <TranslateTransform x:Name="QueueTranslate" Y="0" />
             </Grid.RenderTransform>
-            <Grid.Style>
-                <Style TargetType="Grid">
-                    <Setter Property="Visibility" Value="Collapsed" />
-                    <Setter Property="Opacity" Value="0" />
-                    <Style.Triggers>
-                        <DataTrigger Binding="{Binding IsNowPlayingQueueExpanded}" Value="True">
-                            <Setter Property="Visibility" Value="Visible" />
-                            <DataTrigger.EnterActions>
-                                <BeginStoryboard>
-                                    <Storyboard>
-                                        <DoubleAnimation Storyboard.TargetProperty="Opacity"
-                                                         From="0.0" To="1.0" Duration="0:0:1.0">
-                                            <DoubleAnimation.EasingFunction>
-                                                <CubicEase EasingMode="EaseOut" />
-                                            </DoubleAnimation.EasingFunction>
-                                        </DoubleAnimation>
-                                        <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.Y)"
-                                                         From="100" To="0" Duration="0:0:1.0">
-                                            <DoubleAnimation.EasingFunction>
-                                                <CubicEase EasingMode="EaseOut" />
-                                            </DoubleAnimation.EasingFunction>
-                                        </DoubleAnimation>
-                                    </Storyboard>
-                                </BeginStoryboard>
-                            </DataTrigger.EnterActions>
-                            <DataTrigger.ExitActions>
-                                <BeginStoryboard>
-                                    <Storyboard>
-                                        <DoubleAnimation Storyboard.TargetProperty="Opacity"
-                                                         To="0.0" Duration="0:0:1.0">
-                                            <DoubleAnimation.EasingFunction>
-                                                <CubicEase EasingMode="EaseIn" />
-                                            </DoubleAnimation.EasingFunction>
-                                        </DoubleAnimation>
-                                        <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.Y)"
-                                                         To="100" Duration="0:0:1.0">
-                                            <DoubleAnimation.EasingFunction>
-                                                <CubicEase EasingMode="EaseIn" />
-                                            </DoubleAnimation.EasingFunction>
-                                        </DoubleAnimation>
-                                    </Storyboard>
-                                </BeginStoryboard>
-                            </DataTrigger.ExitActions>
-                        </DataTrigger>
-                    </Style.Triggers>
-                </Style>
-            </Grid.Style>
 
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto" /> <!-- Top Shifted Track Info & Full Controls -->

@@ -71,6 +71,11 @@ public partial class NowPlayingViewModel : ObservableObject
     [ObservableProperty]
     private bool _useArtistBackground = true;
 
+    [ObservableProperty]
+    private bool _alwaysShowArtistImage;
+
+    public bool HasAvailableArtistImage => AvailableArtistImages.Count > 0;
+
     private double _savedBlurBeforeArtist = 35.0;
     private double _savedDarknessBeforeArtist = 0.70;
 
@@ -80,8 +85,8 @@ public partial class NowPlayingViewModel : ObservableObject
     [ObservableProperty]
     private double _backgroundDarkness = 0.30;
 
-    public double MaxBlurRadius => UseArtistBackground ? 4.0 : 80.0;
-    public double MaxDarkness => UseArtistBackground ? 0.30 : 0.90;
+    public double MaxBlurRadius => AlwaysShowArtistImage ? 4.0 : 80.0;
+    public double MaxDarkness => AlwaysShowArtistImage ? 0.30 : 0.90;
 
     [ObservableProperty]
     private bool _isFetchingArtistImages;
@@ -241,6 +246,9 @@ public partial class NowPlayingViewModel : ObservableObject
             string useBg = await Data.LibraryDao.Instance.GetSettingAsync("now_playing_use_artist_bg", "true");
             UseArtistBackground = bool.TryParse(useBg, out var ub) ? ub : true;
 
+            string alwaysShowVal = await Data.LibraryDao.Instance.GetSettingAsync("now_playing_always_show_artist_img", "false");
+            AlwaysShowArtistImage = bool.TryParse(alwaysShowVal, out var asVal) && asVal;
+
             string blurVal = await Data.LibraryDao.Instance.GetSettingAsync("now_playing_blur_radius", "35");
             if (double.TryParse(blurVal, System.Globalization.CultureInfo.InvariantCulture, out var br))
                 BackgroundBlurRadius = Math.Clamp(br, 0, 80);
@@ -262,14 +270,14 @@ public partial class NowPlayingViewModel : ObservableObject
         catch { }
     }
 
-    partial void OnUseArtistBackgroundChanged(bool value)
+    partial void OnAlwaysShowArtistImageChanged(bool value)
     {
         OnPropertyChanged(nameof(MaxBlurRadius));
         OnPropertyChanged(nameof(MaxDarkness));
 
         if (value)
         {
-            // Limitar el blur hasta 4 y la oscuridad hasta el 30%
+            // Limitar el blur hasta 4px y la oscuridad hasta el 30%
             if (BackgroundBlurRadius > 4.0)
             {
                 _savedBlurBeforeArtist = BackgroundBlurRadius;
@@ -283,18 +291,23 @@ public partial class NowPlayingViewModel : ObservableObject
         }
         else
         {
-            // Restablecer al desactivar esa opción
+            // Quitar los límites y restaurar valores
             BackgroundBlurRadius = _savedBlurBeforeArtist > 4.0 ? _savedBlurBeforeArtist : 35.0;
             BackgroundDarkness = _savedDarknessBeforeArtist > 0.30 ? _savedDarknessBeforeArtist : 0.70;
         }
 
+        _ = Data.LibraryDao.Instance.SetSettingAsync("now_playing_always_show_artist_img", value.ToString());
+    }
+
+    partial void OnUseArtistBackgroundChanged(bool value)
+    {
         _ = Data.LibraryDao.Instance.SetSettingAsync("now_playing_use_artist_bg", value.ToString());
         _ = RefreshArtistBackgroundAsync(Artist);
     }
 
     partial void OnBackgroundBlurRadiusChanged(double value)
     {
-        if (UseArtistBackground && value > 4.0)
+        if (AlwaysShowArtistImage && value > 4.0)
         {
             BackgroundBlurRadius = 4.0;
             return;
@@ -304,7 +317,7 @@ public partial class NowPlayingViewModel : ObservableObject
 
     partial void OnBackgroundDarknessChanged(double value)
     {
-        if (UseArtistBackground && value > 0.30)
+        if (AlwaysShowArtistImage && value > 0.30)
         {
             BackgroundDarkness = 0.30;
             return;
@@ -379,6 +392,7 @@ public partial class NowPlayingViewModel : ObservableObject
         _artistImageCycleTimer.Stop();
         AvailableArtistImages.Clear();
         _currentArtistImageIndex = 0;
+        OnPropertyChanged(nameof(HasAvailableArtistImage));
 
         if (!UseArtistBackground || string.IsNullOrWhiteSpace(artistName) || artistName.Equals("Unknown Artist", StringComparison.OrdinalIgnoreCase))
         {
@@ -424,6 +438,7 @@ public partial class NowPlayingViewModel : ObservableObject
             {
                 AvailableArtistImages.Add(path);
             }
+            OnPropertyChanged(nameof(HasAvailableArtistImage));
 
             if (AvailableArtistImages.Count > 0)
             {

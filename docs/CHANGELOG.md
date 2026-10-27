@@ -6,6 +6,26 @@ Todas las modificaciones notables realizadas en la aplicación BennyComes se doc
 
 ## [Versión 1.1.9] - 2026-10-17
 
+### 🎬 Zoom Instantáneo en Reproducción en Curso y Opciones de Foto de Artista
+- **Efecto de Zoom Ken Burns sin Cooldown ([NowPlayingView.xaml.cs](file:///C:/Users/Miguquis/.gemini/antigravity/scratch/BenyComes/Views/NowPlayingView.xaml.cs)):**
+  - Se optimizó el movimiento cinemático de fondo para iniciarse inmediatamente al entrar a la pantalla de reproducción en curso (`IsVisibleChanged`) o al cambiar de canción/foto.
+  - Se redujo el período a 24s con curva cuadrática (`QuadraticEase`) y una escala inicial de `1.02` a `1.14`, eliminando la zona muerta/cooldown inicial donde no se percibía movimiento.
+- **Interruptor *"Ver siempre la imagen de artista"* ([NowPlayingViewModel.cs](file:///C:/Users/Miguquis/.gemini/antigravity/scratch/BenyComes/ViewModels/NowPlayingViewModel.cs) y [NowPlayingView.xaml](file:///C:/Users/Miguquis/.gemini/antigravity/scratch/BenyComes/Views/NowPlayingView.xaml)):**
+  - Se agregó un interruptor condicional visible en el menú de Personalización (...) únicamente cuando existan fotos de artista disponibles (`HasAvailableArtistImage`).
+  - Al activarse, limita estrictamente el difuminado (*blur*) hasta un máximo de 4 px y el oscurecimiento al 30%, permitiendo apreciar con nitidez el retrato del artista.
+  - Al desactivarse, se liberan por completo los límites (permitiendo hasta 80 px de desenfoque y 90% de oscuridad según la preferencia manual del usuario).
+- **Animación Fluida al Desplegar y Ocultar la Cola de Reproducción:**
+  - El botón *"Ocultar cola"* ahora cuenta con una transición animada elegante: la lista de la cola se desliza hacia abajo con desvanecimiento (`CubicEase EaseIn`) y el reproductor inmersivo se restablece suavemente con entrada deslizante (`CubicEase EaseOut`), erradicando cualquier desaparición abrupta.
+
+### 📜 Desplazamiento Centrado Inteligente en Listas de Reproducción
+- **Auto-scroll Progresivo con Pista Centrada ([PlaylistDetailPage.xaml.cs](file:///C:/Users/Miguquis/.gemini/antigravity/scratch/BenyComes/Views/PlaylistDetailPage.xaml.cs) y [NowPlayingView.xaml.cs](file:///C:/Users/Miguquis/.gemini/antigravity/scratch/BenyComes/Views/NowPlayingView.xaml.cs)):**
+  - Al cambiar de pista en una lista de reproducción (o en la cola activa), la lista calcula la posición vertical de la canción en tiempo real.
+  - Si la canción se encuentra en las primeras posiciones (antes del punto medio del visor), la lista permanece arriba (`offset = 0`) para permitir ver las primeras pistas con naturalidad.
+  - Al avanzar y alcanzar la mitad de la pantalla, la lista desciende suavemente manteniendo la pista en reproducción exactamente en el **centro**.
+  - Al llegar al final de la lista, el desplazamiento se detiene armónicamente en el límite inferior (`ScrollableHeight`).
+- **Resaltado Visual en [PlaylistDetailPage.xaml](file:///C:/Users/Miguquis/.gemini/antigravity/scratch/BenyComes/Views/PlaylistDetailPage.xaml):**
+  - La fila activa en la lista de reproducción se ilumina con fondo acentuado, borde sutil, título destacado y el icono animado de altavoz activo (`Speaker224`).
+
 ### ⚡ Carga Asíncrona de Miniaturas y Rework del Backend de "Mi Música"
 - **Miniaturas Asíncronas en `Track.CoverImageSource` ([Track.cs](file:///C:/Users/Miguquis/.gemini/antigravity/scratch/BenyComes/Models/Track.cs) y [MetadataService.cs](file:///C:/Users/Miguquis/.gemini/antigravity/scratch/BenyComes/Services/Metadata/MetadataService.cs)):**
   - La propiedad `CoverImageSource` ya no bloquea el hilo de UI leyendo el disco o extrayendo etiquetas TagLib al cargar canciones.

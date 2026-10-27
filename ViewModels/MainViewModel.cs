@@ -396,6 +396,17 @@ public partial class MainViewModel : ObservableObject
             IsPlaying = isPlaying;
             NowPlaying.IsPlaying = isPlaying;
             MyMusic.SyncPlayingTrack(currentTrack, isPlaying);
+            if (SelectedPlaylistForDetail != null)
+            {
+                foreach (var t in SelectedPlaylistForDetail.Tracks)
+                {
+                    bool shouldPlay = isPlaying && currentTrack != null && (t.Id == currentTrack.Id || t.FilePath == currentTrack.FilePath);
+                    if (t.IsPlaying != shouldPlay)
+                    {
+                        t.IsPlaying = shouldPlay;
+                    }
+                }
+            }
 
             if (isPlaying)
             {

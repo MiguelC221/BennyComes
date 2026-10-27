@@ -134,7 +134,8 @@
             <!-- ============================================================== -->
             <!-- 3. TRACKS LISTVIEW                                             -->
             <!-- ============================================================== -->
-            <ListView ItemsSource="{Binding SelectedPlaylistForDetail.Tracks}"
+            <ListView x:Name="PlaylistTracksListView"
+                      ItemsSource="{Binding SelectedPlaylistForDetail.Tracks}"
                       PreviewMouseWheel="OnListViewPreviewMouseWheel"
                       Background="Transparent" BorderThickness="0"
                       ScrollViewer.HorizontalScrollBarVisibility="Disabled">
@@ -160,6 +161,11 @@
                                         <Trigger Property="IsSelected" Value="True">
                                             <Setter TargetName="ItemBorder" Property="Background" Value="{DynamicResource SurfaceCardHoverBrush}" />
                                         </Trigger>
+                                        <DataTrigger Binding="{Binding IsPlaying}" Value="True">
+                                            <Setter TargetName="ItemBorder" Property="Background" Value="#250078D4" />
+                                            <Setter TargetName="ItemBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                                            <Setter TargetName="ItemBorder" Property="BorderThickness" Value="1" />
+                                        </DataTrigger>
                                     </ControlTemplate.Triggers>
                                 </ControlTemplate>
                             </Setter.Value>
@@ -180,11 +186,38 @@
                                     <ColumnDefinition Width="65" />
                                 </Grid.ColumnDefinitions>
 
-                                <!-- Column 0: Index / Hover Play Button -->
+                                <!-- Column 0: Index / Hover Play Button / Speaker Icon -->
                                 <Grid Grid.Column="0" HorizontalAlignment="Center" VerticalAlignment="Center">
                                     <TextBlock x:Name="TrackIndexText" Text="{Binding TrackNumber}"
                                                FontSize="12" Foreground="{DynamicResource TextTertiaryBrush}"
-                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                               HorizontalAlignment="Center" VerticalAlignment="Center">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsPlaying}" Value="True">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+
+                                    <ui:SymbolIcon Symbol="Speaker224" FontSize="14"
+                                                   Foreground="{Binding DataContext.Theme.CurrentAccentBrush, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                   HorizontalAlignment="Center" VerticalAlignment="Center">
+                                        <ui:SymbolIcon.Style>
+                                            <Style TargetType="ui:SymbolIcon">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsPlaying}" Value="True">
+                                                        <Setter Property="Visibility" Value="Visible" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </ui:SymbolIcon.Style>
+                                    </ui:SymbolIcon>
+
                                     <Button x:Name="PlHoverPlayBtn"
                                             Background="Transparent" BorderThickness="0"
                                             Width="32" Height="32" Cursor="Hand" Opacity="0"
@@ -207,8 +240,19 @@
 
                                 <!-- Column 2: Track Title -->
                                 <TextBlock Grid.Column="2" Text="{Binding Title}" FontSize="13" FontWeight="SemiBold"
-                                           Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis"
-                                           VerticalAlignment="Center" Margin="10,0,12,0" />
+                                           TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Margin="10,0,12,0">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsPlaying}" Value="True">
+                                                    <Setter Property="Foreground" Value="{Binding DataContext.Theme.CurrentAccentBrush, RelativeSource={RelativeSource AncestorType=Window}}" />
+                                                    <Setter Property="FontWeight" Value="Bold" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
 
                                 <!-- Column 3: Artist -->
                                 <TextBlock Grid.Column="3" Text="{Binding Artist}" FontSize="12"
