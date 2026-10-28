@@ -296,26 +296,28 @@
                                 <ColumnDefinition Width="70" />
                             </Grid.ColumnDefinitions>
 
-                            <!-- Position Badge (Gold, Silver, Bronze for Top 3) -->
+                            <!-- Position Badge (Gold, Silver, Bronze for Top 3 with Theme-Aware High Contrast) -->
                             <Border Grid.Column="0" Width="28" Height="22" CornerRadius="5" HorizontalAlignment="Center" VerticalAlignment="Center">
                                 <Border.Style>
                                     <Style TargetType="Border">
-                                        <Setter Property="Background" Value="#1AFFFFFF" />
+                                        <Setter Property="Background" Value="{DynamicResource RankDefaultBadgeBackgroundBrush}" />
+                                        <Setter Property="BorderBrush" Value="{DynamicResource RankDefaultBadgeBorderBrush}" />
+                                        <Setter Property="BorderThickness" Value="1" />
                                         <Style.Triggers>
                                             <DataTrigger Binding="{Binding Rank}" Value="1">
-                                                <Setter Property="Background" Value="#33FFD700" />
-                                                <Setter Property="BorderBrush" Value="#66FFD700" />
-                                                <Setter Property="BorderThickness" Value="1" />
+                                                <Setter Property="Background" Value="{DynamicResource Rank1BadgeBackgroundBrush}" />
+                                                <Setter Property="BorderBrush" Value="{DynamicResource Rank1BadgeBorderBrush}" />
+                                                <Setter Property="BorderThickness" Value="1.5" />
                                             </DataTrigger>
                                             <DataTrigger Binding="{Binding Rank}" Value="2">
-                                                <Setter Property="Background" Value="#2AE0E0E0" />
-                                                <Setter Property="BorderBrush" Value="#55E0E0E0" />
-                                                <Setter Property="BorderThickness" Value="1" />
+                                                <Setter Property="Background" Value="{DynamicResource Rank2BadgeBackgroundBrush}" />
+                                                <Setter Property="BorderBrush" Value="{DynamicResource Rank2BadgeBorderBrush}" />
+                                                <Setter Property="BorderThickness" Value="1.5" />
                                             </DataTrigger>
                                             <DataTrigger Binding="{Binding Rank}" Value="3">
-                                                <Setter Property="Background" Value="#33CD7F32" />
-                                                <Setter Property="BorderBrush" Value="#66CD7F32" />
-                                                <Setter Property="BorderThickness" Value="1" />
+                                                <Setter Property="Background" Value="{DynamicResource Rank3BadgeBackgroundBrush}" />
+                                                <Setter Property="BorderBrush" Value="{DynamicResource Rank3BadgeBorderBrush}" />
+                                                <Setter Property="BorderThickness" Value="1.5" />
                                             </DataTrigger>
                                         </Style.Triggers>
                                     </Style>
@@ -327,13 +329,13 @@
                                             <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
                                             <Style.Triggers>
                                                 <DataTrigger Binding="{Binding Rank}" Value="1">
-                                                    <Setter Property="Foreground" Value="#FFFFD700" />
+                                                    <Setter Property="Foreground" Value="{DynamicResource Rank1BadgeForegroundBrush}" />
                                                 </DataTrigger>
                                                 <DataTrigger Binding="{Binding Rank}" Value="2">
-                                                    <Setter Property="Foreground" Value="#FFFFFFFF" />
+                                                    <Setter Property="Foreground" Value="{DynamicResource Rank2BadgeForegroundBrush}" />
                                                 </DataTrigger>
                                                 <DataTrigger Binding="{Binding Rank}" Value="3">
-                                                    <Setter Property="Foreground" Value="#FFFFA07A" />
+                                                    <Setter Property="Foreground" Value="{DynamicResource Rank3BadgeForegroundBrush}" />
                                                 </DataTrigger>
                                             </Style.Triggers>
                                         </Style>

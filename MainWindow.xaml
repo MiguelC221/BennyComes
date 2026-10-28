@@ -3261,7 +3261,7 @@
                         </Border>
 
                         <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                            <TextBlock Text="Licencias de Código Abierto — BennyComes v1.2.003" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" />
+                            <TextBlock Text="Licencias de Código Abierto — BennyComes v1.2.004" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" />
                             <TextBlock Text="Agradecemos a los autores y mantenedores de los proyectos open-source que hacen posible BennyComes."
                                        FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,3,0,0" />
                         </StackPanel>
@@ -3329,7 +3329,7 @@
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
 
-                        <TextBlock Grid.Column="0" Text="BennyComes v1.2.003 • Reproductor Nativo Bit-Perfect"
+                        <TextBlock Grid.Column="0" Text="BennyComes v1.2.004 • Reproductor Nativo Bit-Perfect"
                                    FontSize="11" Foreground="{DynamicResource TextTertiaryBrush}" VerticalAlignment="Center" />
 
                         <ui:Button Grid.Column="1" Appearance="Primary" Padding="24,8"

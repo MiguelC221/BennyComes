@@ -80,6 +80,28 @@ public partial class ThemeService : ObservableObject
                     Application.Current.Resources["ScrollBarThumbBrush"] = new SolidColorBrush(Color.FromArgb(0x77, 0x50, 0x55, 0x65));
                     Application.Current.Resources["ScrollBarThumbHoverBrush"] = new SolidColorBrush(Color.FromArgb(0xAA, 0x30, 0x35, 0x45));
                     Application.Current.Resources["ScrollBarThumbDraggingBrush"] = new SolidColorBrush(Color.FromArgb(0xDD, 0x15, 0x18, 0x22));
+                    Application.Current.Resources["SliderTrackUnfilledBrush"] = new SolidColorBrush(Color.FromRgb(0xD0, 0xD4, 0xDC));
+
+                    Application.Current.Resources["ToggleSwitchStrokeOff"] = new SolidColorBrush(Color.FromRgb(0x82, 0x8A, 0x98));
+                    Application.Current.Resources["ToggleSwitchFillOff"] = new SolidColorBrush(Color.FromRgb(0xE2, 0xE8, 0xF0));
+                    Application.Current.Resources["ToggleSwitchKnobFillOff"] = new SolidColorBrush(Color.FromRgb(0x47, 0x55, 0x69));
+                    Application.Current.Resources["ToggleSwitchStrokeOffHover"] = new SolidColorBrush(Color.FromRgb(0x33, 0x41, 0x55));
+                    Application.Current.Resources["ToggleSwitchFillOffHover"] = new SolidColorBrush(Color.FromRgb(0xCB, 0xD5, 0xE1));
+
+                    Application.Current.Resources["Rank1BadgeBackgroundBrush"] = new SolidColorBrush(Color.FromRgb(0xFE, 0xF0, 0x8A));
+                    Application.Current.Resources["Rank1BadgeBorderBrush"] = new SolidColorBrush(Color.FromRgb(0xD9, 0x77, 0x06));
+                    Application.Current.Resources["Rank1BadgeForegroundBrush"] = new SolidColorBrush(Color.FromRgb(0x78, 0x35, 0x0F));
+
+                    Application.Current.Resources["Rank2BadgeBackgroundBrush"] = new SolidColorBrush(Color.FromRgb(0xE2, 0xE8, 0xF0));
+                    Application.Current.Resources["Rank2BadgeBorderBrush"] = new SolidColorBrush(Color.FromRgb(0x64, 0x74, 0x8B));
+                    Application.Current.Resources["Rank2BadgeForegroundBrush"] = new SolidColorBrush(Color.FromRgb(0x1E, 0x29, 0x3B));
+
+                    Application.Current.Resources["Rank3BadgeBackgroundBrush"] = new SolidColorBrush(Color.FromRgb(0xFF, 0xED, 0xD5));
+                    Application.Current.Resources["Rank3BadgeBorderBrush"] = new SolidColorBrush(Color.FromRgb(0xEA, 0x58, 0x0C));
+                    Application.Current.Resources["Rank3BadgeForegroundBrush"] = new SolidColorBrush(Color.FromRgb(0x7C, 0x2D, 0x12));
+
+                    Application.Current.Resources["RankDefaultBadgeBackgroundBrush"] = new SolidColorBrush(Color.FromRgb(0xEA, 0xEE, 0xF5));
+                    Application.Current.Resources["RankDefaultBadgeBorderBrush"] = new SolidColorBrush(Color.FromRgb(0xCB, 0xD5, 0xE1));
                 }
                 else
                 {
@@ -96,6 +118,28 @@ public partial class ThemeService : ObservableObject
                     Application.Current.Resources["ScrollBarThumbBrush"] = new SolidColorBrush(Color.FromArgb(0x66, 0xFF, 0xFF, 0xFF));
                     Application.Current.Resources["ScrollBarThumbHoverBrush"] = new SolidColorBrush(Color.FromArgb(0x99, 0xFF, 0xFF, 0xFF));
                     Application.Current.Resources["ScrollBarThumbDraggingBrush"] = new SolidColorBrush(Color.FromArgb(0xCC, 0xFF, 0xFF, 0xFF));
+                    Application.Current.Resources["SliderTrackUnfilledBrush"] = new SolidColorBrush(Color.FromArgb(0x35, 0xFF, 0xFF, 0xFF));
+
+                    Application.Current.Resources["ToggleSwitchStrokeOff"] = new SolidColorBrush(Color.FromArgb(0x88, 0xFF, 0xFF, 0xFF));
+                    Application.Current.Resources["ToggleSwitchFillOff"] = new SolidColorBrush(Color.FromArgb(0x28, 0xFF, 0xFF, 0xFF));
+                    Application.Current.Resources["ToggleSwitchKnobFillOff"] = new SolidColorBrush(Color.FromRgb(0xD0, 0xD4, 0xDC));
+                    Application.Current.Resources["ToggleSwitchStrokeOffHover"] = new SolidColorBrush(Color.FromRgb(0xFF, 0xFF, 0xFF));
+                    Application.Current.Resources["ToggleSwitchFillOffHover"] = new SolidColorBrush(Color.FromArgb(0x40, 0xFF, 0xFF, 0xFF));
+
+                    Application.Current.Resources["Rank1BadgeBackgroundBrush"] = new SolidColorBrush(Color.FromArgb(0x40, 0xFF, 0xD7, 0x00));
+                    Application.Current.Resources["Rank1BadgeBorderBrush"] = new SolidColorBrush(Color.FromRgb(0xFF, 0xD7, 0x00));
+                    Application.Current.Resources["Rank1BadgeForegroundBrush"] = new SolidColorBrush(Color.FromRgb(0xFF, 0xE0, 0x66));
+
+                    Application.Current.Resources["Rank2BadgeBackgroundBrush"] = new SolidColorBrush(Color.FromArgb(0x40, 0xE0, 0xE0, 0xE0));
+                    Application.Current.Resources["Rank2BadgeBorderBrush"] = new SolidColorBrush(Color.FromRgb(0xE0, 0xE0, 0xE0));
+                    Application.Current.Resources["Rank2BadgeForegroundBrush"] = new SolidColorBrush(Color.FromRgb(0xFF, 0xFF, 0xFF));
+
+                    Application.Current.Resources["Rank3BadgeBackgroundBrush"] = new SolidColorBrush(Color.FromArgb(0x40, 0xCD, 0x7F, 0x32));
+                    Application.Current.Resources["Rank3BadgeBorderBrush"] = new SolidColorBrush(Color.FromRgb(0xCD, 0x7F, 0x32));
+                    Application.Current.Resources["Rank3BadgeForegroundBrush"] = new SolidColorBrush(Color.FromRgb(0xFF, 0xA0, 0x7A));
+
+                    Application.Current.Resources["RankDefaultBadgeBackgroundBrush"] = new SolidColorBrush(Color.FromArgb(0x1A, 0xFF, 0xFF, 0xFF));
+                    Application.Current.Resources["RankDefaultBadgeBorderBrush"] = Brushes.Transparent;
                 }
             };
 
