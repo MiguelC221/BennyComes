@@ -4,7 +4,7 @@
 ; =====================================================================
 
 #define MyAppName "BenyComes Music Player"
-#define MyAppVersion "1.2.002"
+#define MyAppVersion "1.2.003"
 #define MyAppPublisher "BenyComes Audio Labs"
 #define MyAppURL "https://github.com/MiguelC221/BennyComes"
 #define MyAppExeName "BenyComes.exe"

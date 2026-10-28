@@ -639,7 +639,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         }
     }
 
-    private void OnSidebarSearchBoxKeyDown(object sender, KeyEventArgs e)
+    private void OnSidebarSearchBoxPreviewKeyDown(object sender, KeyEventArgs e)
     {
         if (ViewModel?.Search == null) return;
 

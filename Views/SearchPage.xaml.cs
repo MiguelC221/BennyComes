@@ -78,7 +78,7 @@ public partial class SearchPage : UserControl
         }
     }
 
-    private void OnPageSearchBoxKeyDown(object sender, KeyEventArgs e)
+    private void OnPageSearchBoxPreviewKeyDown(object sender, KeyEventArgs e)
     {
         if (DataContext is not MainViewModel vm) return;
 
@@ -86,15 +86,28 @@ public partial class SearchPage : UserControl
 
         if (e.Key == Key.Down)
         {
-            if (vm.Search.IsPageSuggestionsOpen)
+            if (vm.Search.IsPageSuggestionsOpen && vm.Search.Suggestions.Count > 0)
             {
                 e.Handled = true;
                 vm.Search.MoveSuggestionSelectionCommand.Execute(1);
             }
+            else if (TracksListView != null && TracksListView.Items.Count > 0)
+            {
+                e.Handled = true;
+                TracksListView.Focus();
+                if (TracksListView.SelectedIndex < 0)
+                {
+                    TracksListView.SelectedIndex = 0;
+                }
+                if (TracksListView.ItemContainerGenerator.ContainerFromIndex(TracksListView.SelectedIndex) is ListViewItem lvi)
+                {
+                    lvi.Focus();
+                }
+            }
         }
         else if (e.Key == Key.Up)
         {
-            if (vm.Search.IsPageSuggestionsOpen)
+            if (vm.Search.IsPageSuggestionsOpen && vm.Search.Suggestions.Count > 0)
             {
                 e.Handled = true;
                 vm.Search.MoveSuggestionSelectionCommand.Execute(-1);
@@ -121,6 +134,25 @@ public partial class SearchPage : UserControl
         {
             e.Handled = true;
             vm.Search.CloseSuggestionsCommand.Execute(null);
+        }
+    }
+
+    private void OnTracksListViewPreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Up && sender is ListView lv && lv.SelectedIndex <= 0)
+        {
+            e.Handled = true;
+            PageSearchBox.Focus();
+            PageSearchBox.SelectAll();
+        }
+    }
+
+    private void OnTracksListViewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Enter && sender is ListView lv && lv.SelectedItem is Track track && DataContext is MainViewModel vm)
+        {
+            e.Handled = true;
+            vm.Search.PlayTrackCommand.Execute(track);
         }
     }
 }

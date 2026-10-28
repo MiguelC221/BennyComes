@@ -388,7 +388,7 @@
                                         Background="{DynamicResource SurfaceCardBrush}" Foreground="{DynamicResource TextPrimaryBrush}" BorderBrush="{DynamicResource SurfaceCardBorderBrush}"
                                         Padding="8,5"
                                         GotFocus="OnSidebarSearchBoxGotFocus"
-                                        KeyDown="OnSidebarSearchBoxKeyDown" />
+                                        PreviewKeyDown="OnSidebarSearchBoxPreviewKeyDown" />
 
                             <Popup x:Name="SidebarSearchSuggestionsPopup"
                                    PlacementTarget="{Binding ElementName=SidebarSearchBox}"
@@ -459,6 +459,8 @@
                                                                     </Trigger>
                                                                     <DataTrigger Binding="{Binding IsSelected}" Value="True">
                                                                         <Setter TargetName="BtnBrd" Property="Background" Value="#33FFFFFF" />
+                                                                        <Setter TargetName="BtnBrd" Property="BorderBrush" Value="{Binding DataContext.Theme.CurrentAccentBrush, RelativeSource={RelativeSource AncestorType=Window}}" />
+                                                                        <Setter TargetName="BtnBrd" Property="BorderThickness" Value="1.5" />
                                                                     </DataTrigger>
                                                                     <Trigger Property="IsPressed" Value="True">
                                                                         <Setter TargetName="BtnBrd" Property="Background" Value="#40FFFFFF" />
@@ -3259,7 +3261,7 @@
                         </Border>
 
                         <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                            <TextBlock Text="Licencias de Código Abierto — BennyComes v1.2.002" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" />
+                            <TextBlock Text="Licencias de Código Abierto — BennyComes v1.2.003" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" />
                             <TextBlock Text="Agradecemos a los autores y mantenedores de los proyectos open-source que hacen posible BennyComes."
                                        FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,3,0,0" />
                         </StackPanel>
@@ -3327,7 +3329,7 @@
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
 
-                        <TextBlock Grid.Column="0" Text="BennyComes v1.2.002 • Reproductor Nativo Bit-Perfect"
+                        <TextBlock Grid.Column="0" Text="BennyComes v1.2.003 • Reproductor Nativo Bit-Perfect"
                                    FontSize="11" Foreground="{DynamicResource TextTertiaryBrush}" VerticalAlignment="Center" />
 
                         <ui:Button Grid.Column="1" Appearance="Primary" Padding="24,8"

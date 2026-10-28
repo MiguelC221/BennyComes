@@ -99,7 +99,7 @@
                                 Width="520"
                                 HorizontalAlignment="Left"
                                 GotFocus="OnPageSearchBoxGotFocus"
-                                KeyDown="OnPageSearchBoxKeyDown" />
+                                PreviewKeyDown="OnPageSearchBoxPreviewKeyDown" />
 
                     <!-- Left Search Icon inside box -->
                     <Button Padding="0" Margin="10,0,0,0" Width="24" Height="24"
@@ -187,6 +187,8 @@
                                                             </Trigger>
                                                             <DataTrigger Binding="{Binding IsSelected}" Value="True">
                                                                 <Setter TargetName="BtnBrd" Property="Background" Value="#33FFFFFF" />
+                                                                <Setter TargetName="BtnBrd" Property="BorderBrush" Value="{Binding DataContext.Theme.CurrentAccentBrush, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                                                                <Setter TargetName="BtnBrd" Property="BorderThickness" Value="1.5" />
                                                             </DataTrigger>
                                                             <Trigger Property="IsPressed" Value="True">
                                                                 <Setter TargetName="BtnBrd" Property="Background" Value="#40FFFFFF" />
@@ -676,6 +678,8 @@
                               VirtualizingPanel.VirtualizationMode="Recycling"
                               VirtualizingPanel.ScrollUnit="Pixel"
                               PreviewMouseWheel="OnTracksListViewPreviewMouseWheel"
+                              PreviewKeyDown="OnTracksListViewPreviewKeyDown"
+                              KeyDown="OnTracksListViewKeyDown"
                               SelectionChanged="OnTrackItemSelectionChanged"
                               MouseDoubleClick="OnTrackItemDoubleClick">
                         <ListView.ItemContainerStyle>

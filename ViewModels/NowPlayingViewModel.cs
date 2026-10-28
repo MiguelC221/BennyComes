@@ -264,6 +264,13 @@ public partial class NowPlayingViewModel : ObservableObject
             if (double.TryParse(blurVal, System.Globalization.CultureInfo.InvariantCulture, out var br))
                 BackgroundBlurRadius = Math.Clamp(br, 0, 80);
 
+            string savedBlurVal = await Data.LibraryDao.Instance.GetSettingAsync("now_playing_saved_artist_blur", "");
+            if (double.TryParse(savedBlurVal, System.Globalization.CultureInfo.InvariantCulture, out var sbr))
+            {
+                _savedArtistBlurRadius = sbr;
+                _hasSavedArtistBlurRadius = true;
+            }
+
             string darkVal = await Data.LibraryDao.Instance.GetSettingAsync("now_playing_darkness", "0.70");
             if (double.TryParse(darkVal, System.Globalization.CultureInfo.InvariantCulture, out var dk))
             {
@@ -313,15 +320,36 @@ public partial class NowPlayingViewModel : ObservableObject
         _ = Data.LibraryDao.Instance.SetSettingAsync("now_playing_always_show_artist_img", value.ToString());
     }
 
+    private double _savedArtistBlurRadius = 0.0;
+    private bool _hasSavedArtistBlurRadius = false;
+
     partial void OnUseArtistBackgroundChanged(bool value)
     {
         _ = Data.LibraryDao.Instance.SetSettingAsync("now_playing_use_artist_bg", value.ToString());
+
+        if (!value)
+        {
+            // Se desactivan las imágenes de artistas: guardamos el blur previo y subimos a 20
+            _savedArtistBlurRadius = BackgroundBlurRadius;
+            _hasSavedArtistBlurRadius = true;
+            _ = Data.LibraryDao.Instance.SetSettingAsync("now_playing_saved_artist_blur", _savedArtistBlurRadius.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            BackgroundBlurRadius = 20.0;
+        }
+        else
+        {
+            // Se activan las imágenes de artistas: restauramos el blur a donde estaba
+            if (_hasSavedArtistBlurRadius)
+            {
+                BackgroundBlurRadius = _savedArtistBlurRadius;
+            }
+        }
+
         _ = RefreshArtistBackgroundAsync(Artist);
     }
 
     partial void OnBackgroundBlurRadiusChanged(double value)
     {
-        if (AlwaysShowArtistImage && value > 4.0)
+        if (UseArtistBackground && AlwaysShowArtistImage && value > 4.0)
         {
             BackgroundBlurRadius = 4.0;
             return;

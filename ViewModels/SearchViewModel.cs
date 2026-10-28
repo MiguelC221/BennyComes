@@ -201,11 +201,11 @@ public partial class SearchViewModel : ObservableObject
         int newIdx = SelectedSuggestionIndex + delta;
         if (newIdx < 0)
         {
-            newIdx = -1;
+            newIdx = Suggestions.Count - 1;
         }
         else if (newIdx >= Suggestions.Count)
         {
-            newIdx = Suggestions.Count - 1;
+            newIdx = 0;
         }
 
         SelectedSuggestionIndex = newIdx;
