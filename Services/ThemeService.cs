@@ -42,18 +42,70 @@ public partial class ThemeService : ObservableObject
     [ObservableProperty]
     private SolidColorBrush _accentForegroundBrush = new(Colors.White);
 
+    [ObservableProperty]
+    private double _windowBackgroundOpacity = 1.0;
+
+    [ObservableProperty]
+    private double _sidebarOpacity = 1.0;
+
+    public event Action? ThemeChanged;
+
     private Color _lastRawExtractedColor = Color.FromRgb(0, 210, 106);
 
     private ThemeService()
     {
+        try
+        {
+            Microsoft.Win32.SystemEvents.UserPreferenceChanged += (s, e) =>
+            {
+                if (CurrentTheme.Equals("Seguir el sistema", StringComparison.OrdinalIgnoreCase) ||
+                    CurrentTheme.Equals("Sistema", StringComparison.OrdinalIgnoreCase))
+                {
+                    Application.Current?.Dispatcher.Invoke(() => SetTheme(CurrentTheme));
+                }
+            };
+        }
+        catch { }
+
         SetTheme(_currentTheme);
         ApplyAccentColor(_currentAccentColor);
+    }
+
+    public static bool IsSystemInLightTheme()
+    {
+        try
+        {
+            using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize");
+            var val = key?.GetValue("AppsUseLightTheme");
+            if (val is int intVal)
+            {
+                return intVal == 1;
+            }
+        }
+        catch { }
+        return false;
+    }
+
+    public void SetOpacities(double windowBgOpacity, double sidebarOpacity)
+    {
+        WindowBackgroundOpacity = Math.Clamp(windowBgOpacity, 0.15, 1.0);
+        SidebarOpacity = Math.Clamp(sidebarOpacity, 0.15, 1.0);
+        SetTheme(CurrentTheme);
     }
 
     public void SetTheme(string theme)
     {
         CurrentTheme = theme;
-        bool isLight = theme == "Claro";
+        bool isLight;
+        if (theme.Equals("Seguir el sistema", StringComparison.OrdinalIgnoreCase) ||
+            theme.Equals("Sistema", StringComparison.OrdinalIgnoreCase))
+        {
+            isLight = IsSystemInLightTheme();
+        }
+        else
+        {
+            isLight = theme.Equals("Claro", StringComparison.OrdinalIgnoreCase);
+        }
 
         if (Application.Current != null)
         {
@@ -65,9 +117,12 @@ public partial class ThemeService : ObservableObject
                 }
                 catch { }
 
+                byte alphaBg = (byte)(Math.Clamp(WindowBackgroundOpacity, 0.15, 1.0) * 255);
+                byte alphaNav = (byte)(Math.Clamp(SidebarOpacity, 0.15, 1.0) * 255);
+
                 if (isLight)
                 {
-                    Application.Current.Resources["AppBackgroundBrush"] = new SolidColorBrush(Color.FromRgb(0xF4, 0xF5, 0xF7));
+                    Application.Current.Resources["AppBackgroundBrush"] = new SolidColorBrush(Color.FromArgb(alphaBg, 0xF4, 0xF5, 0xF7));
                     Application.Current.Resources["SurfaceCardBrush"] = new SolidColorBrush(Color.FromRgb(0xFF, 0xFF, 0xFF));
                     Application.Current.Resources["CardSurfaceBrush"] = new SolidColorBrush(Color.FromRgb(0xFF, 0xFF, 0xFF));
                     Application.Current.Resources["SurfaceCardBorderBrush"] = new SolidColorBrush(Color.FromRgb(0xDC, 0xE0, 0xE8));
@@ -75,7 +130,7 @@ public partial class ThemeService : ObservableObject
                     Application.Current.Resources["TextPrimaryBrush"] = new SolidColorBrush(Color.FromRgb(0x11, 0x13, 0x18));
                     Application.Current.Resources["TextSecondaryBrush"] = new SolidColorBrush(Color.FromRgb(0x4A, 0x50, 0x5C));
                     Application.Current.Resources["TextTertiaryBrush"] = new SolidColorBrush(Color.FromRgb(0x76, 0x7B, 0x87));
-                    Application.Current.Resources["NavPaneBackgroundBrush"] = new SolidColorBrush(Color.FromRgb(0xF0, 0xF2, 0xF6));
+                    Application.Current.Resources["NavPaneBackgroundBrush"] = new SolidColorBrush(Color.FromArgb(alphaNav, 0xF0, 0xF2, 0xF6));
                     Application.Current.Resources["DividerBrush"] = new SolidColorBrush(Color.FromRgb(0xDC, 0xE0, 0xE8));
                     Application.Current.Resources["ScrollBarThumbBrush"] = new SolidColorBrush(Color.FromArgb(0x77, 0x50, 0x55, 0x65));
                     Application.Current.Resources["ScrollBarThumbHoverBrush"] = new SolidColorBrush(Color.FromArgb(0xAA, 0x30, 0x35, 0x45));
@@ -105,7 +160,7 @@ public partial class ThemeService : ObservableObject
                 }
                 else
                 {
-                    Application.Current.Resources["AppBackgroundBrush"] = new SolidColorBrush(Color.FromRgb(0x0F, 0x0F, 0x12));
+                    Application.Current.Resources["AppBackgroundBrush"] = new SolidColorBrush(Color.FromArgb(alphaBg, 0x0F, 0x0F, 0x12));
                     Application.Current.Resources["SurfaceCardBrush"] = new SolidColorBrush(Color.FromRgb(0x1C, 0x1C, 0x22));
                     Application.Current.Resources["CardSurfaceBrush"] = new SolidColorBrush(Color.FromRgb(0x1C, 0x1C, 0x22));
                     Application.Current.Resources["SurfaceCardBorderBrush"] = new SolidColorBrush(Color.FromArgb(0x1A, 0xFF, 0xFF, 0xFF));
@@ -113,7 +168,7 @@ public partial class ThemeService : ObservableObject
                     Application.Current.Resources["TextPrimaryBrush"] = new SolidColorBrush(Color.FromRgb(0xFF, 0xFF, 0xFF));
                     Application.Current.Resources["TextSecondaryBrush"] = new SolidColorBrush(Color.FromArgb(0xA0, 0xFF, 0xFF, 0xFF));
                     Application.Current.Resources["TextTertiaryBrush"] = new SolidColorBrush(Color.FromArgb(0x70, 0xFF, 0xFF, 0xFF));
-                    Application.Current.Resources["NavPaneBackgroundBrush"] = new SolidColorBrush(Color.FromRgb(0x14, 0x14, 0x1C));
+                    Application.Current.Resources["NavPaneBackgroundBrush"] = new SolidColorBrush(Color.FromArgb(alphaNav, 0x14, 0x14, 0x1C));
                     Application.Current.Resources["DividerBrush"] = new SolidColorBrush(Color.FromArgb(0x18, 0xFF, 0xFF, 0xFF));
                     Application.Current.Resources["ScrollBarThumbBrush"] = new SolidColorBrush(Color.FromArgb(0x66, 0xFF, 0xFF, 0xFF));
                     Application.Current.Resources["ScrollBarThumbHoverBrush"] = new SolidColorBrush(Color.FromArgb(0x99, 0xFF, 0xFF, 0xFF));
@@ -141,6 +196,8 @@ public partial class ThemeService : ObservableObject
                     Application.Current.Resources["RankDefaultBadgeBackgroundBrush"] = new SolidColorBrush(Color.FromArgb(0x1A, 0xFF, 0xFF, 0xFF));
                     Application.Current.Resources["RankDefaultBadgeBorderBrush"] = Brushes.Transparent;
                 }
+
+                ThemeChanged?.Invoke();
             };
 
             if (Application.Current.Dispatcher.CheckAccess())

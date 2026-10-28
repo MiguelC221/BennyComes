@@ -11,9 +11,9 @@
     <AssemblyTitle>BennyComes</AssemblyTitle>
     <Product>BennyComes</Product>
     <Company>BennyComes</Company>
-    <Version>1.2.005</Version>
-    <AssemblyVersion>1.2.5.0</AssemblyVersion>
-    <FileVersion>1.2.5.0</FileVersion>
+    <Version>1.2.006</Version>
+    <AssemblyVersion>1.2.6.0</AssemblyVersion>
+    <FileVersion>1.2.6.0</FileVersion>
   </PropertyGroup>
 
   <ItemGroup>

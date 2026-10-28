@@ -41,6 +41,8 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         {
             App.LogMessage("MainWindow Loaded event fired");
             SetupTrackChangeFadeAnimation();
+            EnsureTitleBarButtonsWhite();
+            Services.ThemeService.Instance.ThemeChanged += () => Dispatcher.InvokeAsync(EnsureTitleBarButtonsWhite);
             if (DataContext is MainViewModel vm)
             {
                 vm.PropertyChanged += (sender, args) =>
@@ -821,5 +823,39 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
             child = System.Windows.Media.VisualTreeHelper.GetParent(child);
         }
         return null;
+    }
+
+    private void EnsureTitleBarButtonsWhite()
+    {
+        try
+        {
+            if (AppTitleBar == null) return;
+            AppTitleBar.Foreground = System.Windows.Media.Brushes.White;
+            foreach (var btn in FindVisualChildren<System.Windows.Controls.Primitives.ButtonBase>(AppTitleBar))
+            {
+                btn.Foreground = System.Windows.Media.Brushes.White;
+                btn.Effect = new System.Windows.Media.Effects.DropShadowEffect
+                {
+                    BlurRadius = 6,
+                    ShadowDepth = 1,
+                    Direction = 270,
+                    Color = System.Windows.Media.Colors.Black,
+                    Opacity = 0.85
+                };
+            }
+        }
+        catch { }
+    }
+
+    private static IEnumerable<T> FindVisualChildren<T>(DependencyObject depObj) where T : DependencyObject
+    {
+        if (depObj == null) yield break;
+        for (int i = 0; i < System.Windows.Media.VisualTreeHelper.GetChildrenCount(depObj); i++)
+        {
+            var child = System.Windows.Media.VisualTreeHelper.GetChild(depObj, i);
+            if (child is T t) yield return t;
+            foreach (var childOfChild in FindVisualChildren<T>(child))
+                yield return childOfChild;
+        }
     }
 }

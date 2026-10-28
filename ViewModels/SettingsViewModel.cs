@@ -57,6 +57,12 @@ public partial class SettingsViewModel : ObservableObject
     private double _nowPlayingBackgroundDarkness = 0.70;
 
     [ObservableProperty]
+    private double _windowBackgroundOpacity = 1.0;
+
+    [ObservableProperty]
+    private double _sidebarOpacity = 1.0;
+
+    [ObservableProperty]
     private string _selectedVisualizerMode = "Barras de Espectro";
 
     // Last.fm & Fanart.tv Online Services
@@ -112,9 +118,9 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     private int _artistImageIntervalSeconds = 35;
 
-    public const string CurrentVersionTag = "1.2.005";
+    public const string CurrentVersionTag = "1.2.006";
     public const string GitHubReleasesUrl = "https://github.com/MiguelC221/BennyComes/releases";
-    public string AppVersion => "v1.2.005 (Release Final) - Build x64 Native (.NET 8.0)";
+    public string AppVersion => "v1.2.006 (Release Final) - Build x64 Native (.NET 8.0)";
     public string AudioEngineInfo => "NAudio CoreAudioApi (WASAPI Shared / Exclusive Bit-Perfect low-latency event-sync)";
     public string TechnologiesInfo => ".NET 8.0 • WPF-UI (Fluent Design 2) • TagLibSharp • Microsoft.Data.Sqlite (WAL)";
 
@@ -133,6 +139,23 @@ public partial class SettingsViewModel : ObservableObject
     private async Task LoadSettingsAsync()
     {
         await LoadFoldersAsync();
+        string storedTheme = await _libraryDao.GetSettingAsync("app_theme", "Oscuro");
+        SelectedTheme = storedTheme;
+
+        string winBgVal = await _libraryDao.GetSettingAsync("window_bg_opacity", "1.0");
+        if (double.TryParse(winBgVal, System.Globalization.CultureInfo.InvariantCulture, out var wbo))
+        {
+            WindowBackgroundOpacity = Math.Clamp(wbo, 0.15, 1.0);
+        }
+
+        string sideVal = await _libraryDao.GetSettingAsync("sidebar_opacity", "1.0");
+        if (double.TryParse(sideVal, System.Globalization.CultureInfo.InvariantCulture, out var sbo))
+        {
+            SidebarOpacity = Math.Clamp(sbo, 0.15, 1.0);
+        }
+
+        _theme.SetOpacities(WindowBackgroundOpacity, SidebarOpacity);
+
         string autoVal = await _libraryDao.GetSettingAsync("autoplay_startup", "false");
         bool isEnabled = bool.TryParse(autoVal, out var b) && b;
         IsAutoplayOnStartup = isEnabled;
@@ -453,9 +476,22 @@ public partial class SettingsViewModel : ObservableObject
         }
     }
 
+    partial void OnWindowBackgroundOpacityChanged(double value)
+    {
+        _theme.SetOpacities(value, SidebarOpacity);
+        _ = _libraryDao.SetSettingAsync("window_bg_opacity", value.ToString(System.Globalization.CultureInfo.InvariantCulture));
+    }
+
+    partial void OnSidebarOpacityChanged(double value)
+    {
+        _theme.SetOpacities(WindowBackgroundOpacity, value);
+        _ = _libraryDao.SetSettingAsync("sidebar_opacity", value.ToString(System.Globalization.CultureInfo.InvariantCulture));
+    }
+
     partial void OnSelectedThemeChanged(string value)
     {
         _theme.SetTheme(value);
+        _ = _libraryDao.SetSettingAsync("app_theme", value);
     }
 
     partial void OnAutoExtractAccentChanged(bool value)

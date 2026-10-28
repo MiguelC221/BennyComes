@@ -280,10 +280,10 @@
             <Border Grid.Column="1" Background="Transparent" />
 
             <!-- Window Controls (Minimize, Maximize, Close - always accessible including in Reproducción en curso) -->
-            <!-- Con Effect de sombra sutil para legibilidad en modo claro o fondos luminosos sin alterar pantalla completa -->
-            <ui:TitleBar Grid.Column="2" VerticalAlignment="Top" Background="Transparent">
+            <!-- Con Effect de sombra sutil negra y Foreground blanco desvinculado del tema para legibilidad total -->
+            <ui:TitleBar x:Name="AppTitleBar" Grid.Column="2" VerticalAlignment="Top" Background="Transparent" Foreground="#FFFFFF">
                 <ui:TitleBar.Effect>
-                    <DropShadowEffect BlurRadius="8" ShadowDepth="1" Direction="270" Color="#000000" Opacity="0.32" />
+                    <DropShadowEffect BlurRadius="6" ShadowDepth="1.2" Direction="270" Color="#000000" Opacity="0.85" />
                 </ui:TitleBar.Effect>
             </ui:TitleBar>
         </Grid>
@@ -3261,7 +3261,7 @@
                         </Border>
 
                         <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                            <TextBlock Text="Licencias de Código Abierto — BennyComes v1.2.005" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" />
+                            <TextBlock Text="Licencias de Código Abierto — BennyComes v1.2.006" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" />
                             <TextBlock Text="Agradecemos a los autores y mantenedores de los proyectos open-source que hacen posible BennyComes."
                                        FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,3,0,0" />
                         </StackPanel>
@@ -3329,7 +3329,7 @@
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
 
-                        <TextBlock Grid.Column="0" Text="BennyComes v1.2.005 • Reproductor Nativo Bit-Perfect"
+                        <TextBlock Grid.Column="0" Text="BennyComes v1.2.006 • Reproductor Nativo Bit-Perfect"
                                    FontSize="11" Foreground="{DynamicResource TextTertiaryBrush}" VerticalAlignment="Center" />
 
                         <ui:Button Grid.Column="1" Appearance="Primary" Padding="24,8"
