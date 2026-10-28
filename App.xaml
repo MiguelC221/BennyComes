@@ -43,11 +43,11 @@
             <SolidColorBrush x:Key="AccentForegroundBrush" Color="#FFFFFF" />
 
             <!-- ToggleSwitch & Slider Theme Brushes -->
-            <SolidColorBrush x:Key="ToggleSwitchStrokeOff" Color="#88FFFFFF" />
-            <SolidColorBrush x:Key="ToggleSwitchFillOff" Color="#28FFFFFF" />
-            <SolidColorBrush x:Key="ToggleSwitchKnobFillOff" Color="#D0D4DC" />
+            <SolidColorBrush x:Key="ToggleSwitchStrokeOff" Color="#8E929B" />
+            <SolidColorBrush x:Key="ToggleSwitchFillOff" Color="#282930" />
+            <SolidColorBrush x:Key="ToggleSwitchKnobFillOff" Color="#D0D0D5" />
             <SolidColorBrush x:Key="ToggleSwitchStrokeOffHover" Color="#FFFFFF" />
-            <SolidColorBrush x:Key="ToggleSwitchFillOffHover" Color="#40FFFFFF" />
+            <SolidColorBrush x:Key="ToggleSwitchFillOffHover" Color="#383944" />
             <SolidColorBrush x:Key="SliderTrackUnfilledBrush" Color="#35FFFFFF" />
 
             <!-- Rank Badges Brushes -->
@@ -62,25 +62,6 @@
             <SolidColorBrush x:Key="Rank3BadgeForegroundBrush" Color="#FFA07A" />
             <SolidColorBrush x:Key="RankDefaultBadgeBackgroundBrush" Color="#1AFFFFFF" />
             <SolidColorBrush x:Key="RankDefaultBadgeBorderBrush" Color="Transparent" />
-
-            <!-- High-Contrast Accessible ToggleSwitch Style -->
-            <Style TargetType="{x:Type ui:ToggleSwitch}">
-                <Setter Property="Cursor" Value="Hand" />
-                <Setter Property="BorderThickness" Value="1.5" />
-                <Setter Property="BorderBrush" Value="{DynamicResource ToggleSwitchStrokeOff}" />
-                <Setter Property="Background" Value="{DynamicResource ToggleSwitchFillOff}" />
-                <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
-                <Setter Property="SnapsToDevicePixels" Value="True" />
-                <Style.Triggers>
-                    <Trigger Property="IsChecked" Value="True">
-                        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
-                        <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
-                    </Trigger>
-                    <Trigger Property="IsMouseOver" Value="True">
-                        <Setter Property="BorderBrush" Value="{DynamicResource ToggleSwitchStrokeOffHover}" />
-                    </Trigger>
-                </Style.Triggers>
-            </Style>
 
             <!-- Clean Circular Play/Pause Button Style -->
             <Style x:Key="CircularPlayPauseButtonStyle" TargetType="Button">

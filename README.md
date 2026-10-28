@@ -1,11 +1,11 @@
-# BenyComes Music Player — v1.2.004 (Release Final)
+# BenyComes Music Player — v1.2.005 (Release Final)
 
 Reproductor de música de escritorio para Windows, hecho en **C# / .NET 8 + WPF** (`net8.0-windows10.0.19041.0`) con **WPF-UI (Fluent Design 2)**. Está pensado para reproducción de alta fidelidad (**WASAPI Exclusive / Bit-Perfect**) y una interfaz inmersiva inspirada en Groove Music.
 
 > [!IMPORTANT]
 > ### Aviso sobre este proyecto
 > - **Este proyecto está "vibecodeado":** fue construido casi por completo conversando con una IA, sin un proceso de ingeniería tradicional. Puede contener errores, código mejorable y casos límite sin probar.
-> - **Es una única versión:** `v1.2.004` es la versión definitiva. **No habrá actualizaciones ni versiones posteriores**, ni soporte continuo. Se publica tal cual, sin garantías.
+> - **Es una única versión:** `v1.2.005` es la versión definitiva. **No habrá actualizaciones ni versiones posteriores**, ni soporte continuo. Se publica tal cual, sin garantías.
 > - Siéntete libre de hacer un fork y modificarlo por tu cuenta.
 
 ---
@@ -106,7 +106,7 @@ Con [Inno Setup](https://jrsoftware.org/isinfo.php) instalado:
 & "C:\Program Files\Inno Setup 7\ISCC.exe" installer.iss
 ```
 
-El instalador se genera en `installer_output\BenyComesMusic_Installer_v1.2.004.exe`.
+El instalador se genera en `installer_output\BenyComesMusic_Installer_v1.2.005.exe`.
 
 ---
 
@@ -118,4 +118,4 @@ El instalador se genera en `installer_output\BenyComesMusic_Installer_v1.2.004.e
 
 ## Licencia y garantía
 
-Se distribuye **tal cual, sin garantía de ningún tipo** y sin soporte. Es una versión única (`v1.2.004`) y no recibirá mantenimiento.
+Se distribuye **tal cual, sin garantía de ningún tipo** y sin soporte. Es una versión única (`v1.2.005`) y no recibirá mantenimiento.

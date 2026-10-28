@@ -112,9 +112,9 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     private int _artistImageIntervalSeconds = 35;
 
-    public const string CurrentVersionTag = "1.2.004";
+    public const string CurrentVersionTag = "1.2.005";
     public const string GitHubReleasesUrl = "https://github.com/MiguelC221/BennyComes/releases";
-    public string AppVersion => "v1.2.004 (Release Final) - Build x64 Native (.NET 8.0)";
+    public string AppVersion => "v1.2.005 (Release Final) - Build x64 Native (.NET 8.0)";
     public string AudioEngineInfo => "NAudio CoreAudioApi (WASAPI Shared / Exclusive Bit-Perfect low-latency event-sync)";
     public string TechnologiesInfo => ".NET 8.0 • WPF-UI (Fluent Design 2) • TagLibSharp • Microsoft.Data.Sqlite (WAL)";
 
@@ -648,17 +648,17 @@ public partial class SettingsViewModel : ObservableObject
     private bool _isUpdateAvailable;
 
     [ObservableProperty]
-    private string _updateStatusMessage = "Versión actual: BennyComes v1.2.004 • Haz clic en 'Buscar actualizaciones' para consultar GitHub Releases.";
+    private string _updateStatusMessage = "Versión actual: BennyComes v1.2.005 • Haz clic en 'Buscar actualizaciones' para consultar GitHub Releases.";
 
     [ObservableProperty]
-    private string _latestReleaseTag = "v1.2.004";
+    private string _latestReleaseTag = "v1.2.005";
 
     private static readonly System.Net.Http.HttpClient _updateHttpClient = CreateUpdateHttpClient();
 
     private static System.Net.Http.HttpClient CreateUpdateHttpClient()
     {
         var client = new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(10) };
-        client.DefaultRequestHeaders.UserAgent.ParseAdd("BennyComes-MusicPlayer/1.2.004");
+        client.DefaultRequestHeaders.UserAgent.ParseAdd("BennyComes-MusicPlayer/1.2.005");
         client.DefaultRequestHeaders.Accept.ParseAdd("application/vnd.github+json");
         return client;
     }
