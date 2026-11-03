@@ -169,7 +169,7 @@ public partial class ArtistModel : ObservableObject
     public int PersistedAlbumCount { get; set; }
 
     public int TrackCount => Tracks.Count > 0 ? Tracks.Count : PersistedTrackCount;
-    public int AlbumCount => Albums.Count > 0 ? Albums.Count : (Tracks.Count > 0 ? Tracks.Select(t => t.Album).Distinct().Count() : PersistedAlbumCount);
+    public int AlbumCount => Albums.Count > 0 ? Albums.Count : (Tracks.Count > 0 ? Tracks.Where(t => !string.IsNullOrWhiteSpace(t.Album)).Select(t => t.Album).Distinct().Count() : PersistedAlbumCount);
 
     // Preloaded metadata for instantaneous sorting and filtering
     public string AlphaGroupKey { get; set; } = string.Empty;
@@ -220,7 +220,13 @@ public partial class ArtistModel : ObservableObject
                 {
                     try
                     {
+                        var sw = System.Diagnostics.Stopwatch.StartNew();
                         var (img, isCustom, hasImg) = LoadThumbnailHierarchy(path, artistName, fallbackTrack);
+                        sw.Stop();
+                        if (sw.Elapsed.TotalMilliseconds > 5)
+                        {
+                            System.Diagnostics.Debug.WriteLine($"[PERF] ArtistModel.LoadThumbnailHierarchy('{artistName}'): {sw.Elapsed.TotalMilliseconds:F1} ms");
+                        }
                         App.Current?.Dispatcher?.InvokeAsync(() =>
                         {
                             HasCustomAvatar = isCustom;
@@ -240,7 +246,7 @@ public partial class ArtistModel : ObservableObject
         }
     }
 
-    public string Subtitle => $"{AlbumCount} álbumes • {TrackCount} canciones";
+    public string Subtitle => AlbumCount > 0 ? $"{AlbumCount} álbumes • {TrackCount} canciones" : $"{TrackCount} canciones";
 
     public string AlphaGroup => !string.IsNullOrWhiteSpace(AlphaGroupKey)
         ? AlphaGroupKey
@@ -334,4 +340,59 @@ public partial class ArtistModel : ObservableObject
         }
     }
 }
+
+public class ArtistLetterSection
+{
+    public string Letter { get; set; } = string.Empty;
+    public List<ArtistModel> Artists { get; set; } = new();
+
+    public static readonly string[] SectionLetters = new[]
+    {
+        "#", "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M",
+        "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"
+    };
+
+    public static string GetSectionLetter(string? alphaGroup)
+    {
+        if (!string.IsNullOrEmpty(alphaGroup) && alphaGroup.Length == 1)
+        {
+            char c = char.ToUpperInvariant(alphaGroup[0]);
+            if (c >= 'A' && c <= 'Z') return c.ToString();
+        }
+        return "#";
+    }
+
+    public static List<ArtistLetterSection> BuildSections(IEnumerable<ArtistModel> artists, bool reverseOrder = false)
+    {
+        var buckets = new Dictionary<string, List<ArtistModel>>(27, StringComparer.OrdinalIgnoreCase);
+        foreach (var letter in SectionLetters)
+        {
+            buckets[letter] = new List<ArtistModel>();
+        }
+
+        foreach (var artist in artists)
+        {
+            string key = GetSectionLetter(artist.AlphaGroup);
+            buckets[key].Add(artist);
+        }
+
+        var orderedKeys = reverseOrder ? SectionLetters.Reverse() : SectionLetters;
+        var sections = new List<ArtistLetterSection>(27);
+        foreach (var letter in orderedKeys)
+        {
+            var list = buckets[letter];
+            if (list.Count > 0)
+            {
+                sections.Add(new ArtistLetterSection
+                {
+                    Letter = letter,
+                    Artists = list
+                });
+            }
+        }
+
+        return sections;
+    }
+}
+
 

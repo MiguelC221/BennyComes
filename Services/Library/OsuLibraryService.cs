@@ -85,6 +85,7 @@ public class OsuLibraryService
         }
 
         progress?.Report("Leyendo osu!.db...");
+        await ArtistSplitterService.Instance.LoadSettingsAsync();
 
         List<OsuBeatmapRaw> rawMaps;
         try
@@ -184,71 +185,37 @@ public class OsuLibraryService
         _osuTracks.Clear();
         _osuTracks.AddRange(tracks);
 
-        // Build Artists using the shared smart artist splitter & exceptions (same rules as My Music library)
-        var artistTracksMap = new Dictionary<string, List<Track>>(StringComparer.OrdinalIgnoreCase);
-        var artistCanonicalName = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-
-        foreach (var t in tracks)
-        {
-            var rawArtist = string.IsNullOrWhiteSpace(t.Artist) ? "Desconocido" : t.Artist;
-            var splitNames = ArtistSplitterService.Instance.SplitArtists(rawArtist);
-            if (splitNames.Count == 0) splitNames.Add(rawArtist);
-
-            foreach (var name in splitNames)
-            {
-                if (!artistTracksMap.TryGetValue(name, out var list))
-                {
-                    list = new List<Track>();
-                    artistTracksMap[name] = list;
-                    artistCanonicalName[name] = name;
-                }
-                list.Add(t);
-            }
-        }
-
-        var artistGroups = new List<ArtistModel>(artistTracksMap.Count);
-        foreach (var kvp in artistTracksMap)
-        {
-            string artistName = artistCanonicalName[kvp.Key];
-            var list = kvp.Value;
-            var firstWithArt = list.FirstOrDefault(t => !string.IsNullOrEmpty(t.ArtworkPath));
-            artistGroups.Add(new ArtistModel
-            {
-                Name = artistName,
-                AvatarPath = firstWithArt?.ArtworkPath,
-                Tracks = list,
-                PersistedTrackCount = list.Count
-            });
-        }
-
-        artistGroups.Sort((a, b) => string.Compare(a.Name, b.Name, StringComparison.CurrentCultureIgnoreCase));
-
-        _osuArtists.Clear();
-        _osuArtists.AddRange(artistGroups);
+        RebuildArtistsFromTracks();
 
         IsLoaded = true;
         LibraryUpdated?.Invoke();
         progress?.Report($"Listo ({_osuTracks.Count} canciones cargadas)");
 
+        _ = Task.Run(() => Online.ArtistEnrichmentService.Instance.EnqueueAndStartAsync(force: false));
+
         return true;
     }
 
     /// <summary>
-    /// Fast in-memory re-index of osu! artists using the latest ArtistSplitterService separators & exceptions.
-    /// Runs instantly in background without re-parsing hundreds of megabytes of .osu files or osu!.db from disk.
+    /// Fast in-memory re-index of osu! artists using the latest ArtistSplitterService separators & exceptions
+    /// over Artist (and OsuArtistRoumaji when applicable).
     /// </summary>
     public void ReindexOsuArtists()
     {
         if (_osuTracks.Count == 0) return;
 
+        RebuildArtistsFromTracks();
+        LibraryUpdated?.Invoke();
+    }
+
+    private void RebuildArtistsFromTracks()
+    {
         var artistTracksMap = new Dictionary<string, List<Track>>(StringComparer.OrdinalIgnoreCase);
         var artistCanonicalName = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var t in _osuTracks)
         {
-            var rawArtist = string.IsNullOrWhiteSpace(t.Artist) ? "Desconocido" : t.Artist;
-            var splitNames = ArtistSplitterService.Instance.SplitArtists(rawArtist);
-            if (splitNames.Count == 0) splitNames.Add(rawArtist);
+            var splitNames = SplitOsuTrackArtists(t);
 
             foreach (var name in splitNames)
             {
@@ -271,6 +238,7 @@ public class OsuLibraryService
             artistGroups.Add(new ArtistModel
             {
                 Name = artistName,
+                AlphaGroupKey = Helpers.AlphaGroupHelper.GetAlphaGroupKey(artistName),
                 AvatarPath = firstWithArt?.ArtworkPath,
                 Tracks = list,
                 PersistedTrackCount = list.Count
@@ -281,8 +249,43 @@ public class OsuLibraryService
 
         _osuArtists.Clear();
         _osuArtists.AddRange(artistGroups);
+    }
 
-        LibraryUpdated?.Invoke();
+    public static List<string> SplitOsuTrackArtists(Track t)
+    {
+        var splitter = ArtistSplitterService.Instance;
+        string primary = !string.IsNullOrWhiteSpace(t.Artist) ? t.Artist : t.OsuArtistRoumaji;
+        if (string.IsNullOrWhiteSpace(primary))
+        {
+            return new List<string> { "Desconocido" };
+        }
+
+        // If OsuArtistRoumaji is present and differs from Artist (e.g. Unicode mode),
+        // check if an exception in Ajustes matches OsuArtistRoumaji or split both consistently.
+        if (!string.IsNullOrWhiteSpace(t.OsuArtistRoumaji) &&
+            !string.Equals(primary, t.OsuArtistRoumaji, StringComparison.OrdinalIgnoreCase))
+        {
+            bool roumajiMatchesException = false;
+            foreach (var exc in splitter.Exceptions)
+            {
+                if (!string.IsNullOrWhiteSpace(exc) &&
+                    t.OsuArtistRoumaji.Contains(exc, StringComparison.OrdinalIgnoreCase))
+                {
+                    roumajiMatchesException = true;
+                    break;
+                }
+            }
+
+            if (roumajiMatchesException)
+            {
+                var roumajiSplit = splitter.SplitArtists(t.OsuArtistRoumaji);
+                if (roumajiSplit.Count > 0) return roumajiSplit;
+            }
+        }
+
+        var names = splitter.SplitArtists(primary);
+        if (names.Count == 0) names.Add(primary);
+        return names;
     }
 
     private static (string ArtworkPath, string VideoPath, int VideoOffsetMs) FindMediaAssets(string folderPath, string osuFilename)

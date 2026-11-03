@@ -57,6 +57,9 @@ public partial class MyMusicViewModel : ObservableObject
     public Helpers.BulkObservableCollection<ArtistModel> Artists { get; } = new();
     public Helpers.BulkObservableCollection<AlbumModel> Albums { get; } = new();
 
+    [ObservableProperty]
+    private ObservableCollection<ArtistLetterSection> _artistSections = new();
+
     // JumpList State
     [ObservableProperty]
     private bool _isJumpListOpen;
@@ -494,9 +497,13 @@ public partial class MyMusicViewModel : ObservableObject
             if (forceAll || SelectedTabIndex == 1)
             {
                 _tabSignature[1] = signature;
-                _allFilteredArtists = _cache.GetFilteredArtists("Nombre (A-Z)", string.Empty, false);
+                string artistSort = SelectedTabIndex == 1 ? sortKey : "Nombre (A-Z)";
+                bool artistDesc = SelectedTabIndex == 1 && IsSortDescending;
+                _allFilteredArtists = _cache.GetFilteredArtists(artistSort, string.Empty, artistDesc);
                 Artists.ReplaceRange(_allFilteredArtists);
                 _loadedArtistsCount = _allFilteredArtists.Count;
+                bool reverseSections = artistDesc && string.Equals(artistSort, "Nombre (A-Z)", StringComparison.OrdinalIgnoreCase);
+                _ = RebuildArtistSectionsAsync(_allFilteredArtists, reverseSections);
             }
 
             UpdateGrouping();
@@ -508,6 +515,23 @@ public partial class MyMusicViewModel : ObservableObject
             swTotal.Stop();
             System.Diagnostics.Debug.WriteLine($"[PERF] RefreshCurrentTabData(forceAll={forceAll}, tab={SelectedTabIndex}): {swTotal.Elapsed.TotalMilliseconds:F1} ms");
         }
+    }
+
+    private int _artistSectionsBuildVersion;
+
+    private async Task RebuildArtistSectionsAsync(List<ArtistModel> sourceArtists, bool reverseOrder)
+    {
+        int version = System.Threading.Interlocked.Increment(ref _artistSectionsBuildVersion);
+        var snapshot = sourceArtists.ToList();
+        var sections = await Task.Run(() => ArtistLetterSection.BuildSections(snapshot, reverseOrder)).ConfigureAwait(false);
+
+        if (version != _artistSectionsBuildVersion) return;
+
+        App.Current?.Dispatcher?.Invoke(() =>
+        {
+            if (version != _artistSectionsBuildVersion) return;
+            ArtistSections = new ObservableCollection<ArtistLetterSection>(sections);
+        });
     }
 
     private bool _isLoadingMoreAlbums;
@@ -819,7 +843,7 @@ public partial class MyMusicViewModel : ObservableObject
     [RelayCommand]
     public void OpenJumpList()
     {
-        if (!IsNameSortActive) return;
+        if (SelectedTabIndex != 1 && !IsNameSortActive) return;
         JumpListLetters.Clear();
         var activeLetters = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
@@ -829,7 +853,7 @@ public partial class MyMusicViewModel : ObservableObject
         }
         else if (SelectedTabIndex == 1)
         {
-            foreach (var a in Artists) activeLetters.Add(a.AlphaGroup);
+            foreach (var sec in ArtistSections) activeLetters.Add(sec.Letter);
         }
         else if (SelectedTabIndex == 2)
         {
@@ -863,10 +887,6 @@ public partial class MyMusicViewModel : ObservableObject
         if (SelectedTabIndex == 2) // Álbumes
         {
             EnsureAlbumsLoadedForLetter(letter);
-        }
-        else if (SelectedTabIndex == 1) // Artistas
-        {
-            EnsureArtistsLoadedForLetter(letter);
         }
 
         RequestScrollToLetter?.Invoke(letter);
@@ -926,8 +946,6 @@ public partial class MyMusicViewModel : ObservableObject
 
         if (SelectedTabIndex == 0)
             ApplyGroupingToCollection(Songs, shouldGroup);
-        else if (SelectedTabIndex == 1)
-            ApplyGroupingToCollection(Artists, true); // En Artistas siempre agrupar alfabéticamente por default
         else if (SelectedTabIndex == 2)
             ApplyGroupingToCollection(Albums, shouldGroup);
     }

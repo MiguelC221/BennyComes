@@ -767,20 +767,22 @@ public partial class SettingsViewModel : ObservableObject
             await Task.Run(async () =>
             {
                 await LibraryCacheService.Instance.ReloadFromDatabaseAsync();
-                if (IsOsuModeEnabled)
+                if (OsuLibraryService.Instance.IsLoaded && OsuLibraryService.Instance.Tracks.Count > 0)
                 {
-                    if (OsuLibraryService.Instance.IsLoaded && OsuLibraryService.Instance.Tracks.Count > 0)
-                    {
-                        OsuLibraryService.Instance.ReindexOsuArtists();
-                    }
-                    else if (!string.IsNullOrWhiteSpace(OsuFolderPath) && Directory.Exists(OsuFolderPath))
-                    {
-                        await ReloadOsuLibraryAsync();
-                    }
+                    OsuLibraryService.Instance.ReindexOsuArtists();
+                }
+                else if (IsOsuModeEnabled && !string.IsNullOrWhiteSpace(OsuFolderPath) && Directory.Exists(OsuFolderPath))
+                {
+                    await ReloadOsuLibraryAsync();
                 }
             });
+            _ = Services.Online.ArtistEnrichmentService.Instance.EnqueueAndStartAsync(force: false);
             OnLibraryUpdated?.Invoke();
-            ReindexStatusText = $"¡Biblioteca re-indexada con éxito! ({LibraryCacheService.Instance.CachedArtists.Count} artistas detectados)";
+            int normalCount = LibraryCacheService.Instance.CachedArtists.Count;
+            int osuCount = OsuLibraryService.Instance.Artists.Count;
+            ReindexStatusText = osuCount > 0
+                ? $"¡Biblioteca re-indexada con éxito! ({normalCount} artistas en Mi música, {osuCount} en osu!)"
+                : $"¡Biblioteca re-indexada con éxito! ({normalCount} artistas detectados)";
         }
         finally
         {

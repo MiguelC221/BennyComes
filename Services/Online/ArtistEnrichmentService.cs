@@ -146,20 +146,42 @@ public partial class ArtistEnrichmentService : ObservableObject
             return;
         }
 
-        var allArtists = LibraryCacheService.Instance.CachedArtists.ToList();
-        if (allArtists.Count == 0) return;
+        var normalArtists = LibraryCacheService.Instance.CachedArtists.ToList();
+        var osuArtists = OsuLibraryService.Instance.Artists.ToList();
+        if (normalArtists.Count == 0 && osuArtists.Count == 0) return;
 
-        // Expand any collaborations with ArtistSplitterService to ensure purely individual artist queries
+        // Expand any collaborations with ArtistSplitterService across both normal and osu! libraries
         var splitArtists = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var art in allArtists)
+        void AddSplitNames(string? rawName)
         {
-            var split = ArtistSplitterService.Instance.SplitArtists(art.Name);
-            foreach (var a in split)
+            if (string.IsNullOrWhiteSpace(rawName)) return;
+            foreach (var a in ArtistSplitterService.Instance.SplitArtists(rawName))
             {
-                if (!string.IsNullOrWhiteSpace(a) && !a.Equals("Unknown Artist", StringComparison.OrdinalIgnoreCase))
+                if (!string.IsNullOrWhiteSpace(a) &&
+                    !a.Equals("Unknown Artist", StringComparison.OrdinalIgnoreCase) &&
+                    !a.Equals("Artista Desconocido", StringComparison.OrdinalIgnoreCase) &&
+                    !a.Equals("Desconocido", StringComparison.OrdinalIgnoreCase))
                 {
                     splitArtists.Add(a);
                 }
+            }
+        }
+
+        foreach (var art in normalArtists)
+        {
+            AddSplitNames(art.Name);
+        }
+
+        foreach (var art in osuArtists)
+        {
+            AddSplitNames(art.Name);
+        }
+
+        foreach (var tr in OsuLibraryService.Instance.Tracks)
+        {
+            if (!string.IsNullOrWhiteSpace(tr.OsuArtistRoumaji))
+            {
+                AddSplitNames(tr.OsuArtistRoumaji);
             }
         }
 
@@ -401,20 +423,28 @@ public partial class ArtistEnrichmentService : ObservableObject
             try { File.Delete(notFoundFile); } catch { }
         }
 
-        // 4. Dispatch UI Notification for ArtistModel
+        // 4. Dispatch UI Notification for ArtistModel (both normal library and osu! library)
         if (bioUpdated || imageDownloaded)
         {
-            var artistModel = LibraryCacheService.Instance.CachedArtists.FirstOrDefault(a => a.Name.Equals(artistName, StringComparison.OrdinalIgnoreCase));
-            if (artistModel != null)
+            var matchingArtists = LibraryCacheService.Instance.CachedArtists
+                .Concat(OsuLibraryService.Instance.Artists)
+                .Where(a => a.Name.Equals(artistName, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            if (matchingArtists.Count > 0)
             {
                 await App.Current.Dispatcher.InvokeAsync(() =>
                 {
-                    if (File.Exists(bioSummaryFile))
+                    string? bioText = File.Exists(bioSummaryFile) ? File.ReadAllText(bioSummaryFile) : null;
+                    foreach (var artistModel in matchingArtists)
                     {
-                        artistModel.BiographySummary = File.ReadAllText(bioSummaryFile);
-                        artistModel.HasBiography = !string.IsNullOrWhiteSpace(artistModel.BiographySummary);
+                        if (bioText != null)
+                        {
+                            artistModel.BiographySummary = bioText;
+                            artistModel.HasBiography = !string.IsNullOrWhiteSpace(bioText);
+                        }
+                        artistModel.RefreshAvatar();
                     }
-                    artistModel.RefreshAvatar();
                 }, DispatcherPriority.Background);
             }
         }

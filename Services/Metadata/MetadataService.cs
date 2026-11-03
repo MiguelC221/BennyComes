@@ -47,7 +47,13 @@ public class MetadataService
             await _thumbLoadThrottle.WaitAsync().ConfigureAwait(false);
             try
             {
+                var sw = System.Diagnostics.Stopwatch.StartNew();
                 var img = GetAlbumArtImage(track, decodeWidth);
+                sw.Stop();
+                if (sw.Elapsed.TotalMilliseconds > 5)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[PERF] MetadataService.GetAlbumArtImage('{track.Title}', decodeW={decodeWidth}): {sw.Elapsed.TotalMilliseconds:F1} ms");
+                }
                 if (img != null)
                 {
                     var dispatcher = Application.Current?.Dispatcher;

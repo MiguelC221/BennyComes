@@ -142,24 +142,25 @@ public partial class MyMusicPage : UserControl
                 }
                 else if (vm.MyMusic.SelectedTabIndex == 1) // Artistas
                 {
-                    var artist = vm.MyMusic.Artists.FirstOrDefault(a => string.Equals(a.AlphaGroup, letter, StringComparison.OrdinalIgnoreCase));
-                    if (artist != null)
+                    var section = vm.MyMusic.ArtistSections.FirstOrDefault(s => string.Equals(s.Letter, letter, StringComparison.OrdinalIgnoreCase));
+                    if (section != null)
                     {
-                        var group = ArtistsListView.ItemContainerGenerator.Items.OfType<CollectionViewGroup>()
-                            .FirstOrDefault(g => string.Equals(g.Name?.ToString(), letter, StringComparison.OrdinalIgnoreCase));
+                        ArtistsListView.ScrollIntoView(section);
+                        ArtistsListView.UpdateLayout();
 
-                        ArtistsListView.ScrollIntoView(artist);
-
-                        if (group != null && ArtistsListView.ItemContainerGenerator.ContainerFromItem(group) is FrameworkElement groupEl)
+                        if (ArtistsListView.ItemContainerGenerator.ContainerFromItem(section) is FrameworkElement sectionEl)
                         {
-                            ScrollItemToTop(ArtistsListView, groupEl);
+                            ScrollItemToTop(ArtistsListView, sectionEl);
                             return;
                         }
 
-                        if (ArtistsListView.ItemContainerGenerator.ContainerFromItem(artist) is FrameworkElement artistEl)
+                        Dispatcher.BeginInvoke(new Action(() =>
                         {
-                            ScrollItemToTop(ArtistsListView, artistEl);
-                        }
+                            if (ArtistsListView.ItemContainerGenerator.ContainerFromItem(section) is FrameworkElement secEl2)
+                            {
+                                ScrollItemToTop(ArtistsListView, secEl2);
+                            }
+                        }), System.Windows.Threading.DispatcherPriority.Background);
                     }
                 }
                 else if (vm.MyMusic.SelectedTabIndex == 2) // Álbumes

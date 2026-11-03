@@ -111,6 +111,17 @@ public partial class MainViewModel : ObservableObject
         IsOnboardingOsuModalOpen = false;
     }
 
+    [RelayCommand]
+    public void OpenButtonContextMenu(FrameworkElement? button)
+    {
+        if (button?.ContextMenu != null)
+        {
+            button.ContextMenu.PlacementTarget = button;
+            button.ContextMenu.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
+            button.ContextMenu.IsOpen = true;
+        }
+    }
+
     // Async Scan & Indexing Overlay State
     [ObservableProperty]
     private bool _isScanningOverlayVisible;

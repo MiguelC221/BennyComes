@@ -11,100 +11,51 @@
              d:DesignHeight="750" d:DesignWidth="980">
 
     <UserControl.Resources>
-        <!-- Alpha Group Header Button Style (JumpList Trigger) -->
-        <Style x:Key="AlphaGroupHeaderButtonStyle" TargetType="Button">
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="Padding" Value="8,4" />
-            <Setter Property="Margin" Value="4,4,0,6" />
-            <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="HorizontalAlignment" Value="Left" />
-            <Setter Property="ToolTip" Value="Abrir selector alfabético (JumpList)" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border Background="{TemplateBinding Background}" CornerRadius="6" Padding="{TemplateBinding Padding}">
-                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                <TextBlock Text="{TemplateBinding Content}" FontSize="20" FontWeight="SemiBold"
-                                           Foreground="{Binding DataContext.Theme.CurrentAccentBrush, RelativeSource={RelativeSource AncestorType=UserControl}}" Margin="0,0,8,0" />
-                                <ui:SymbolIcon Symbol="ChevronDown24" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
-                            </StackPanel>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter Property="Background" Value="{DynamicResource SurfaceCardHoverBrush}" />
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="pack://application:,,,/Views/ArtistSectionTemplates.xaml" />
+            </ResourceDictionary.MergedDictionaries>
 
-        <!-- Shared ContextMenu for Osu Songs -->
-        <ContextMenu x:Key="SharedOsuTrackContextMenu">
-            <MenuItem Header="Reproducir"
-                      Command="{Binding Source={x:Static vm:MainViewModel.Instance}, Path=OsuLibrary.PlayTrackCommand}"
-                      CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
-                <MenuItem.Icon>
-                    <ui:SymbolIcon Symbol="Play24" />
-                </MenuItem.Icon>
-            </MenuItem>
-            <MenuItem Header="Reproducir siguiente"
-                      Command="{Binding Source={x:Static vm:MainViewModel.Instance}, Path=OsuLibrary.PlayTrackNextCommand}"
-                      CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
-                <MenuItem.Icon>
-                    <ui:SymbolIcon Symbol="Next24" />
-                </MenuItem.Icon>
-            </MenuItem>
-            <MenuItem Header="Agregar a la cola"
-                      Command="{Binding Source={x:Static vm:MainViewModel.Instance}, Path=OsuLibrary.AddTrackToQueueCommand}"
-                      CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
-                <MenuItem.Icon>
-                    <ui:SymbolIcon Symbol="Add24" />
-                </MenuItem.Icon>
-            </MenuItem>
-            <Separator />
-            <MenuItem Header="Ir al artista"
-                      Command="{Binding Source={x:Static vm:MainViewModel.Instance}, Path=OsuLibrary.OpenArtistByNameCommand}"
-                      CommandParameter="{Binding PlacementTarget.DataContext.Artist, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
-                <MenuItem.Icon>
-                    <ui:SymbolIcon Symbol="Person24" />
-                </MenuItem.Icon>
-            </MenuItem>
-            <MenuItem Header="Ver información de álbum (Last.fm)"
-                      Command="{Binding Source={x:Static vm:MainViewModel.Instance}, Path=OsuLibrary.OpenTrackAlbumCommand}"
-                      CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
-                <MenuItem.Icon>
-                    <ui:SymbolIcon Symbol="Album24" />
-                </MenuItem.Icon>
-            </MenuItem>
-        </ContextMenu>
-
-        <!-- Shared ContextMenu for Osu Artists -->
-        <ContextMenu x:Key="SharedOsuArtistContextMenu">
-            <MenuItem Header="Reproducir discografía"
-                      Command="{Binding Source={x:Static vm:MainViewModel.Instance}, Path=OsuLibrary.PlayArtistCommand}"
-                      CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
-                <MenuItem.Icon>
-                    <ui:SymbolIcon Symbol="Play24" />
-                </MenuItem.Icon>
-            </MenuItem>
-            <MenuItem Header="Agregar discografía a la cola"
-                      Command="{Binding Source={x:Static vm:MainViewModel.Instance}, Path=OsuLibrary.AddArtistToQueueCommand}"
-                      CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
-                <MenuItem.Icon>
-                    <ui:SymbolIcon Symbol="Add24" />
-                </MenuItem.Icon>
-            </MenuItem>
-            <Separator />
-            <MenuItem Header="Ver canciones del artista"
-                      Command="{Binding Source={x:Static vm:MainViewModel.Instance}, Path=OsuLibrary.OpenArtistDetailCommand}"
-                      CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
-                <MenuItem.Icon>
-                    <ui:SymbolIcon Symbol="Person24" />
-                </MenuItem.Icon>
-            </MenuItem>
-        </ContextMenu>
+            <!-- Shared ContextMenu for Osu Songs -->
+            <ContextMenu x:Key="SharedOsuTrackContextMenu">
+                <MenuItem Header="Reproducir"
+                          Command="{Binding Source={x:Static vm:MainViewModel.Instance}, Path=OsuLibrary.PlayTrackCommand}"
+                          CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                    <MenuItem.Icon>
+                        <ui:SymbolIcon Symbol="Play24" />
+                    </MenuItem.Icon>
+                </MenuItem>
+                <MenuItem Header="Reproducir siguiente"
+                          Command="{Binding Source={x:Static vm:MainViewModel.Instance}, Path=OsuLibrary.PlayTrackNextCommand}"
+                          CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                    <MenuItem.Icon>
+                        <ui:SymbolIcon Symbol="Next24" />
+                    </MenuItem.Icon>
+                </MenuItem>
+                <MenuItem Header="Agregar a la cola"
+                          Command="{Binding Source={x:Static vm:MainViewModel.Instance}, Path=OsuLibrary.AddTrackToQueueCommand}"
+                          CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                    <MenuItem.Icon>
+                        <ui:SymbolIcon Symbol="Add24" />
+                    </MenuItem.Icon>
+                </MenuItem>
+                <Separator />
+                <MenuItem Header="Ir al artista"
+                          Command="{Binding Source={x:Static vm:MainViewModel.Instance}, Path=OsuLibrary.OpenArtistByNameCommand}"
+                          CommandParameter="{Binding PlacementTarget.DataContext.Artist, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                    <MenuItem.Icon>
+                        <ui:SymbolIcon Symbol="Person24" />
+                    </MenuItem.Icon>
+                </MenuItem>
+                <MenuItem Header="Ver información de álbum (Last.fm)"
+                          Command="{Binding Source={x:Static vm:MainViewModel.Instance}, Path=OsuLibrary.OpenTrackAlbumCommand}"
+                          CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                    <MenuItem.Icon>
+                        <ui:SymbolIcon Symbol="Album24" />
+                    </MenuItem.Icon>
+                </MenuItem>
+            </ContextMenu>
+        </ResourceDictionary>
     </UserControl.Resources>
 
     <Grid Margin="24,20,24,0">
@@ -442,16 +393,18 @@
 
             <!-- TAB 1: Artistas -->
             <ListView x:Name="ArtistsListView"
-                      ItemsSource="{Binding OsuLibrary.Artists}"
+                      ItemsSource="{Binding OsuLibrary.ArtistSections}"
+                      Tag="{Binding OsuLibrary}"
                       Background="Transparent" BorderThickness="0"
                       VirtualizingPanel.IsVirtualizing="True"
-                      VirtualizingPanel.IsVirtualizingWhenGrouping="True"
                       VirtualizingPanel.VirtualizationMode="Recycling"
+                      VirtualizingPanel.ScrollUnit="Pixel"
                       ScrollViewer.CanContentScroll="True"
                       ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                       ScrollViewer.VerticalScrollBarVisibility="Auto"
+                      HorizontalContentAlignment="Stretch"
                       PreviewMouseWheel="OnArtistsListViewPreviewMouseWheel"
-                      Cursor="Hand">
+                      ItemTemplate="{StaticResource SharedArtistLetterSectionTemplate}">
                 <ListView.Style>
                     <Style TargetType="ListView">
                         <Setter Property="Visibility" Value="Collapsed" />
@@ -467,95 +420,29 @@
                     </Style>
                 </ListView.Style>
 
-                <ListView.GroupStyle>
-                    <GroupStyle>
-                        <GroupStyle.Panel>
-                            <ItemsPanelTemplate>
-                                <WrapPanel Orientation="Horizontal" />
-                            </ItemsPanelTemplate>
-                        </GroupStyle.Panel>
-                        <GroupStyle.ContainerStyle>
-                            <Style TargetType="{x:Type GroupItem}">
-                                <Setter Property="Template">
-                                    <Setter.Value>
-                                        <ControlTemplate TargetType="{x:Type GroupItem}">
-                                            <StackPanel Margin="0,10,0,16">
-                                                <Button Style="{StaticResource AlphaGroupHeaderButtonStyle}"
-                                                        Content="{Binding Name}"
-                                                        Click="OnAlphaHeaderClick" />
-                                                <ItemsPresenter />
-                                            </StackPanel>
-                                        </ControlTemplate>
-                                    </Setter.Value>
-                                </Setter>
-                            </Style>
-                        </GroupStyle.ContainerStyle>
-                    </GroupStyle>
-                </ListView.GroupStyle>
-
                 <ListView.ItemsPanel>
                     <ItemsPanelTemplate>
-                        <wpftk:VirtualizingWrapPanel Orientation="Horizontal" SpacingMode="None" />
+                        <VirtualizingStackPanel />
                     </ItemsPanelTemplate>
                 </ListView.ItemsPanel>
 
                 <ListView.ItemContainerStyle>
                     <Style TargetType="ListViewItem">
+                        <Setter Property="FocusVisualStyle" Value="{x:Null}" />
                         <Setter Property="Background" Value="Transparent" />
                         <Setter Property="Padding" Value="0" />
-                        <Setter Property="Margin" Value="6" />
-                        <Setter Property="ContextMenu" Value="{StaticResource SharedOsuArtistContextMenu}" />
+                        <Setter Property="Margin" Value="0" />
+                        <Setter Property="BorderThickness" Value="0" />
+                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
                         <Setter Property="Template">
                             <Setter.Value>
                                 <ControlTemplate TargetType="ListViewItem">
-                                    <Border x:Name="CardBorder" Background="{DynamicResource SurfaceCardBrush}"
-                                            BorderBrush="{DynamicResource SurfaceCardBorderBrush}" BorderThickness="1"
-                                            CornerRadius="12" Padding="12">
-                                        <ContentPresenter />
-                                    </Border>
-                                    <ControlTemplate.Triggers>
-                                        <Trigger Property="IsMouseOver" Value="True">
-                                            <Setter TargetName="CardBorder" Property="Background" Value="{DynamicResource SurfaceCardHoverBrush}" />
-                                        </Trigger>
-                                    </ControlTemplate.Triggers>
+                                    <ContentPresenter />
                                 </ControlTemplate>
                             </Setter.Value>
                         </Setter>
                     </Style>
                 </ListView.ItemContainerStyle>
-
-                <ListView.ItemTemplate>
-                    <DataTemplate DataType="{x:Type models:ArtistModel}">
-                        <Grid>
-                            <Grid.InputBindings>
-                                <MouseBinding Gesture="LeftClick"
-                                              Command="{Binding Source={x:Static vm:MainViewModel.Instance}, Path=OsuLibrary.OpenArtistDetailCommand}"
-                                              CommandParameter="{Binding}" />
-                            </Grid.InputBindings>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                                <RowDefinition Height="Auto" />
-                            </Grid.RowDefinitions>
-
-                            <!-- Circular Avatar or Image -->
-                            <Ellipse Grid.Row="0" Width="140" Height="140" HorizontalAlignment="Center" Margin="0,0,0,10">
-                                <Ellipse.Fill>
-                                    <ImageBrush ImageSource="{Binding AvatarImageSource}" Stretch="UniformToFill" />
-                                </Ellipse.Fill>
-                            </Ellipse>
-
-                            <!-- Name -->
-                            <TextBlock Grid.Row="1" Text="{Binding Name}" FontSize="14" FontWeight="SemiBold"
-                                       Foreground="{DynamicResource TextPrimaryBrush}" TextAlignment="Center"
-                                       TextTrimming="CharacterEllipsis" Margin="0,0,0,4" />
-
-                            <!-- Songs count -->
-                            <TextBlock Grid.Row="2" Text="{Binding TrackCount, StringFormat='{}{0} canciones'}"
-                                       FontSize="11" Foreground="{DynamicResource TextTertiaryBrush}" TextAlignment="Center" />
-                        </Grid>
-                    </DataTemplate>
-                </ListView.ItemTemplate>
             </ListView>
 
             <!-- DETAIL VIEW 1: Selected Artist Songs -->

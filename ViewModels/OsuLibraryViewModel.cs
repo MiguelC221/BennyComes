@@ -58,6 +58,11 @@ public partial class OsuLibraryViewModel : ObservableObject
     public BulkObservableCollection<Track> Songs { get; } = new();
     public BulkObservableCollection<ArtistModel> Artists { get; } = new();
 
+    [ObservableProperty]
+    private ObservableCollection<ArtistLetterSection> _artistSections = new();
+
+    private int _artistSectionsBuildVersion;
+
     // JumpList State
     [ObservableProperty]
     private bool _isJumpListOpen;
@@ -134,10 +139,13 @@ public partial class OsuLibraryViewModel : ObservableObject
 
     partial void OnSelectedTabIndexChanged(int value)
     {
+        var sw = System.Diagnostics.Stopwatch.StartNew();
         IsJumpListOpen = false;
         SelectedArtistDetail = null;
         SelectedAlbumDetail = null;
         ApplyFilter();
+        sw.Stop();
+        System.Diagnostics.Debug.WriteLine($"[PERF] OsuLibrary.OnSelectedTabIndexChanged(tab={value}): {sw.Elapsed.TotalMilliseconds:F1} ms");
     }
 
     partial void OnSelectedArtistDetailChanged(ArtistModel? value)
@@ -190,9 +198,11 @@ public partial class OsuLibraryViewModel : ObservableObject
 
     private void ApplyFilter()
     {
+        var swTotal = System.Diagnostics.Stopwatch.StartNew();
         string query = SearchFilter?.Trim() ?? string.Empty;
 
         // 1. Filtrar canciones
+        var swStep = System.Diagnostics.Stopwatch.StartNew();
         IEnumerable<Track> trackQuery = _osuService.Tracks;
         if (!string.IsNullOrEmpty(query))
         {
@@ -203,33 +213,67 @@ public partial class OsuLibraryViewModel : ObservableObject
 
         var trackList = trackQuery.ToList();
         Songs.ReplaceRange(trackList);
+        System.Diagnostics.Debug.WriteLine($"[PERF] OsuLibrary.ApplyFilter Songs.ReplaceRange(count={trackList.Count}): {swStep.Elapsed.TotalMilliseconds:F1} ms");
+
+        swStep.Restart();
         UpdateSongsGrouping();
+        System.Diagnostics.Debug.WriteLine($"[PERF] OsuLibrary.ApplyFilter UpdateSongsGrouping: {swStep.Elapsed.TotalMilliseconds:F1} ms");
+
+        swStep.Restart();
         SyncPlayingState(_audio.CurrentTrack, _audio.IsPlaying);
+        System.Diagnostics.Debug.WriteLine($"[PERF] OsuLibrary.ApplyFilter SyncPlayingState: {swStep.Elapsed.TotalMilliseconds:F1} ms");
 
-        // 2. Filtrar y ordenar artistas
-        IEnumerable<ArtistModel> artistQuery = _osuService.Artists;
-        if (!string.IsNullOrEmpty(query))
+        // 2. Filtrar y ordenar artistas, y construir secciones A-Z + # en Task.Run
+        var sourceArtists = _osuService.Artists.ToList();
+        string sortOption = SelectedArtistSort;
+        bool descending = IsSortDescending;
+        int buildVersion = System.Threading.Interlocked.Increment(ref _artistSectionsBuildVersion);
+
+        _ = Task.Run(() =>
         {
-            artistQuery = artistQuery.Where(a => a.Name.Contains(query, StringComparison.OrdinalIgnoreCase));
-        }
+            var swBg = System.Diagnostics.Stopwatch.StartNew();
+            IEnumerable<ArtistModel> artistQuery = sourceArtists;
+            if (!string.IsNullOrEmpty(query))
+            {
+                artistQuery = artistQuery.Where(a => a.Name.Contains(query, StringComparison.OrdinalIgnoreCase));
+            }
 
-        bool isSortByName = string.Equals(SelectedArtistSort, "Nombre (A-Z)", StringComparison.OrdinalIgnoreCase);
+            bool isSortByName = string.Equals(sortOption, "Nombre (A-Z)", StringComparison.OrdinalIgnoreCase);
 
-        if (string.Equals(SelectedArtistSort, "Cantidad de canciones", StringComparison.OrdinalIgnoreCase))
-        {
-            artistQuery = IsSortDescending
-                ? artistQuery.OrderBy(a => a.TrackCount).ThenBy(a => a.Name, StringComparer.CurrentCultureIgnoreCase)
-                : artistQuery.OrderByDescending(a => a.TrackCount).ThenBy(a => a.Name, StringComparer.CurrentCultureIgnoreCase);
-        }
-        else // Nombre (A-Z)
-        {
-            artistQuery = IsSortDescending
-                ? artistQuery.OrderByDescending(a => a.Name, StringComparer.CurrentCultureIgnoreCase)
-                : artistQuery.OrderBy(a => a.Name, StringComparer.CurrentCultureIgnoreCase);
-        }
+            if (string.Equals(sortOption, "Cantidad de canciones", StringComparison.OrdinalIgnoreCase))
+            {
+                artistQuery = descending
+                    ? artistQuery.OrderBy(a => a.TrackCount).ThenBy(a => a.Name, StringComparer.CurrentCultureIgnoreCase)
+                    : artistQuery.OrderByDescending(a => a.TrackCount).ThenBy(a => a.Name, StringComparer.CurrentCultureIgnoreCase);
+            }
+            else // Nombre (A-Z)
+            {
+                artistQuery = descending
+                    ? artistQuery.OrderByDescending(a => a.Name, StringComparer.CurrentCultureIgnoreCase)
+                    : artistQuery.OrderBy(a => a.Name, StringComparer.CurrentCultureIgnoreCase);
+            }
 
-        Artists.ReplaceRange(artistQuery.ToList());
-        UpdateArtistsGrouping(isSortByName && !IsSortDescending);
+            var filteredArtists = artistQuery.ToList();
+            bool reverseSections = descending && isSortByName;
+            var sections = ArtistLetterSection.BuildSections(filteredArtists, reverseSections);
+            swBg.Stop();
+            System.Diagnostics.Debug.WriteLine($"[PERF] OsuLibrary.ApplyFilter Task.Run(artists={filteredArtists.Count}, sections={sections.Count}): {swBg.Elapsed.TotalMilliseconds:F1} ms");
+
+            if (buildVersion != _artistSectionsBuildVersion) return;
+
+            App.Current?.Dispatcher?.Invoke(() =>
+            {
+                if (buildVersion != _artistSectionsBuildVersion) return;
+                var swUi = System.Diagnostics.Stopwatch.StartNew();
+                Artists.ReplaceRange(filteredArtists);
+                ArtistSections = new ObservableCollection<ArtistLetterSection>(sections);
+                swUi.Stop();
+                System.Diagnostics.Debug.WriteLine($"[PERF] OsuLibrary.ApplyFilter UI ArtistSections apply: {swUi.Elapsed.TotalMilliseconds:F1} ms");
+            });
+        });
+
+        swTotal.Stop();
+        System.Diagnostics.Debug.WriteLine($"[PERF] OsuLibrary.ApplyFilter(sync part): {swTotal.Elapsed.TotalMilliseconds:F1} ms");
     }
 
     public void UpdateSongsGrouping()
@@ -242,24 +286,6 @@ public partial class OsuLibraryViewModel : ObservableObject
             using (view.DeferRefresh())
             {
                 view.GroupDescriptions.Clear();
-                view.GroupDescriptions.Add(new System.Windows.Data.PropertyGroupDescription("AlphaGroup"));
-            }
-        }
-    }
-
-    public void UpdateArtistsGrouping(bool shouldGroup = true)
-    {
-        var view = System.Windows.Data.CollectionViewSource.GetDefaultView(Artists);
-        if (view == null) return;
-
-        bool isCurrentlyGrouped = view.GroupDescriptions.Count > 0;
-        if (isCurrentlyGrouped == shouldGroup) return;
-
-        using (view.DeferRefresh())
-        {
-            view.GroupDescriptions.Clear();
-            if (shouldGroup)
-            {
                 view.GroupDescriptions.Add(new System.Windows.Data.PropertyGroupDescription("AlphaGroup"));
             }
         }
@@ -385,10 +411,10 @@ public partial class OsuLibraryViewModel : ObservableObject
         }
         else if (SelectedTabIndex == 1)
         {
-            foreach (var a in Artists)
+            foreach (var sec in ArtistSections)
             {
-                if (!string.IsNullOrEmpty(a.AlphaGroup))
-                    activeLetters.Add(a.AlphaGroup);
+                if (!string.IsNullOrEmpty(sec.Letter))
+                    activeLetters.Add(sec.Letter);
             }
         }
 

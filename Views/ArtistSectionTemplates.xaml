@@ -1,0 +1,274 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+                    xmlns:models="clr-namespace:BenyComes.Models"
+                    xmlns:vm="clr-namespace:BenyComes.ViewModels">
+
+    <!-- Shared ContextMenu for Artist Cards (works for both MyMusicViewModel and OsuLibraryViewModel via PlacementTarget.Tag) -->
+    <ContextMenu x:Key="SharedArtistCardContextMenu">
+        <MenuItem Header="Reproducir discografía"
+                  Command="{Binding PlacementTarget.Tag.PlayArtistCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                  CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+            <MenuItem.Icon>
+                <ui:SymbolIcon Symbol="Play24" />
+            </MenuItem.Icon>
+        </MenuItem>
+        <MenuItem Header="Agregar a la cola de reproducción"
+                  Command="{Binding PlacementTarget.Tag.AddArtistToQueueCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                  CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+            <MenuItem.Icon>
+                <ui:SymbolIcon Symbol="Add24" />
+            </MenuItem.Icon>
+        </MenuItem>
+        <Separator />
+        <MenuItem Header="Ver discografía y álbumes"
+                  Command="{Binding PlacementTarget.Tag.OpenArtistDetailCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                  CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+            <MenuItem.Icon>
+                <ui:SymbolIcon Symbol="Person24" />
+            </MenuItem.Icon>
+        </MenuItem>
+    </ContextMenu>
+
+    <!-- Alpha Group Header Button Style -->
+    <Style x:Key="AlphaGroupHeaderButtonStyle" TargetType="Button">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="8,4" />
+        <Setter Property="Margin" Value="4,4,0,6" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="HorizontalAlignment" Value="Left" />
+        <Setter Property="ToolTip" Value="Abrir selector alfabético (JumpList)" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border Background="{TemplateBinding Background}" CornerRadius="6" Padding="{TemplateBinding Padding}">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="{TemplateBinding Content}" FontSize="20" FontWeight="SemiBold"
+                                       Foreground="{Binding DataContext.Theme.CurrentAccentBrush, RelativeSource={RelativeSource AncestorType=UserControl}}" Margin="0,0,8,0" />
+                            <ui:SymbolIcon Symbol="ChevronDown24" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter Property="Background" Value="{DynamicResource SurfaceCardHoverBrush}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Card Hover Scale Style for Albums & Artists -->
+    <Style x:Key="ScaleCardBorderStyle" TargetType="Border">
+        <Setter Property="RenderTransformOrigin" Value="0.5,0.5" />
+        <Setter Property="RenderTransform">
+            <Setter.Value>
+                <ScaleTransform ScaleX="1.0" ScaleY="1.0" />
+            </Setter.Value>
+        </Setter>
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Trigger.EnterActions>
+                    <BeginStoryboard>
+                        <Storyboard>
+                            <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
+                                             To="1.04" Duration="0:0:0.5">
+                                <DoubleAnimation.EasingFunction>
+                                    <CubicEase EasingMode="EaseOut" />
+                                </DoubleAnimation.EasingFunction>
+                            </DoubleAnimation>
+                            <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)"
+                                             To="1.04" Duration="0:0:0.5">
+                                <DoubleAnimation.EasingFunction>
+                                    <CubicEase EasingMode="EaseOut" />
+                                </DoubleAnimation.EasingFunction>
+                            </DoubleAnimation>
+                        </Storyboard>
+                    </BeginStoryboard>
+                </Trigger.EnterActions>
+                <Trigger.ExitActions>
+                    <BeginStoryboard>
+                        <Storyboard>
+                            <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
+                                             To="1.0" Duration="0:0:0.5">
+                                <DoubleAnimation.EasingFunction>
+                                    <CubicEase EasingMode="EaseOut" />
+                                </DoubleAnimation.EasingFunction>
+                            </DoubleAnimation>
+                            <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)"
+                                             To="1.0" Duration="0:0:0.5">
+                                <DoubleAnimation.EasingFunction>
+                                    <CubicEase EasingMode="EaseOut" />
+                                </DoubleAnimation.EasingFunction>
+                            </DoubleAnimation>
+                        </Storyboard>
+                    </BeginStoryboard>
+                </Trigger.ExitActions>
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <!-- Shared Artist Card DataTemplate -->
+    <DataTemplate x:Key="SharedArtistCardDataTemplate" DataType="{x:Type models:ArtistModel}">
+        <Border Style="{StaticResource ScaleCardBorderStyle}" Width="176" Margin="0,0,20,24" CornerRadius="14"
+                Background="{DynamicResource SurfaceCardBrush}" BorderBrush="{DynamicResource SurfaceCardBorderBrush}" BorderThickness="1" Padding="8" Cursor="Hand"
+                Tag="{Binding Tag, RelativeSource={RelativeSource AncestorType=ListView}}"
+                ContextMenu="{StaticResource SharedArtistCardContextMenu}">
+            <Border.InputBindings>
+                <MouseBinding MouseAction="LeftClick"
+                              Command="{Binding Tag.OpenArtistDetailCommand, RelativeSource={RelativeSource AncestorType=ListView}}"
+                              CommandParameter="{Binding}" />
+            </Border.InputBindings>
+            <StackPanel>
+                <!-- Circular 160x160 Art Container with Hover Overlay -->
+                <Grid Width="160" Height="160" HorizontalAlignment="Center">
+                    <!-- Circle Background & Silhouette Fallback -->
+                    <Ellipse Width="160" Height="160" Fill="#1F1F28" />
+                    <ui:SymbolIcon Symbol="Person24" FontSize="56" Foreground="{DynamicResource TextTertiaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+
+                    <!-- Artist Cover Image (Circular Clipped) -->
+                    <Image Source="{Binding AvatarImageSource}" Width="160" Height="160" Stretch="UniformToFill" RenderOptions.BitmapScalingMode="LowQuality">
+                        <Image.Clip>
+                            <EllipseGeometry Center="80,80" RadiusX="80" RadiusY="80" />
+                        </Image.Clip>
+                    </Image>
+
+                    <!-- Hover Overlay with 0.2s Fade-In (Circular Clipped) -->
+                    <Border x:Name="ArtistHoverOverlay" Width="160" Height="160" Background="#66000000" Opacity="0">
+                        <Border.Clip>
+                            <EllipseGeometry Center="80,80" RadiusX="80" RadiusY="80" />
+                        </Border.Clip>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <!-- Left Button: Play -->
+                            <Button Width="44" Height="44" Cursor="Hand" ToolTip="Reproducir todo"
+                                    Command="{Binding Tag.PlayArtistCommand, RelativeSource={RelativeSource AncestorType=ListView}}"
+                                    CommandParameter="{Binding}">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border x:Name="BtnBg" Width="44" Height="44" CornerRadius="22"
+                                                Background="#CC1E1E1E" BorderBrush="#40FFFFFF" BorderThickness="1"
+                                                RenderTransformOrigin="0.5,0.5">
+                                            <Border.RenderTransform>
+                                                <ScaleTransform ScaleX="1.0" ScaleY="1.0" />
+                                            </Border.RenderTransform>
+                                            <Path Data="M 4,2 L 16,10 L 4,18 Z" Fill="White" Stroke="{x:Null}" Width="16" Height="16" Margin="2,0,0,0" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="BtnBg" Property="Background" Value="{Binding DataContext.Theme.CurrentAccentBrush, RelativeSource={RelativeSource AncestorType=ListView}}" />
+                                                <Setter TargetName="BtnBg" Property="RenderTransform">
+                                                    <Setter.Value>
+                                                        <ScaleTransform ScaleX="1.1" ScaleY="1.1" />
+                                                    </Setter.Value>
+                                                </Setter>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Button.Template>
+                            </Button>
+
+                            <!-- Right Button: Add (+) -->
+                            <Button Width="44" Height="44" Margin="10,0,0,0" Cursor="Hand" ToolTip="Agregar a..."
+                                    Tag="{Binding Tag, RelativeSource={RelativeSource AncestorType=ListView}}"
+                                    Command="{Binding Source={x:Static vm:MainViewModel.Instance}, Path=OpenButtonContextMenuCommand}"
+                                    CommandParameter="{Binding RelativeSource={RelativeSource Self}}">
+                                <Button.ContextMenu>
+                                    <ContextMenu>
+                                        <MenuItem Header="Agregar a la cola de reproducción"
+                                                  Command="{Binding PlacementTarget.Tag.AddArtistToQueueCommand, RelativeSource={RelativeSource AncestorType=ContextMenu}}"
+                                                  CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                                            <MenuItem.Icon>
+                                                <ui:SymbolIcon Symbol="Add24" />
+                                            </MenuItem.Icon>
+                                        </MenuItem>
+                                    </ContextMenu>
+                                </Button.ContextMenu>
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border x:Name="BtnBg" Width="44" Height="44" CornerRadius="22"
+                                                Background="#CC1E1E1E" BorderBrush="#40FFFFFF" BorderThickness="1"
+                                                RenderTransformOrigin="0.5,0.5">
+                                            <Border.RenderTransform>
+                                                <ScaleTransform ScaleX="1.0" ScaleY="1.0" />
+                                            </Border.RenderTransform>
+                                            <ui:SymbolIcon Symbol="Add24" FontSize="18" Foreground="#FFFFFF" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="BtnBg" Property="Background" Value="#E62A2A2A" />
+                                                <Setter TargetName="BtnBg" Property="RenderTransform">
+                                                    <Setter.Value>
+                                                        <ScaleTransform ScaleX="1.1" ScaleY="1.1" />
+                                                    </Setter.Value>
+                                                </Setter>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Button.Template>
+                            </Button>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+
+                <!-- Bottom Text -->
+                <StackPanel Margin="0,8,0,0" Width="160">
+                    <TextBlock Text="{Binding Name}" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"
+                               TextTrimming="CharacterEllipsis" TextAlignment="Center" ToolTip="{Binding Name}" />
+                    <TextBlock Text="{Binding Subtitle}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"
+                               TextTrimming="CharacterEllipsis" TextAlignment="Center" Margin="0,2,0,0" ToolTip="{Binding Subtitle}" />
+                </StackPanel>
+            </StackPanel>
+
+            <Border.Triggers>
+                <EventTrigger RoutedEvent="MouseEnter">
+                    <BeginStoryboard>
+                        <Storyboard>
+                            <DoubleAnimation Storyboard.TargetName="ArtistHoverOverlay"
+                                             Storyboard.TargetProperty="Opacity"
+                                             To="1.0" Duration="0:0:0.2">
+                                <DoubleAnimation.EasingFunction>
+                                    <CubicEase EasingMode="EaseOut" />
+                                </DoubleAnimation.EasingFunction>
+                            </DoubleAnimation>
+                        </Storyboard>
+                    </BeginStoryboard>
+                </EventTrigger>
+                <EventTrigger RoutedEvent="MouseLeave">
+                    <BeginStoryboard>
+                        <Storyboard>
+                            <DoubleAnimation Storyboard.TargetName="ArtistHoverOverlay"
+                                             Storyboard.TargetProperty="Opacity"
+                                             To="0.0" Duration="0:0:0.2">
+                                <DoubleAnimation.EasingFunction>
+                                    <CubicEase EasingMode="EaseOut" />
+                                </DoubleAnimation.EasingFunction>
+                            </DoubleAnimation>
+                        </Storyboard>
+                    </BeginStoryboard>
+                </EventTrigger>
+            </Border.Triggers>
+        </Border>
+    </DataTemplate>
+
+    <!-- Shared ArtistLetterSection DataTemplate (Letter Header + Normal WrapPanel of Artist Cards) -->
+    <DataTemplate x:Key="SharedArtistLetterSectionTemplate" DataType="{x:Type models:ArtistLetterSection}">
+        <StackPanel Margin="0,10,0,16">
+            <Button Style="{StaticResource AlphaGroupHeaderButtonStyle}"
+                    Content="{Binding Letter}"
+                    Command="{Binding Tag.OpenJumpListCommand, RelativeSource={RelativeSource AncestorType=ListView}}" />
+            <ItemsControl ItemsSource="{Binding Artists}"
+                          ItemTemplate="{StaticResource SharedArtistCardDataTemplate}"
+                          Focusable="False"
+                          Background="Transparent"
+                          BorderThickness="0">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <WrapPanel Orientation="Horizontal" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+            </ItemsControl>
+        </StackPanel>
+    </DataTemplate>
+
+</ResourceDictionary>

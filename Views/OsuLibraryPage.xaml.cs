@@ -127,35 +127,23 @@ public partial class OsuLibraryPage : UserControl
                 }
                 else if (vm.OsuLibrary.SelectedTabIndex == 1) // Artistas
                 {
-                    var artist = vm.OsuLibrary.Artists.FirstOrDefault(a => string.Equals(a.AlphaGroup, letter, StringComparison.OrdinalIgnoreCase));
-                    if (artist != null)
+                    var section = vm.OsuLibrary.ArtistSections.FirstOrDefault(s => string.Equals(s.Letter, letter, StringComparison.OrdinalIgnoreCase));
+                    if (section != null)
                     {
-                        var group = ArtistsListView.ItemContainerGenerator.Items.OfType<CollectionViewGroup>()
-                            .FirstOrDefault(g => string.Equals(g.Name?.ToString(), letter, StringComparison.OrdinalIgnoreCase));
+                        ArtistsListView.ScrollIntoView(section);
+                        ArtistsListView.UpdateLayout();
 
-                        ArtistsListView.ScrollIntoView(artist);
-
-                        if (group != null && ArtistsListView.ItemContainerGenerator.ContainerFromItem(group) is FrameworkElement groupEl)
+                        if (ArtistsListView.ItemContainerGenerator.ContainerFromItem(section) is FrameworkElement sectionEl)
                         {
-                            ScrollItemToTop(ArtistsListView, groupEl);
-                            return;
-                        }
-
-                        if (ArtistsListView.ItemContainerGenerator.ContainerFromItem(artist) is FrameworkElement artistEl)
-                        {
-                            ScrollItemToTop(ArtistsListView, artistEl);
+                            ScrollItemToTop(ArtistsListView, sectionEl);
                             return;
                         }
 
                         Dispatcher.BeginInvoke(new Action(() =>
                         {
-                            if (group != null && ArtistsListView.ItemContainerGenerator.ContainerFromItem(group) is FrameworkElement gEl2)
+                            if (ArtistsListView.ItemContainerGenerator.ContainerFromItem(section) is FrameworkElement secEl2)
                             {
-                                ScrollItemToTop(ArtistsListView, gEl2);
-                            }
-                            else if (ArtistsListView.ItemContainerGenerator.ContainerFromItem(artist) is FrameworkElement aEl2)
-                            {
-                                ScrollItemToTop(ArtistsListView, aEl2);
+                                ScrollItemToTop(ArtistsListView, secEl2);
                             }
                         }), System.Windows.Threading.DispatcherPriority.Background);
                     }

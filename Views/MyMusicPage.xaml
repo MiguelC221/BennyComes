@@ -11,136 +11,37 @@
              d:DesignHeight="750" d:DesignWidth="980">
 
     <UserControl.Resources>
-        <!-- Shared ContextMenu for Artist Cards (prevents instantiating 1000+ context menus) -->
-        <ContextMenu x:Key="SharedArtistCardContextMenu">
-            <MenuItem Header="Reproducir discografía"
-                      Command="{Binding Source={x:Static vm:MainViewModel.Instance}, Path=PlayArtistCommand}"
-                      CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
-                <MenuItem.Icon>
-                    <ui:SymbolIcon Symbol="Play24" />
-                </MenuItem.Icon>
-            </MenuItem>
-            <MenuItem Header="Agregar a la cola de reproducción"
-                      Command="{Binding Source={x:Static vm:MainViewModel.Instance}, Path=MyMusic.AddArtistToQueueCommand}"
-                      CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
-                <MenuItem.Icon>
-                    <ui:SymbolIcon Symbol="Add24" />
-                </MenuItem.Icon>
-            </MenuItem>
-            <Separator />
-            <MenuItem Header="Ver discografía y álbumes"
-                      Command="{Binding Source={x:Static vm:MainViewModel.Instance}, Path=MyMusic.OpenArtistDetailCommand}"
-                      CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
-                <MenuItem.Icon>
-                    <ui:SymbolIcon Symbol="Person24" />
-                </MenuItem.Icon>
-            </MenuItem>
-        </ContextMenu>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="pack://application:,,,/Views/ArtistSectionTemplates.xaml" />
+            </ResourceDictionary.MergedDictionaries>
 
-        <!-- Shared ContextMenu for Album Cards (prevents instantiating 1000+ context menus) -->
-        <ContextMenu x:Key="SharedAlbumCardContextMenu">
-            <MenuItem Header="Reproducir álbum"
-                      Command="{Binding Source={x:Static vm:MainViewModel.Instance}, Path=PlayAlbumCommand}"
-                      CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
-                <MenuItem.Icon>
-                    <ui:SymbolIcon Symbol="Play24" />
-                </MenuItem.Icon>
-            </MenuItem>
-            <MenuItem Header="Agregar a la cola de reproducción"
-                      Command="{Binding Source={x:Static vm:MainViewModel.Instance}, Path=MyMusic.AddAlbumToQueueCommand}"
-                      CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
-                <MenuItem.Icon>
-                    <ui:SymbolIcon Symbol="Add24" />
-                </MenuItem.Icon>
-            </MenuItem>
-            <Separator />
-            <MenuItem Header="Ver detalles del álbum"
-                      Command="{Binding Source={x:Static vm:MainViewModel.Instance}, Path=MyMusic.OpenAlbumDetailCommand}"
-                      CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
-                <MenuItem.Icon>
-                    <ui:SymbolIcon Symbol="Album24" />
-                </MenuItem.Icon>
-            </MenuItem>
-        </ContextMenu>
-
-        <!-- Alpha Group Header Button Style -->
-        <Style x:Key="AlphaGroupHeaderButtonStyle" TargetType="Button">
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="Padding" Value="8,4" />
-            <Setter Property="Margin" Value="4,4,0,6" />
-            <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="HorizontalAlignment" Value="Left" />
-            <Setter Property="ToolTip" Value="Abrir selector alfabético (JumpList)" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border Background="{TemplateBinding Background}" CornerRadius="6" Padding="{TemplateBinding Padding}">
-                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                <TextBlock Text="{TemplateBinding Content}" FontSize="20" FontWeight="SemiBold"
-                                           Foreground="{Binding DataContext.Theme.CurrentAccentBrush, RelativeSource={RelativeSource AncestorType=UserControl}}" Margin="0,0,8,0" />
-                                <ui:SymbolIcon Symbol="ChevronDown24" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
-                            </StackPanel>
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter Property="Background" Value="{DynamicResource SurfaceCardHoverBrush}" />
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
-
-        <!-- Card Hover Scale Style for Albums & Artists -->
-        <Style x:Key="ScaleCardBorderStyle" TargetType="Border">
-            <Setter Property="RenderTransformOrigin" Value="0.5,0.5" />
-            <Setter Property="RenderTransform">
-                <Setter.Value>
-                    <ScaleTransform ScaleX="1.0" ScaleY="1.0" />
-                </Setter.Value>
-            </Setter>
-            <Style.Triggers>
-                <Trigger Property="IsMouseOver" Value="True">
-                    <Trigger.EnterActions>
-                        <BeginStoryboard>
-                            <Storyboard>
-                                <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
-                                                 To="1.04" Duration="0:0:0.5">
-                                    <DoubleAnimation.EasingFunction>
-                                        <CubicEase EasingMode="EaseOut" />
-                                    </DoubleAnimation.EasingFunction>
-                                </DoubleAnimation>
-                                <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)"
-                                                 To="1.04" Duration="0:0:0.5">
-                                    <DoubleAnimation.EasingFunction>
-                                        <CubicEase EasingMode="EaseOut" />
-                                    </DoubleAnimation.EasingFunction>
-                                </DoubleAnimation>
-                            </Storyboard>
-                        </BeginStoryboard>
-                    </Trigger.EnterActions>
-                    <Trigger.ExitActions>
-                        <BeginStoryboard>
-                            <Storyboard>
-                                <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
-                                                 To="1.0" Duration="0:0:0.5">
-                                    <DoubleAnimation.EasingFunction>
-                                        <CubicEase EasingMode="EaseOut" />
-                                    </DoubleAnimation.EasingFunction>
-                                </DoubleAnimation>
-                                <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)"
-                                                 To="1.0" Duration="0:0:0.5">
-                                    <DoubleAnimation.EasingFunction>
-                                        <CubicEase EasingMode="EaseOut" />
-                                    </DoubleAnimation.EasingFunction>
-                                </DoubleAnimation>
-                            </Storyboard>
-                        </BeginStoryboard>
-                    </Trigger.ExitActions>
-                </Trigger>
-            </Style.Triggers>
-        </Style>
+            <!-- Shared ContextMenu for Album Cards (prevents instantiating 1000+ context menus) -->
+            <ContextMenu x:Key="SharedAlbumCardContextMenu">
+                <MenuItem Header="Reproducir álbum"
+                          Command="{Binding Source={x:Static vm:MainViewModel.Instance}, Path=PlayAlbumCommand}"
+                          CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                    <MenuItem.Icon>
+                        <ui:SymbolIcon Symbol="Play24" />
+                    </MenuItem.Icon>
+                </MenuItem>
+                <MenuItem Header="Agregar a la cola de reproducción"
+                          Command="{Binding Source={x:Static vm:MainViewModel.Instance}, Path=MyMusic.AddAlbumToQueueCommand}"
+                          CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                    <MenuItem.Icon>
+                        <ui:SymbolIcon Symbol="Add24" />
+                    </MenuItem.Icon>
+                </MenuItem>
+                <Separator />
+                <MenuItem Header="Ver detalles del álbum"
+                          Command="{Binding Source={x:Static vm:MainViewModel.Instance}, Path=MyMusic.OpenAlbumDetailCommand}"
+                          CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                    <MenuItem.Icon>
+                        <ui:SymbolIcon Symbol="Album24" />
+                    </MenuItem.Icon>
+                </MenuItem>
+            </ContextMenu>
+        </ResourceDictionary>
     </UserControl.Resources>
 
     <Grid>
@@ -786,40 +687,23 @@
                         </StackPanel>
                     </Border>
 
-                    <ListView Grid.Row="1" x:Name="ArtistsListView" ItemsSource="{Binding MyMusic.Artists}"
+                    <ListView Grid.Row="1" x:Name="ArtistsListView"
+                              ItemsSource="{Binding MyMusic.ArtistSections}"
+                              Tag="{Binding MyMusic}"
                               Background="Transparent" BorderThickness="0"
-                              ScrollViewer.CanContentScroll="False"
+                              Padding="28,0,28,0"
+                              VirtualizingPanel.IsVirtualizing="True"
+                              VirtualizingPanel.VirtualizationMode="Recycling"
+                              VirtualizingPanel.ScrollUnit="Pixel"
+                              ScrollViewer.CanContentScroll="True"
                               ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                               ScrollViewer.VerticalScrollBarVisibility="Auto"
-                              PreviewMouseWheel="OnArtistsListViewPreviewMouseWheel">
-                        <ListView.GroupStyle>
-                            <GroupStyle>
-                                <GroupStyle.Panel>
-                                    <ItemsPanelTemplate>
-                                        <WrapPanel Orientation="Horizontal" />
-                                    </ItemsPanelTemplate>
-                                </GroupStyle.Panel>
-                                <GroupStyle.ContainerStyle>
-                                    <Style TargetType="{x:Type GroupItem}">
-                                        <Setter Property="Template">
-                                            <Setter.Value>
-                                                <ControlTemplate TargetType="{x:Type GroupItem}">
-                                                    <StackPanel Margin="28,12,28,16">
-                                                        <Button Style="{StaticResource AlphaGroupHeaderButtonStyle}"
-                                                                Content="{Binding Name}"
-                                                                Click="OnAlphaHeaderClick" />
-                                                        <ItemsPresenter />
-                                                    </StackPanel>
-                                                </ControlTemplate>
-                                            </Setter.Value>
-                                        </Setter>
-                                    </Style>
-                                </GroupStyle.ContainerStyle>
-                            </GroupStyle>
-                        </ListView.GroupStyle>
+                              HorizontalContentAlignment="Stretch"
+                              PreviewMouseWheel="OnArtistsListViewPreviewMouseWheel"
+                              ItemTemplate="{StaticResource SharedArtistLetterSectionTemplate}">
                         <ListView.ItemsPanel>
                             <ItemsPanelTemplate>
-                                <WrapPanel Orientation="Horizontal" />
+                                <VirtualizingStackPanel />
                             </ItemsPanelTemplate>
                         </ListView.ItemsPanel>
                         <ListView.ItemContainerStyle>
@@ -829,6 +713,7 @@
                                 <Setter Property="Padding" Value="0" />
                                 <Setter Property="Margin" Value="0" />
                                 <Setter Property="BorderThickness" Value="0" />
+                                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
                                 <Setter Property="Template">
                                     <Setter.Value>
                                         <ControlTemplate TargetType="ListViewItem">
@@ -838,145 +723,6 @@
                                 </Setter>
                             </Style>
                         </ListView.ItemContainerStyle>
-                        <ListView.ItemTemplate>
-                            <DataTemplate DataType="{x:Type models:ArtistModel}">
-                                <Border Style="{StaticResource ScaleCardBorderStyle}" Width="176" Margin="0,0,20,24" CornerRadius="14"
-                                        Background="{DynamicResource SurfaceCardBrush}" BorderBrush="{DynamicResource SurfaceCardBorderBrush}" BorderThickness="1" Padding="8" Cursor="Hand"
-                                        ContextMenu="{StaticResource SharedArtistCardContextMenu}">
-                                    <Border.InputBindings>
-                                        <MouseBinding MouseAction="LeftClick"
-                                                      Command="{Binding DataContext.MyMusic.OpenArtistDetailCommand, RelativeSource={RelativeSource AncestorType=ListView}}"
-                                                      CommandParameter="{Binding}" />
-                                    </Border.InputBindings>
-                                    <StackPanel>
-                                        <!-- Circular 160x160 Art Container with Hover Overlay -->
-                                        <Grid Width="160" Height="160" HorizontalAlignment="Center">
-                                            <!-- Circle Background & Silhouette Fallback -->
-                                            <Ellipse Width="160" Height="160" Fill="#1F1F28" />
-                                            <ui:SymbolIcon Symbol="Person24" FontSize="56" Foreground="{DynamicResource TextTertiaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
-
-                                            <!-- Artist Cover Image (Circular Clipped) -->
-                                            <Image Source="{Binding AvatarImageSource}" Width="160" Height="160" Stretch="UniformToFill" RenderOptions.BitmapScalingMode="LowQuality">
-                                                <Image.Clip>
-                                                    <EllipseGeometry Center="80,80" RadiusX="80" RadiusY="80" />
-                                                </Image.Clip>
-                                            </Image>
-
-                                            <!-- Hover Overlay with 0.2s Fade-In (Circular Clipped) -->
-                                            <Border x:Name="ArtistHoverOverlay" Width="160" Height="160" Background="#66000000" Opacity="0">
-                                                <Border.Clip>
-                                                    <EllipseGeometry Center="80,80" RadiusX="80" RadiusY="80" />
-                                                </Border.Clip>
-                                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                                    <!-- Left Button: Play -->
-                                                    <Button Width="44" Height="44" Cursor="Hand" ToolTip="Reproducir todo"
-                                                            Command="{Binding DataContext.PlayArtistCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                            CommandParameter="{Binding}">
-                                                        <Button.Template>
-                                                            <ControlTemplate TargetType="Button">
-                                                                <Border x:Name="BtnBg" Width="44" Height="44" CornerRadius="22"
-                                                                        Background="#CC1E1E1E" BorderBrush="#40FFFFFF" BorderThickness="1"
-                                                                        RenderTransformOrigin="0.5,0.5">
-                                                                    <Border.RenderTransform>
-                                                                        <ScaleTransform ScaleX="1.0" ScaleY="1.0" />
-                                                                    </Border.RenderTransform>
-                                                                    <Path Data="M 4,2 L 16,10 L 4,18 Z" Fill="White" Stroke="{x:Null}" Width="16" Height="16" Margin="2,0,0,0" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                                                </Border>
-                                                                <ControlTemplate.Triggers>
-                                                                    <Trigger Property="IsMouseOver" Value="True">
-                                                                        <Setter TargetName="BtnBg" Property="Background" Value="{Binding DataContext.Theme.CurrentAccentBrush, RelativeSource={RelativeSource AncestorType=ListView}}" />
-                                                                        <Setter TargetName="BtnBg" Property="RenderTransform">
-                                                                            <Setter.Value>
-                                                                                <ScaleTransform ScaleX="1.1" ScaleY="1.1" />
-                                                                            </Setter.Value>
-                                                                        </Setter>
-                                                                    </Trigger>
-                                                                </ControlTemplate.Triggers>
-                                                            </ControlTemplate>
-                                                        </Button.Template>
-                                                    </Button>
-
-                                                    <!-- Right Button: Add (+) -->
-                                                    <Button Width="44" Height="44" Margin="10,0,0,0" Cursor="Hand" ToolTip="Agregar a..."
-                                                            Click="OnAddMenuButtonClick">
-                                                        <Button.ContextMenu>
-                                                            <ContextMenu>
-                                                                <MenuItem Header="Agregar a la cola de reproducción"
-                                                                          Command="{Binding DataContext.MyMusic.AddArtistToQueueCommand, RelativeSource={RelativeSource AncestorType=ListView}}"
-                                                                          CommandParameter="{Binding}">
-                                                                    <MenuItem.Icon>
-                                                                        <ui:SymbolIcon Symbol="Add24" />
-                                                                    </MenuItem.Icon>
-                                                                </MenuItem>
-                                                            </ContextMenu>
-                                                        </Button.ContextMenu>
-                                                        <Button.Template>
-                                                            <ControlTemplate TargetType="Button">
-                                                                <Border x:Name="BtnBg" Width="44" Height="44" CornerRadius="22"
-                                                                        Background="#CC1E1E1E" BorderBrush="#40FFFFFF" BorderThickness="1"
-                                                                        RenderTransformOrigin="0.5,0.5">
-                                                                    <Border.RenderTransform>
-                                                                        <ScaleTransform ScaleX="1.0" ScaleY="1.0" />
-                                                                    </Border.RenderTransform>
-                                                                    <ui:SymbolIcon Symbol="Add24" FontSize="18" Foreground="#FFFFFF" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                                                </Border>
-                                                                <ControlTemplate.Triggers>
-                                                                    <Trigger Property="IsMouseOver" Value="True">
-                                                                        <Setter TargetName="BtnBg" Property="Background" Value="#E62A2A2A" />
-                                                                        <Setter TargetName="BtnBg" Property="RenderTransform">
-                                                                            <Setter.Value>
-                                                                                <ScaleTransform ScaleX="1.1" ScaleY="1.1" />
-                                                                            </Setter.Value>
-                                                                        </Setter>
-                                                                    </Trigger>
-                                                                </ControlTemplate.Triggers>
-                                                            </ControlTemplate>
-                                                        </Button.Template>
-                                                    </Button>
-                                                </StackPanel>
-                                            </Border>
-                                        </Grid>
-
-                                        <!-- Bottom Text -->
-                                        <StackPanel Margin="0,8,0,0" Width="160">
-                                            <TextBlock Text="{Binding Name}" FontSize="14" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}"
-                                                       TextTrimming="CharacterEllipsis" TextAlignment="Center" ToolTip="{Binding Name}" />
-                                            <TextBlock Text="{Binding Subtitle}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"
-                                                       TextTrimming="CharacterEllipsis" TextAlignment="Center" Margin="0,2,0,0" ToolTip="{Binding Subtitle}" />
-                                        </StackPanel>
-                                    </StackPanel>
-
-                                    <Border.Triggers>
-                                        <EventTrigger RoutedEvent="MouseEnter">
-                                            <BeginStoryboard>
-                                                <Storyboard>
-                                                    <DoubleAnimation Storyboard.TargetName="ArtistHoverOverlay"
-                                                                     Storyboard.TargetProperty="Opacity"
-                                                                     To="1.0" Duration="0:0:0.2">
-                                                        <DoubleAnimation.EasingFunction>
-                                                            <CubicEase EasingMode="EaseOut" />
-                                                        </DoubleAnimation.EasingFunction>
-                                                    </DoubleAnimation>
-                                                </Storyboard>
-                                            </BeginStoryboard>
-                                        </EventTrigger>
-                                        <EventTrigger RoutedEvent="MouseLeave">
-                                            <BeginStoryboard>
-                                                <Storyboard>
-                                                    <DoubleAnimation Storyboard.TargetName="ArtistHoverOverlay"
-                                                                     Storyboard.TargetProperty="Opacity"
-                                                                     To="0.0" Duration="0:0:0.2">
-                                                        <DoubleAnimation.EasingFunction>
-                                                            <CubicEase EasingMode="EaseOut" />
-                                                        </DoubleAnimation.EasingFunction>
-                                                    </DoubleAnimation>
-                                                </Storyboard>
-                                            </BeginStoryboard>
-                                        </EventTrigger>
-                                    </Border.Triggers>
-                                </Border>
-                            </DataTemplate>
-                        </ListView.ItemTemplate>
                     </ListView>
 
                     <!-- Empty State for Artists Tab -->
