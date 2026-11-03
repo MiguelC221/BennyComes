@@ -36,6 +36,7 @@ public partial class MainViewModel : ObservableObject
     public SettingsViewModel Settings { get; }
     public SearchViewModel Search { get; }
     public OsuLibraryViewModel OsuLibrary { get; }
+    public FavoritesViewModel Favorites { get; }
     public ThemeService Theme => ThemeService.Instance;
     public EqualizerService Equalizer => EqualizerService.Instance;
 
@@ -56,6 +57,27 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private Playlist? _selectedPlaylistForDetail;
 
+    partial void OnCurrentViewChanged(string value)
+    {
+        UpdateSidebarPlaylistSelection();
+    }
+
+    partial void OnSelectedPlaylistForDetailChanged(Playlist? value)
+    {
+        UpdateSidebarPlaylistSelection();
+    }
+
+    public void UpdateSidebarPlaylistSelection()
+    {
+        if (Playlists?.Playlists == null) return;
+        bool inPlaylistDetail = string.Equals(CurrentView, "PlaylistDetail", StringComparison.OrdinalIgnoreCase);
+        long? activeId = SelectedPlaylistForDetail?.Id;
+        foreach (var p in Playlists.Playlists)
+        {
+            p.IsSelectedInSidebar = inPlaylistDetail && activeId.HasValue && p.Id == activeId.Value;
+        }
+    }
+
     [ObservableProperty]
     private string _searchQuery = string.Empty;
 
@@ -64,6 +86,10 @@ public partial class MainViewModel : ObservableObject
 
     [ObservableProperty]
     private bool _isMobileLayout = false;
+
+    /// <summary>Modo compacto del minireproductor (pantallas pequeñas / ventana estrecha).</summary>
+    [ObservableProperty]
+    private bool _isMiniPlayerCompact = false;
 
     [ObservableProperty]
     private bool _isQueueDrawerOpen;
@@ -167,6 +193,7 @@ public partial class MainViewModel : ObservableObject
         Settings = new SettingsViewModel();
         Search = new SearchViewModel();
         OsuLibrary = new OsuLibraryViewModel();
+        Favorites = new FavoritesViewModel();
 
         _playbackTimer = new DispatcherTimer(DispatcherPriority.Render, Application.Current?.Dispatcher ?? Dispatcher.CurrentDispatcher)
         {
@@ -218,9 +245,30 @@ public partial class MainViewModel : ObservableObject
         {
             if (t != null)
             {
+                SyncOsuTrackMetadata(t);
                 ForceUiPlaybackUpdate(t, _audio.IsPlaying);
             }
+            else
+            {
+                ClearPlaybackUi();
+            }
             _ = SavePlaybackStateAsync();
+        };
+
+        // Cuando la biblioteca de osu! termina de cargar (p. ej. al iniciar), actualizar los datos
+        // esenciales (título, artista, etc.) de las pistas osu! que ya estén en la cola o en reproducción.
+        Services.Library.OsuLibraryService.Instance.LibraryUpdated += () =>
+        {
+            var disp = Application.Current?.Dispatcher;
+            if (disp == null) return;
+            disp.InvokeAsync(() =>
+            {
+                foreach (var qt in _audio.Queue.ToList())
+                    SyncOsuTrackMetadata(qt);
+                var cur = _audio.CurrentTrack;
+                if (cur != null)
+                    ForceUiPlaybackUpdate(cur, _audio.IsPlaying);
+            });
         };
 
         _audio.PlaybackStateChanged += (s, state) =>
@@ -265,7 +313,9 @@ public partial class MainViewModel : ObservableObject
         AlbumModel? AlbumDetail,
         Playlist? PlaylistDetail,
         ArtistModel? OsuArtistDetail,
-        AlbumModel? OsuAlbumDetail
+        AlbumModel? OsuAlbumDetail,
+        ArtistModel? FavArtistDetail,
+        AlbumModel? FavAlbumDetail
     );
 
     private readonly Stack<NavigationStateEntry> _navigationHistory = new();
@@ -287,7 +337,9 @@ public partial class MainViewModel : ObservableObject
             MyMusic.SelectedAlbumDetail,
             SelectedPlaylistForDetail,
             OsuLibrary.SelectedArtistDetail,
-            OsuLibrary.SelectedAlbumDetail
+            OsuLibrary.SelectedAlbumDetail,
+            Favorites.SelectedArtistDetail,
+            Favorites.SelectedAlbumDetail
         );
 
         if (_navigationHistory.Count == 0 || !_navigationHistory.Peek().Equals(entry))
@@ -308,7 +360,9 @@ public partial class MainViewModel : ObservableObject
             MyMusic.SelectedAlbumDetail,
             SelectedPlaylistForDetail,
             OsuLibrary.SelectedArtistDetail,
-            OsuLibrary.SelectedAlbumDetail
+            OsuLibrary.SelectedAlbumDetail,
+            Favorites.SelectedArtistDetail,
+            Favorites.SelectedAlbumDetail
         );
 
         if (_navigationHistory.Count == 0 || !_navigationHistory.Peek().Equals(entry))
@@ -359,6 +413,8 @@ public partial class MainViewModel : ObservableObject
                 MyMusic.SelectedArtistDetail = null;
                 OsuLibrary.SelectedAlbumDetail = null;
                 OsuLibrary.SelectedArtistDetail = null;
+                Favorites.SelectedAlbumDetail = null;
+                Favorites.SelectedArtistDetail = null;
                 ClearNavigationHistory();
                 _ = Home.LoadHomeDataAsync();
                 return;
@@ -378,6 +434,11 @@ public partial class MainViewModel : ObservableObject
                 OsuLibrary.SelectedArtistDetail = prev.OsuArtistDetail;
                 OsuLibrary.SelectedAlbumDetail = prev.OsuAlbumDetail;
             }
+            else if (prev.ViewName == "Favorites")
+            {
+                Favorites.SelectedArtistDetail = prev.FavArtistDetail;
+                Favorites.SelectedAlbumDetail = prev.FavAlbumDetail;
+            }
             else
             {
                 if (prev.ViewName == "PlaylistDetail" && prev.PlaylistDetail != null)
@@ -392,6 +453,77 @@ public partial class MainViewModel : ObservableObject
         {
             _isRestoringNavigation = false;
         }
+    }
+
+    /// <summary>
+    /// Limpia minireproductor y reproductor en curso cuando la cola terminó (la cola se conserva).
+    /// </summary>
+    private void ClearPlaybackUi()
+    {
+        var app = Application.Current;
+        if (app == null) return;
+
+        Action clear = () =>
+        {
+            _albumFetchCts?.Cancel();
+            _albumFetchCts?.Dispose();
+            _albumFetchCts = null;
+
+            _lastHighResArtTrack?.ReleaseArtFromMemory();
+            _lastHighResArtTrack = null;
+
+            NowPlaying.IsFetchingAlbum = false;
+            NowPlaying.IsAlbumNotFound = false;
+            NowPlaying.CurrentTrack = null;
+            NowPlaying.CurrentPositionSeconds = 0;
+            NowPlaying.CurrentTimeText = "0:00";
+
+            ForceUiPlaybackUpdate(null, false);
+            OnPropertyChanged(nameof(CurrentTrack));
+        };
+
+        if (app.Dispatcher.CheckAccess())
+            clear();
+        else
+            app.Dispatcher.InvokeAsync(clear);
+    }
+
+    /// <summary>
+    /// Si la pista pertenece a la biblioteca de osu!, copia sus datos esenciales (título, artista, carátula, vídeo, etc.)
+    /// para evitar que se muestren los metadatos vacíos del archivo de audio.
+    /// </summary>
+    private void SyncOsuTrackMetadata(Track target)
+    {
+        try
+        {
+            var osu = Services.Library.OsuLibraryService.Instance;
+            if (!osu.IsLoaded || string.IsNullOrEmpty(target.FilePath)) return;
+
+            var src = osu.Tracks.FirstOrDefault(o => string.Equals(o.FilePath, target.FilePath, StringComparison.OrdinalIgnoreCase));
+            if (src == null || ReferenceEquals(src, target)) return;
+
+            target.Title = src.Title;
+            target.Artist = src.Artist;
+            target.AlbumArtist = src.AlbumArtist;
+            target.Genre = src.Genre;
+            if (string.IsNullOrWhiteSpace(target.Album) || string.Equals(target.Album, "Unknown Album", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(target.Album, "osu! Beatmaps", StringComparison.OrdinalIgnoreCase))
+            {
+                target.Album = src.Album;
+            }
+            if (src.Duration > TimeSpan.Zero) target.Duration = src.Duration;
+            target.ArtworkPath = src.ArtworkPath;
+            target.VideoPath = src.VideoPath;
+            target.VideoOffsetMs = src.VideoOffsetMs;
+            target.OsuSource = src.OsuSource;
+            target.OsuArtistRoumaji = src.OsuArtistRoumaji;
+            target.OsuTitleRoumaji = src.OsuTitleRoumaji;
+            target.OsuArtistUnicode = src.OsuArtistUnicode;
+            target.OsuTitleUnicode = src.OsuTitleUnicode;
+            target.FirstLetterGroup = src.FirstLetterGroup;
+            if (target.AlbumArtData == null && src.AlbumArtData != null) target.AlbumArtData = src.AlbumArtData;
+        }
+        catch { }
     }
 
     public void ForceUiPlaybackUpdate(Track? currentTrack, bool isPlaying)
@@ -413,6 +545,7 @@ public partial class MainViewModel : ObservableObject
                 }
                 _lastHighResArtTrack = currentTrack;
 
+                Favoritos.Instance.SyncTracksFavoriteState(new[] { currentTrack });
                 NowPlaying.CurrentTrack = currentTrack;
                 OnPropertyChanged(nameof(CurrentTrack));
                 NowPlaying.Title = string.IsNullOrWhiteSpace(currentTrack.Title) ? "Canción desconocida" : currentTrack.Title;
@@ -433,6 +566,7 @@ public partial class MainViewModel : ObservableObject
                     NowPlaying.Album = fallbackAlbum;
                     NowPlaying.ArtistAndAlbum = $"{NowPlaying.Artist} • {fallbackAlbum}";
                     NowPlaying.IsFetchingAlbum = true;
+                    NowPlaying.IsAlbumNotFound = false;
 
                     var cts = new CancellationTokenSource();
                     _albumFetchCts = cts;
@@ -462,6 +596,20 @@ public partial class MainViewModel : ObservableObject
                             if (!string.IsNullOrWhiteSpace(info.AlbumTitle))
                             {
                                 currentTrack.Album = info.AlbumTitle;
+
+                                // Cache online cover art if available so disk cache has it
+                                if (!string.IsNullOrWhiteSpace(info.AlbumCoverUrl))
+                                {
+                                    _ = Task.Run(async () =>
+                                    {
+                                        string? cachedCover = await Services.Online.LastFmService.Instance.DownloadAndCacheAlbumCoverAsync(currentTrack.Artist, info.AlbumTitle, info.AlbumCoverUrl);
+                                        if (!string.IsNullOrEmpty(cachedCover) && string.IsNullOrEmpty(currentTrack.ArtworkPath))
+                                        {
+                                            currentTrack.ArtworkPath = cachedCover;
+                                        }
+                                    });
+                                }
+
                                 var disp = App.Current?.Dispatcher;
                                 if (disp != null)
                                 {
@@ -472,6 +620,7 @@ public partial class MainViewModel : ObservableObject
                                             NowPlaying.Album = info.AlbumTitle;
                                             NowPlaying.ArtistAndAlbum = currentTrack.ArtistAndAlbum;
                                             NowPlaying.IsFetchingAlbum = false;
+                                            NowPlaying.IsAlbumNotFound = false;
                                         }
                                     });
                                 }
@@ -485,6 +634,7 @@ public partial class MainViewModel : ObservableObject
                                     if (ReferenceEquals(NowPlaying.CurrentTrack, currentTrack))
                                     {
                                         NowPlaying.IsFetchingAlbum = false;
+                                        NowPlaying.IsAlbumNotFound = true;
                                     }
                                 });
                             }
@@ -497,6 +647,7 @@ public partial class MainViewModel : ObservableObject
                                 if (ReferenceEquals(NowPlaying.CurrentTrack, currentTrack))
                                 {
                                     NowPlaying.IsFetchingAlbum = false;
+                                    NowPlaying.IsAlbumNotFound = true;
                                 }
                             });
                         }
@@ -563,17 +714,23 @@ public partial class MainViewModel : ObservableObject
             app.Dispatcher.InvokeAsync(update);
     }
 
+    private CancellationTokenSource? _toastDismissCts;
+
     private void OnNotificationRaised(object? sender, (string Title, string Message, bool IsWarning) e)
     {
-        NotificationTitle = e.Title;
-        NotificationMessage = e.Message;
-        IsNotificationWarning = e.IsWarning;
-        IsNotificationVisible = true;
+        var disp = Application.Current?.Dispatcher;
+        if (disp != null && !disp.CheckAccess())
+        {
+            disp.InvokeAsync(() => ShowToast(e.Title, e.Message, e.IsWarning, 3000));
+            return;
+        }
+        ShowToast(e.Title, e.Message, e.IsWarning, 3000);
     }
 
     [RelayCommand]
     private void DismissNotification()
     {
+        _toastDismissCts?.Cancel();
         IsNotificationVisible = false;
     }
 
@@ -651,6 +808,22 @@ public partial class MainViewModel : ObservableObject
                 OsuLibrary.RefreshData();
             }
             System.Diagnostics.Debug.WriteLine($"[PERF] NavigateTo(OsuLibrary) ViewModel step: {swStep.Elapsed.TotalMilliseconds:F1} ms");
+        }
+        else if (viewName == "Favorites")
+        {
+            Favorites.SelectedArtistDetail = null;
+            Favorites.SelectedAlbumDetail = null;
+            Favorites.RefreshData();
+        }
+        else if (viewName == "UserPlaylists")
+        {
+            foreach (var p in Playlists.Playlists)
+            {
+                if (!p.HasCoverImage)
+                {
+                    p.RefreshCoverImage();
+                }
+            }
         }
 
         var dispatcher = System.Windows.Application.Current?.Dispatcher;
@@ -1083,6 +1256,8 @@ public partial class MainViewModel : ObservableObject
     {
         // 1. Load pre-indexed Songs, Albums, Artists, and Search instantaneously from %LocalAppData%\BenyComes\IndexDB\
         await _cache.InitializeAsync();
+        await Favoritos.Instance.InitializeAndMigrateAsync();
+        Favorites.RefreshData();
 
         // 2. Populate UI views immediately so Artists, Albums, Songs, and Home appear with 0ms perceived latency
         await MyMusic.RefreshDataAsync();
@@ -1252,23 +1427,40 @@ public partial class MainViewModel : ObservableObject
         var album = _cache.CachedAlbums.FirstOrDefault(a => a.Name.Equals(albumName, StringComparison.OrdinalIgnoreCase))
                  ?? _cache.CachedAlbums.FirstOrDefault(a => a.Name.Contains(albumName, StringComparison.OrdinalIgnoreCase));
 
+        if (album == null)
+        {
+            var matchingTracks = _cache.CachedTracks
+                .Where(t => string.Equals(t.Album, albumName, StringComparison.OrdinalIgnoreCase))
+                .OrderBy(t => t.TrackNumber == 0 ? uint.MaxValue : t.TrackNumber)
+                .ThenBy(t => t.Title, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (matchingTracks.Count > 0)
+            {
+                var first = matchingTracks[0];
+                album = new AlbumModel
+                {
+                    Name = first.Album,
+                    Artist = !string.IsNullOrWhiteSpace(first.AlbumArtist) ? first.AlbumArtist : first.Artist,
+                    Year = matchingTracks.Max(t => t.Year),
+                    Genre = first.Genre,
+                    ArtworkPath = first.ArtworkPath,
+                    Tracks = matchingTracks,
+                    PersistedTrackCount = matchingTracks.Count
+                };
+            }
+        }
+
         _isRestoringNavigation = true;
         try
         {
             CurrentView = "MyMusic";
             IsNowPlayingActive = false;
+            MyMusic.SelectedArtistDetail = null;
             MyMusic.SelectedTabIndex = 2; // Álbumes
             if (album != null)
             {
-                if (album.Tracks.Count == 0)
-                {
-                    album.Tracks = _cache.CachedTracks
-                        .Where(t => string.Equals(t.Album, album.Name, StringComparison.OrdinalIgnoreCase))
-                        .OrderBy(t => t.TrackNumber == 0 ? uint.MaxValue : t.TrackNumber)
-                        .ThenBy(t => t.Title, StringComparer.OrdinalIgnoreCase)
-                        .ToList();
-                }
-                MyMusic.SelectedAlbumDetail = album;
+                MyMusic.OpenAlbumDetail(album);
             }
             UpdateCanGoBack();
         }
@@ -1341,15 +1533,34 @@ public partial class MainViewModel : ObservableObject
     }
 
     [RelayCommand]
-    public async Task ToggleFavoriteAsync(Track? track)
+    public async Task ToggleFavoriteAsync(object? parameter)
     {
+        var track = parameter as Track
+                 ?? SelectedTrackForContext
+                 ?? NowPlaying.CurrentTrack
+                 ?? _audio.CurrentTrack;
         if (track == null) return;
-        track.IsFavorite = !track.IsFavorite;
-        await _libraryDao.SetTrackFavoriteAsync(track.Id, track.IsFavorite);
+        bool isFav = await Favoritos.Instance.ToggleFavoriteAsync(track);
+        OnPropertyChanged(nameof(CurrentTrack));
         await Home.LoadHomeDataAsync();
         OnNotificationRaised(this, (
-            track.IsFavorite ? "Añadida a Favoritos" : "Eliminada de Favoritos",
-            $"\"{track.Title}\" {(track.IsFavorite ? "marcada con ♥" : "removida de favoritos")}.",
+            isFav ? "Añadida a Favoritos" : "Eliminada de Favoritos",
+            $"\"{track.Title}\" {(isFav ? "marcada con ♥" : "removida de favoritos")}.",
+            false
+        ));
+    }
+
+    [RelayCommand]
+    public async Task ToggleCurrentTrackFavoriteAsync()
+    {
+        var track = NowPlaying.CurrentTrack ?? _audio.CurrentTrack;
+        if (track == null) return;
+        bool isFav = await Favoritos.Instance.ToggleFavoriteAsync(track);
+        OnPropertyChanged(nameof(CurrentTrack));
+        await Home.LoadHomeDataAsync();
+        OnNotificationRaised(this, (
+            isFav ? "Añadida a Favoritos" : "Eliminada de Favoritos",
+            $"\"{track.Title}\" {(isFav ? "marcada con ♥" : "removida de favoritos")}.",
             false
         ));
     }
@@ -1398,6 +1609,11 @@ public partial class MainViewModel : ObservableObject
 
     public async Task CheckAndAddTrackToPlaylistAsync(Track track, Playlist playlist)
     {
+        if (track.Id <= 0)
+        {
+            await _libraryDao.InsertOrUpdateTrackAsync(track);
+        }
+
         int count = await PlaylistDao.Instance.GetTrackCountInPlaylistAsync(playlist.Id, track.Id);
         if (count > 0)
         {
@@ -1410,6 +1626,12 @@ public partial class MainViewModel : ObservableObject
         {
             await PlaylistDao.Instance.AddTrackToPlaylistAsync(playlist.Id, track.Id);
             playlist.TrackCount++;
+            playlist.FirstTrackFilePath ??= track.FilePath;
+            playlist.FirstTrackArtworkPath ??= track.ArtworkPath;
+            if (!playlist.HasCoverImage)
+            {
+                playlist.RefreshCoverImage();
+            }
             if (SelectedPlaylistForDetail?.Id == playlist.Id)
             {
                 track.AlbumArtImage = MetadataService.Instance.GetAlbumArtImage(track);
@@ -1453,21 +1675,55 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private string _newPlaylistDialogName = string.Empty;
 
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasPendingTrackForNewPlaylist))]
     private Track? _pendingTrackForNewPlaylist;
+
+    public bool HasPendingTrackForNewPlaylist => PendingTrackForNewPlaylist != null;
 
     [RelayCommand]
     public void OpenCreatePlaylistDialog(Track? track)
     {
-        _pendingTrackForNewPlaylist = track ?? SelectedTrackForContext ?? AudioPlayerService.Instance.CurrentTrack;
+        // Solo adjuntar pista cuando se pasa explícitamente (evita agregar por accidente la primera pista en pausa como #1f1e33)
+        PendingTrackForNewPlaylist = track;
         NewPlaylistDialogName = $"Mi Lista {Playlists.Playlists.Count + 1}";
         IsNewPlaylistDialogVisible = true;
+    }
+
+    [RelayCommand]
+    public void CreatePlaylistWithCurrentTrack()
+    {
+        var current = CurrentTrack;
+        if (current == null)
+        {
+            ShowToast("Lista de reproducción", "No hay ninguna canción sonando o cargada actualmente.", true, 3000);
+            return;
+        }
+        PendingTrackForNewPlaylist = current;
+        NewPlaylistDialogName = !string.IsNullOrWhiteSpace(current.Title)
+            ? $"Mix: {current.Title}"
+            : $"Mi Lista {Playlists.Playlists.Count + 1}";
+        IsNewPlaylistDialogVisible = true;
+    }
+
+    [RelayCommand]
+    public void ToggleIncludeCurrentTrackInNewPlaylist()
+    {
+        if (PendingTrackForNewPlaylist != null)
+        {
+            PendingTrackForNewPlaylist = null;
+        }
+        else if (CurrentTrack != null)
+        {
+            PendingTrackForNewPlaylist = CurrentTrack;
+        }
     }
 
     [RelayCommand]
     public void CancelNewPlaylistDialog()
     {
         IsNewPlaylistDialogVisible = false;
-        _pendingTrackForNewPlaylist = null;
+        PendingTrackForNewPlaylist = null;
     }
 
     [RelayCommand]
@@ -1477,19 +1733,20 @@ public partial class MainViewModel : ObservableObject
         string name = NewPlaylistDialogName.Trim();
         IsNewPlaylistDialogVisible = false;
 
-        var tracksToAdd = _pendingTrackForNewPlaylist != null ? new[] { _pendingTrackForNewPlaylist } : null;
+        var trackToInclude = PendingTrackForNewPlaylist;
+        var tracksToAdd = trackToInclude != null ? new[] { trackToInclude } : null;
         var created = await PlaylistDao.Instance.CreatePlaylistAsync(name, tracksToAdd);
         Playlists.Playlists.Add(created);
 
-        if (_pendingTrackForNewPlaylist != null)
+        if (trackToInclude != null)
         {
-            ShowToast("Lista de reproducción", $"Lista \"{name}\" creada con \"{_pendingTrackForNewPlaylist.Title}\".", false, 3000);
+            ShowToast("Lista de reproducción", $"Lista \"{name}\" creada con \"{trackToInclude.Title}\".", false, 3000);
         }
         else
         {
             ShowToast("Lista de reproducción", $"Lista \"{name}\" creada.", false, 3000);
         }
-        _pendingTrackForNewPlaylist = null;
+        PendingTrackForNewPlaylist = null;
         await OpenPlaylistDetailAsync(created);
     }
 
@@ -1497,47 +1754,87 @@ public partial class MainViewModel : ObservableObject
     public async Task CreateSuggestedPlaylistAsync(string? suggestionType)
     {
         string name;
-        List<Track>? tracks = null;
+        var allPool = new List<Track>();
+        if (_cache.CachedTracks.Count > 0)
+            allPool.AddRange(_cache.CachedTracks);
+        if (OsuLibrary.Songs.Count > 0)
+            allPool.AddRange(OsuLibrary.Songs);
+
+        List<Track> tracks;
 
         if (suggestionType == "Favorites")
         {
             name = "Mis Favoritas";
-            tracks = await _libraryDao.GetFavoriteTracksAsync();
+            tracks = Favoritos.Instance.GetAllFavoriteTracks();
             if (tracks.Count == 0)
             {
-                // Si aún no tiene favoritas marcadas, tomamos hasta 15 canciones de la biblioteca
-                tracks = MyMusic.Songs.Take(15).ToList();
+                tracks = await _libraryDao.GetFavoriteTracksAsync();
             }
+            if (tracks.Count == 0)
+            {
+                tracks = allPool.OrderBy(_ => Guid.NewGuid()).Take(15).ToList();
+            }
+        }
+        else if (suggestionType == "CurrentTrackMix")
+        {
+            var cur = CurrentTrack;
+            if (cur != null)
+            {
+                name = $"Radio: {cur.Title}";
+                var related = allPool
+                    .Where(t => !string.Equals(t.FilePath, cur.FilePath, StringComparison.OrdinalIgnoreCase))
+                    .OrderByDescending(t =>
+                        (string.Equals(t.Artist, cur.Artist, StringComparison.OrdinalIgnoreCase) ? 3 : 0) +
+                        (!string.IsNullOrWhiteSpace(cur.Genre) && string.Equals(t.Genre, cur.Genre, StringComparison.OrdinalIgnoreCase) ? 1 : 0))
+                    .ThenBy(_ => Guid.NewGuid())
+                    .Take(14)
+                    .ToList();
+                tracks = new List<Track> { cur };
+                tracks.AddRange(related);
+            }
+            else
+            {
+                name = $"Mix Recomendado {Playlists.Playlists.Count + 1}";
+                tracks = allPool.OrderBy(_ => Guid.NewGuid()).Take(15).ToList();
+            }
+        }
+        else if (suggestionType == "Recommended")
+        {
+            name = $"Mix Recomendado {Playlists.Playlists.Count + 1}";
+            var favs = Favoritos.Instance.GetAllFavoriteTracks();
+            var favArtists = favs
+                .Where(t => !string.IsNullOrWhiteSpace(t.Artist))
+                .Select(t => t.Artist)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            tracks = allPool
+                .OrderByDescending(t => (favArtists.Contains(t.Artist) ? 2 : 0) + (t.PlayCount > 0 ? 1 : 0))
+                .ThenBy(_ => Guid.NewGuid())
+                .Take(20)
+                .ToList();
         }
         else if (suggestionType == "Chill")
         {
             name = "Relax & Chill";
-            tracks = MyMusic.Songs.Take(10).ToList();
+            tracks = allPool.OrderBy(_ => Guid.NewGuid()).Take(12).ToList();
         }
         else
         {
             name = $"Mi Lista {Playlists.Playlists.Count + 1}";
-            tracks = MyMusic.Songs.Take(10).ToList();
+            tracks = allPool.OrderBy(_ => Guid.NewGuid()).Take(12).ToList();
         }
 
         var created = await PlaylistDao.Instance.CreatePlaylistAsync(name, tracks);
         Playlists.Playlists.Add(created);
-        ShowToast("Lista de reproducción", $"Lista sugerida \"{name}\" creada.", false, 3000);
+        ShowToast("Lista de reproducción", $"Lista recomendada \"{name}\" creada ({tracks.Count} pistas).", false, 3000);
         await OpenPlaylistDetailAsync(created);
     }
 
     [RelayCommand]
-    public async Task NavigateToPlaylistsViewAsync()
+    public void NavigateToPlaylistsView()
     {
-        if (Playlists.Playlists.Count > 0)
-        {
-            var target = SelectedPlaylistForDetail ?? Playlists.Playlists[0];
-            await OpenPlaylistDetailAsync(target);
-        }
-        else
-        {
-            OpenCreatePlaylistDialog(null);
-        }
+        NavigateTo("UserPlaylists");
     }
 
     // Edit Playlist Modal Dialog
@@ -1811,18 +2108,12 @@ public partial class MainViewModel : ObservableObject
         await PlaylistDao.Instance.DeletePlaylistAsync(playlist.Id);
         Playlists.Playlists.Remove(playlist);
 
-        if (Playlists.Playlists.Count > 0)
-        {
-            int newIndex = Math.Clamp(oldIndex, 0, Playlists.Playlists.Count - 1);
-            var adjacentPlaylist = Playlists.Playlists[newIndex];
-            await OpenPlaylistDetailAsync(adjacentPlaylist);
-        }
-        else
+        if (CurrentView == "PlaylistDetail" && SelectedPlaylistForDetail?.Id == playlist.Id)
         {
             SelectedPlaylistForDetail = null;
-            NavigateTo("Home");
-            ShowToast("Listas de reproducción", "No hay listas de reproducción restantes", false, 3000);
+            NavigateTo("UserPlaylists");
         }
+        ShowToast("Listas de reproducción", $"Lista \"{playlist.Name}\" eliminada.", false, 3000);
     }
 
     [RelayCommand]
@@ -1887,17 +2178,27 @@ public partial class MainViewModel : ObservableObject
 
     public async void ShowToast(string title, string message, bool isWarning = false, int durationMs = 3000)
     {
+        _toastDismissCts?.Cancel();
+        _toastDismissCts?.Dispose();
+        var cts = new CancellationTokenSource();
+        _toastDismissCts = cts;
+
         NotificationTitle = title;
         NotificationMessage = message;
         IsNotificationWarning = isWarning;
         IsNotificationVisible = true;
+
         if (durationMs > 0)
         {
-            await Task.Delay(durationMs);
-            if (NotificationTitle == title && NotificationMessage == message)
+            try
             {
-                IsNotificationVisible = false;
+                await Task.Delay(durationMs, cts.Token);
+                if (!cts.Token.IsCancellationRequested)
+                {
+                    IsNotificationVisible = false;
+                }
             }
+            catch (OperationCanceledException) { }
         }
     }
 

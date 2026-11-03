@@ -200,6 +200,7 @@ public partial class App : Application
     }
 
     private int _exceptionCount = 0;
+    private bool _isShowingErrorDialog = false;
 
     private void OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
     {
@@ -207,10 +208,24 @@ public partial class App : Application
         Services.Diagnostics.DiagnosticLoggerService.Instance.LogCrash(e.Exception, "DispatcherUnhandledException");
         _exceptionCount++;
 
+        if (_isShowingErrorDialog)
+        {
+            e.Handled = true;
+            return;
+        }
+
         if (_exceptionCount > 3 || e.Exception is System.Windows.Markup.XamlParseException)
         {
-            MessageBox.Show($"Ocurrió un error en la interfaz:\n\n{e.Exception.Message}\n\nRevisa el log detallado en %LOCALAPPDATA%\\BenyComes\\Logs\\", "BenyComes Error", MessageBoxButton.OK, MessageBoxImage.Error);
-            e.Handled = false;
+            _isShowingErrorDialog = true;
+            try
+            {
+                MessageBox.Show($"Ocurrió un error en la interfaz:\n\n{e.Exception.Message}\n\nRevisa el log detallado en %LOCALAPPDATA%\\BenyComes\\Logs\\", "BenyComes Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                _isShowingErrorDialog = false;
+            }
+            e.Handled = true;
             return;
         }
 

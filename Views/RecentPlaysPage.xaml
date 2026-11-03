@@ -5,6 +5,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
              xmlns:models="clr-namespace:BenyComes.Models"
+             xmlns:vm="clr-namespace:BenyComes.ViewModels"
              mc:Ignorable="d" 
              d:DesignHeight="700" d:DesignWidth="900">
 
@@ -54,14 +55,14 @@
                             <Border.ContextMenu>
                                 <ContextMenu>
                                     <MenuItem Header="Reproducir álbum"
-                                              Command="{Binding DataContext.PlayAlbumCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                              Command="{Binding PlayAlbumCommand, Source={x:Static vm:MainViewModel.Instance}}"
                                               CommandParameter="{Binding}">
                                         <MenuItem.Icon>
                                             <ui:SymbolIcon Symbol="Play24" />
                                         </MenuItem.Icon>
                                     </MenuItem>
                                     <MenuItem Header="Agregar a la cola de reproducción"
-                                              Command="{Binding DataContext.RecentPlays.AddAlbumToQueueCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                              Command="{Binding RecentPlays.AddAlbumToQueueCommand, Source={x:Static vm:MainViewModel.Instance}}"
                                               CommandParameter="{Binding}">
                                         <MenuItem.Icon>
                                             <ui:SymbolIcon Symbol="Add24" />
@@ -69,7 +70,7 @@
                                     </MenuItem>
                                     <Separator />
                                     <MenuItem Header="Ir a álbum"
-                                              Command="{Binding DataContext.NavigateToAlbumCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                              Command="{Binding NavigateToAlbumCommand, Source={x:Static vm:MainViewModel.Instance}}"
                                               CommandParameter="{Binding Name}">
                                         <MenuItem.Icon>
                                             <ui:SymbolIcon Symbol="Album24" />
@@ -86,7 +87,7 @@
                                 <Grid Width="150" Height="150" Margin="0,0,0,8" HorizontalAlignment="Center">
                                     <!-- Cover Image -->
                                     <Border CornerRadius="6" ClipToBounds="True" Background="#1F1F28">
-                                        <Image Source="{Binding CoverImageSource}" Stretch="UniformToFill" RenderOptions.BitmapScalingMode="HighQuality" />
+                                        <Image Source="{Binding CoverImageSource}" Stretch="UniformToFill" HorizontalAlignment="Center" VerticalAlignment="Center" RenderOptions.BitmapScalingMode="HighQuality" />
                                     </Border>
 
                                     <!-- Hover Overlay with Fade-In -->
@@ -207,6 +208,7 @@
                       PreviewMouseWheel="OnListViewPreviewMouseWheel"
                       MouseDoubleClick="OnTrackItemDoubleClick"
                       Background="Transparent" BorderThickness="0"
+                      AlternationCount="2"
                       ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                 <ListView.ItemContainerStyle>
                     <Style TargetType="ListViewItem">
@@ -215,8 +217,9 @@
                         <Setter Property="FocusVisualStyle" Value="{x:Null}" />
                         <Setter Property="Background" Value="Transparent" />
                         <Setter Property="Padding" Value="0" />
-                        <Setter Property="Margin" Value="0,2" />
+                        <Setter Property="Margin" Value="0,1.5" />
                         <Setter Property="BorderThickness" Value="0" />
+                        <Setter Property="ContextMenu" Value="{DynamicResource TrackContextMenu}" />
                         <Setter Property="Template">
                             <Setter.Value>
                                 <ControlTemplate TargetType="ListViewItem">
@@ -234,6 +237,12 @@
                                 </ControlTemplate>
                             </Setter.Value>
                         </Setter>
+                        <Style.Triggers>
+                            <!-- Zebra Striping -->
+                            <Trigger Property="ItemsControl.AlternationIndex" Value="1">
+                                <Setter Property="Background" Value="{DynamicResource TableRowAlternateBrush}" />
+                            </Trigger>
+                        </Style.Triggers>
                     </Style>
                 </ListView.ItemContainerStyle>
                 <ListView.ItemTemplate>
@@ -248,7 +257,7 @@
                             <!-- Col 0: 40x40 Album Art with Play Button -->
                             <Grid Grid.Column="0" Width="40" Height="40" HorizontalAlignment="Left" VerticalAlignment="Center">
                                 <Border CornerRadius="6" ClipToBounds="True" Background="#1C1C26">
-                                    <Image Source="{Binding CoverImageSource}" Stretch="UniformToFill" RenderOptions.BitmapScalingMode="HighQuality" />
+                                    <Image Source="{Binding CoverImageSource}" Stretch="UniformToFill" HorizontalAlignment="Center" VerticalAlignment="Center" RenderOptions.BitmapScalingMode="HighQuality" />
                                 </Border>
                                 <Button x:Name="HoverPlayButton"
                                         Background="#99000000" BorderThickness="0"
@@ -273,9 +282,36 @@
                                            Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" Margin="0,2,0,0" />
                             </StackPanel>
 
-                            <!-- Col 2: Duration -->
-                            <TextBlock Grid.Column="2" Text="{Binding DurationFormatted}" FontSize="12"
-                                       Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,6,0" />
+                            <!-- Col 2: Favorite ♥ + Duration -->
+                            <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,6,0">
+                                <Button Width="28" Height="28" Padding="0" Margin="0,0,8,0"
+                                        Background="Transparent" BorderThickness="0" Cursor="Hand"
+                                        ToolTip="Agregar o quitar de Favoritos"
+                                        Command="{Binding DataContext.ToggleFavoriteCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                        CommandParameter="{Binding}">
+                                    <Button.Template>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border x:Name="FavBdr" CornerRadius="6" Background="Transparent">
+                                                <ui:SymbolIcon x:Name="FavIcon" Symbol="Heart24" FontSize="14"
+                                                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                               Foreground="{DynamicResource TextTertiaryBrush}" />
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="FavBdr" Property="Background" Value="{DynamicResource SurfaceCardHoverBrush}" />
+                                                </Trigger>
+                                                <DataTrigger Binding="{Binding IsFavorite}" Value="True">
+                                                    <Setter TargetName="FavIcon" Property="Filled" Value="True" />
+                                                    <Setter TargetName="FavIcon" Property="Foreground" Value="#FFE81123" />
+                                                </DataTrigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Button.Template>
+                                </Button>
+
+                                <TextBlock Text="{Binding DurationFormatted}" FontSize="12"
+                                           Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
+                            </StackPanel>
                         </Grid>
                         <DataTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">

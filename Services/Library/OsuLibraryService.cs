@@ -31,9 +31,11 @@ public class OsuLibraryService
 
     private readonly List<Track> _osuTracks = new();
     private readonly List<ArtistModel> _osuArtists = new();
+    private readonly List<DoubtfulArtistPair> _doubtfulArtists = new();
 
     public IReadOnlyList<Track> Tracks => _osuTracks;
     public IReadOnlyList<ArtistModel> Artists => _osuArtists;
+    public IReadOnlyList<DoubtfulArtistPair> DoubtfulArtists => _doubtfulArtists;
 
     public bool IsLoaded { get; private set; }
     public bool PreferUnicodeMetadata { get; set; } = false;
@@ -184,6 +186,7 @@ public class OsuLibraryService
 
         _osuTracks.Clear();
         _osuTracks.AddRange(tracks);
+        Data.Favoritos.Instance.SyncTracksFavoriteState(_osuTracks);
 
         RebuildArtistsFromTracks();
 
@@ -210,22 +213,166 @@ public class OsuLibraryService
 
     private void RebuildArtistsFromTracks()
     {
-        var artistTracksMap = new Dictionary<string, List<Track>>(StringComparer.OrdinalIgnoreCase);
-        var artistCanonicalName = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var aliasService = OsuArtistAliasService.Instance;
+        aliasService.Load();
+
+        // 1. Apply ArtistSplitterService before unifying and collect (Unicode/Artist, Romaji) pairs
+        var perTrackPairs = new List<List<(string UnicodeOrDisplay, string Romaji)>>(_osuTracks.Count);
+        var distinctPairTrackCounts = new Dictionary<string, (string Unicode, string Romaji, int Count)>(StringComparer.OrdinalIgnoreCase);
+        var unicodeToRomajis = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
+        var romajiToUnicodes = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var t in _osuTracks)
         {
-            var splitNames = SplitOsuTrackArtists(t);
+            var pairs = ExtractSplitArtistPairs(t);
+            perTrackPairs.Add(pairs);
 
-            foreach (var name in splitNames)
+            foreach (var (u, r) in pairs)
             {
-                if (!artistTracksMap.TryGetValue(name, out var list))
+                if (string.IsNullOrWhiteSpace(u) || string.IsNullOrWhiteSpace(r)) continue;
+                if (string.Equals(u, r, StringComparison.OrdinalIgnoreCase)) continue;
+                if (aliasService.IsRejected(u, r)) continue;
+
+                string key = OsuArtistAliasService.MakePairKey(u, r);
+                if (distinctPairTrackCounts.TryGetValue(key, out var existing))
                 {
-                    list = new List<Track>();
-                    artistTracksMap[name] = list;
-                    artistCanonicalName[name] = name;
+                    distinctPairTrackCounts[key] = (existing.Unicode, existing.Romaji, existing.Count + 1);
                 }
-                list.Add(t);
+                else
+                {
+                    distinctPairTrackCounts[key] = (u, r, 1);
+                }
+
+                if (!unicodeToRomajis.TryGetValue(u, out var rSet))
+                {
+                    rSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                    unicodeToRomajis[u] = rSet;
+                }
+                rSet.Add(r);
+
+                if (!romajiToUnicodes.TryGetValue(r, out var uSet))
+                {
+                    uSet = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                    romajiToUnicodes[r] = uSet;
+                }
+                uSet.Add(u);
+            }
+        }
+
+        // 2. Build active alias map (Unicode/alias -> Canonical Romaji) and detect doubtful pairs
+        var activeAliases = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        var canonicalAltNames = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
+        var doubtfulList = new List<DoubtfulArtistPair>();
+        bool newAliasesPersisted = false;
+
+        void RegisterAlias(string alias, string canonicalRomaji)
+        {
+            if (string.Equals(alias, canonicalRomaji, StringComparison.OrdinalIgnoreCase)) return;
+            activeAliases[alias] = canonicalRomaji;
+            if (!canonicalAltNames.TryGetValue(canonicalRomaji, out var alts))
+            {
+                alts = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                canonicalAltNames[canonicalRomaji] = alts;
+            }
+            alts.Add(alias);
+        }
+
+        foreach (var kv in distinctPairTrackCounts.Values)
+        {
+            string u = kv.Unicode;
+            string r = kv.Romaji;
+
+            // Check if already resolved by persisted alias
+            if (aliasService.TryGetCanonical(u, out var persistedCanonical))
+            {
+                RegisterAlias(u, persistedCanonical);
+                continue;
+            }
+
+            int rCountForU = unicodeToRomajis.TryGetValue(u, out var rSet) ? rSet.Count : 0;
+            int uCountForR = romajiToUnicodes.TryGetValue(r, out var uSet) ? uSet.Count : 0;
+
+            if (rCountForU == 1 && uCountForR == 1)
+            {
+                // Unambiguous 1-to-1 pair: unify under Romaji and persist
+                RegisterAlias(u, r);
+                aliasService.SetAlias(u, r, saveImmediately: false);
+                newAliasesPersisted = true;
+            }
+            else
+            {
+                // Doubtful pair: 1 Unicode with multiple Romajis or 1 Romaji with multiple Unicodes
+                string reason = rCountForU > 1
+                    ? $"'{u}' aparece con {rCountForU} nombres romaji ({string.Join(", ", unicodeToRomajis[u])})"
+                    : $"'{r}' aparece con {uCountForR} nombres unicode ({string.Join(", ", romajiToUnicodes[r])})";
+
+                doubtfulList.Add(new DoubtfulArtistPair
+                {
+                    UnicodeName = u,
+                    RomajiName = r,
+                    TrackCount = kv.Count,
+                    Reason = reason
+                });
+            }
+        }
+
+        if (newAliasesPersisted)
+        {
+            aliasService.Save();
+        }
+
+        // 3. Group tracks into ArtistModel using canonical Romaji name and AltNames
+        var artistTracksMap = new Dictionary<string, List<Track>>(StringComparer.OrdinalIgnoreCase);
+        var artistTrackIdsMap = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
+        var artistCanonicalName = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        void AddTrackToArtist(string artistName, Track track)
+        {
+            if (!artistTracksMap.TryGetValue(artistName, out var list))
+            {
+                list = new List<Track>();
+                artistTracksMap[artistName] = list;
+                artistTrackIdsMap[artistName] = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                artistCanonicalName[artistName] = artistName;
+            }
+            else if (HasNonAscii(artistCanonicalName[artistName]) && !HasNonAscii(artistName))
+            {
+                artistCanonicalName[artistName] = artistName;
+            }
+
+            if (artistTrackIdsMap[artistName].Add(track.FilePath))
+            {
+                list.Add(track);
+            }
+        }
+
+        for (int i = 0; i < _osuTracks.Count; i++)
+        {
+            var t = _osuTracks[i];
+            var pairs = perTrackPairs[i];
+
+            foreach (var (u, r) in pairs)
+            {
+                // Check persisted alias even for tracks where u == r (e.g. track only had Unicode in both fields)
+                if (activeAliases.TryGetValue(u, out var mappedFromU))
+                {
+                    AddTrackToArtist(mappedFromU, t);
+                }
+                else if (aliasService.TryGetCanonical(u, out var savedFromU))
+                {
+                    RegisterAlias(u, savedFromU);
+                    AddTrackToArtist(savedFromU, t);
+                }
+                else if (string.Equals(u, r, StringComparison.OrdinalIgnoreCase))
+                {
+                    AddTrackToArtist(r, t);
+                }
+                else
+                {
+                    // Uncombined (either rejected or doubtful): keep both separate until user decides
+                    AddTrackToArtist(r, t);
+                    AddTrackToArtist(u, t);
+                }
             }
         }
 
@@ -235,9 +382,14 @@ public class OsuLibraryService
             string artistName = artistCanonicalName[kvp.Key];
             var list = kvp.Value;
             var firstWithArt = list.FirstOrDefault(t => !string.IsNullOrEmpty(t.ArtworkPath));
+            var altNames = canonicalAltNames.TryGetValue(artistName, out var alts)
+                ? alts.OrderBy(a => a, StringComparer.CurrentCultureIgnoreCase).ToList()
+                : new List<string>();
+
             artistGroups.Add(new ArtistModel
             {
                 Name = artistName,
+                AltNames = altNames,
                 AlphaGroupKey = Helpers.AlphaGroupHelper.GetAlphaGroupKey(artistName),
                 AvatarPath = firstWithArt?.ArtworkPath,
                 Tracks = list,
@@ -249,43 +401,108 @@ public class OsuLibraryService
 
         _osuArtists.Clear();
         _osuArtists.AddRange(artistGroups);
+
+        _doubtfulArtists.Clear();
+        _doubtfulArtists.AddRange(doubtfulList);
+    }
+
+    private static bool HasNonAscii(string s)
+    {
+        for (int i = 0; i < s.Length; i++)
+        {
+            if (s[i] > 127) return true;
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Applies ArtistSplitterService to both Artist/OsuArtistUnicode and OsuArtistRoumaji before unification,
+    /// returning aligned (UnicodeOrDisplay, Romaji) pairs for the track.
+    /// </summary>
+    private static List<(string UnicodeOrDisplay, string Romaji)> ExtractSplitArtistPairs(Track t)
+    {
+        var splitter = ArtistSplitterService.Instance;
+
+        string rawUni = !string.IsNullOrWhiteSpace(t.OsuArtistUnicode) ? t.OsuArtistUnicode : t.Artist;
+        string rawRom = !string.IsNullOrWhiteSpace(t.OsuArtistRoumaji) ? t.OsuArtistRoumaji : t.Artist;
+
+        if (string.IsNullOrWhiteSpace(rawUni) && string.IsNullOrWhiteSpace(rawRom))
+        {
+            return new List<(string, string)> { ("Desconocido", "Desconocido") };
+        }
+        if (string.IsNullOrWhiteSpace(rawUni)) rawUni = rawRom;
+        if (string.IsNullOrWhiteSpace(rawRom)) rawRom = rawUni;
+
+        var romSplit = splitter.SplitArtists(rawRom);
+        var uniSplit = splitter.SplitArtists(rawUni);
+
+        if (romSplit.Count == 0) romSplit.Add(rawRom.Trim());
+        if (uniSplit.Count == 0) uniSplit.Add(rawUni.Trim());
+
+        var result = new List<(string, string)>();
+
+        if (uniSplit.Count == romSplit.Count)
+        {
+            for (int i = 0; i < romSplit.Count; i++)
+            {
+                string u = uniSplit[i];
+                string r = romSplit[i];
+                // Ensure the side with non-ASCII is treated as Unicode and ASCII side as Romaji if swapped
+                if (!HasNonAscii(u) && HasNonAscii(r))
+                {
+                    (u, r) = (r, u);
+                }
+                result.Add((u, r));
+            }
+        }
+        else if (romSplit.Count == 1 && uniSplit.Count > 1 && MatchesAnyException(rawRom, splitter.Exceptions))
+        {
+            // An exception in Ajustes protected the Romaji name, so keep the Unicode name unsplit as well
+            result.Add((rawUni.Trim(), romSplit[0]));
+        }
+        else
+        {
+            // Different split counts: do not guess cross-collaborator pairings
+            foreach (var r in romSplit)
+            {
+                result.Add((r, r));
+            }
+            foreach (var u in uniSplit)
+            {
+                if (!romSplit.Contains(u, StringComparer.OrdinalIgnoreCase))
+                {
+                    result.Add((u, u));
+                }
+            }
+        }
+
+        return result;
+    }
+
+    private static bool MatchesAnyException(string text, IEnumerable<string> exceptions)
+    {
+        foreach (var exc in exceptions)
+        {
+            if (!string.IsNullOrWhiteSpace(exc) && text.Contains(exc, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+        return false;
     }
 
     public static List<string> SplitOsuTrackArtists(Track t)
     {
-        var splitter = ArtistSplitterService.Instance;
-        string primary = !string.IsNullOrWhiteSpace(t.Artist) ? t.Artist : t.OsuArtistRoumaji;
-        if (string.IsNullOrWhiteSpace(primary))
+        var pairs = ExtractSplitArtistPairs(t);
+        var names = new List<string>(pairs.Count);
+        foreach (var (_, r) in pairs)
         {
-            return new List<string> { "Desconocido" };
-        }
-
-        // If OsuArtistRoumaji is present and differs from Artist (e.g. Unicode mode),
-        // check if an exception in Ajustes matches OsuArtistRoumaji or split both consistently.
-        if (!string.IsNullOrWhiteSpace(t.OsuArtistRoumaji) &&
-            !string.Equals(primary, t.OsuArtistRoumaji, StringComparison.OrdinalIgnoreCase))
-        {
-            bool roumajiMatchesException = false;
-            foreach (var exc in splitter.Exceptions)
+            if (!names.Contains(r, StringComparer.OrdinalIgnoreCase))
             {
-                if (!string.IsNullOrWhiteSpace(exc) &&
-                    t.OsuArtistRoumaji.Contains(exc, StringComparison.OrdinalIgnoreCase))
-                {
-                    roumajiMatchesException = true;
-                    break;
-                }
-            }
-
-            if (roumajiMatchesException)
-            {
-                var roumajiSplit = splitter.SplitArtists(t.OsuArtistRoumaji);
-                if (roumajiSplit.Count > 0) return roumajiSplit;
+                names.Add(r);
             }
         }
-
-        var names = splitter.SplitArtists(primary);
-        if (names.Count == 0) names.Add(primary);
-        return names;
+        return names.Count > 0 ? names : new List<string> { "Desconocido" };
     }
 
     private static (string ArtworkPath, string VideoPath, int VideoOffsetMs) FindMediaAssets(string folderPath, string osuFilename)

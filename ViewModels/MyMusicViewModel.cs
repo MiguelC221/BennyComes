@@ -656,6 +656,7 @@ public partial class MyMusicViewModel : ObservableObject
     {
         if (album == null) return;
         MainViewModel.Instance?.PushCurrentNavigationState();
+        SelectedArtistDetail = null;
 
         if (album.Tracks.Count == 0)
         {
@@ -668,20 +669,13 @@ public partial class MyMusicViewModel : ObservableObject
 
         if (album.DominantHeaderBrush == null && album.CoverImageSource != null)
         {
-            try
-            {
-                var rawColor = Services.Metadata.MetadataService.ExtractDominantAccentColor(album.CoverImageSource);
-                byte r = (byte)(rawColor.R * 0.40);
-                byte g = (byte)(rawColor.G * 0.40);
-                byte b = (byte)(rawColor.B * 0.40);
-                var brush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(r, g, b));
-                brush.Freeze();
-                album.DominantHeaderBrush = brush;
-            }
-            catch { }
+            album.DominantHeaderBrush = Services.ThemeService.CreateAccentedBoxBrush(album.CoverImageSource);
         }
 
+        album.RefreshStats();
+        Data.Favoritos.Instance.SyncTracksFavoriteState(album.Tracks);
         SelectedAlbumDetail = album;
+        SyncPlayingTrack(AudioPlayerService.Instance.CurrentTrack, AudioPlayerService.Instance.IsPlaying);
     }
 
     [RelayCommand]
@@ -700,8 +694,10 @@ public partial class MyMusicViewModel : ObservableObject
     {
         if (artist == null) return;
         MainViewModel.Instance?.PushCurrentNavigationState();
+        SelectedAlbumDetail = null;
 
         EnsureArtistAlbumsPopulated(artist);
+        Data.Favoritos.Instance.SyncTracksFavoriteState(artist.Tracks);
         artist.RefreshAvatar();
         SelectedArtistDetail = artist;
         SyncPlayingTrack(AudioPlayerService.Instance.CurrentTrack, AudioPlayerService.Instance.IsPlaying);
@@ -1015,15 +1011,14 @@ public partial class MyMusicViewModel : ObservableObject
 
         if (SelectedArtistDetail != null)
         {
-            foreach (var al in SelectedArtistDetail.Albums)
+            foreach (var t in SelectedArtistDetail.Tracks)
             {
-                foreach (var t in al.Tracks)
+                bool isCur = currentPath != null && string.Equals(t.FilePath, currentPath, StringComparison.OrdinalIgnoreCase);
+                if (t.IsCurrent != isCur) t.IsCurrent = isCur;
+                bool match = playingPath != null && isCur;
+                if (t.IsPlaying != match)
                 {
-                    bool match = playingPath != null && string.Equals(t.FilePath, playingPath, StringComparison.OrdinalIgnoreCase);
-                    if (t.IsPlaying != match)
-                    {
-                        t.IsPlaying = match;
-                    }
+                    t.IsPlaying = match;
                 }
             }
         }

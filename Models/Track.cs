@@ -101,6 +101,22 @@ public partial class Track : ObservableObject
         ? Duration.ToString(@"h\:mm\:ss")
         : Duration.ToString(@"m\:ss");
 
+    public string DurationTwoDigitFormatted => Duration.TotalHours >= 1
+        ? Duration.ToString(@"h\:mm\:ss")
+        : Duration.ToString(@"mm\:ss");
+
+    public int FallbackTrackIndex { get; set; }
+
+    public string TrackNumberDisplay => TrackNumber > 0
+        ? $"{TrackNumber}."
+        : (FallbackTrackIndex > 0 ? $"{FallbackTrackIndex}." : "1.");
+
+    public string GenreDisplay => string.IsNullOrWhiteSpace(Genre) ||
+                                  Genre.Equals("Unknown", StringComparison.OrdinalIgnoreCase) ||
+                                  Genre.Equals("Desconocido", StringComparison.OrdinalIgnoreCase)
+        ? "Género desconocido"
+        : Genre;
+
     public string SampleRateFormatted => SampleRate >= 1000
         ? $"{(SampleRate / 1000.0):0.#} kHz"
         : $"{SampleRate} Hz";

@@ -177,14 +177,6 @@ public partial class ArtistEnrichmentService : ObservableObject
             AddSplitNames(art.Name);
         }
 
-        foreach (var tr in OsuLibraryService.Instance.Tracks)
-        {
-            if (!string.IsNullOrWhiteSpace(tr.OsuArtistRoumaji))
-            {
-                AddSplitNames(tr.OsuArtistRoumaji);
-            }
-        }
-
         var pendingList = splitArtists.Where(a => IsArtistPending(a, force)).ToList();
         if (pendingList.Count == 0)
         {
@@ -332,13 +324,36 @@ public partial class ArtistEnrichmentService : ObservableObject
         bool imageDownloaded = false;
         bool isLastFmNotFound = false;
 
-        // 1. Fetch Biography via official Last.fm API with exponential backoff
+        var altNames = OsuLibraryService.Instance.Artists
+            .FirstOrDefault(a => a.Name.Equals(artistName, StringComparison.OrdinalIgnoreCase))?
+            .AltNames ?? new List<string>();
+
+        // 1. Fetch Biography via official Last.fm API with exponential backoff (Romaji first, then Unicode fallback)
         if (!hasBio && _lastFm.IsEnabled && !string.IsNullOrWhiteSpace(_lastFm.ApiKey))
         {
             var (summary, full, _, notFound) = await ExecuteWithBackoffAsync(
                 async token => await _lastFm.FetchArtistBioViaApiAsync(artistName, token),
                 ct
             );
+
+            if (string.IsNullOrWhiteSpace(summary) && altNames.Count > 0)
+            {
+                foreach (var altName in altNames)
+                {
+                    if (string.IsNullOrWhiteSpace(altName)) continue;
+                    var altRes = await ExecuteWithBackoffAsync(
+                        async token => await _lastFm.FetchArtistBioViaApiAsync(altName, token),
+                        ct
+                    );
+                    if (!string.IsNullOrWhiteSpace(altRes.BioSummary))
+                    {
+                        summary = altRes.BioSummary;
+                        full = altRes.BioFull;
+                        notFound = false;
+                        break;
+                    }
+                }
+            }
 
             isLastFmNotFound = notFound;
 
@@ -354,7 +369,7 @@ public partial class ArtistEnrichmentService : ObservableObject
             }
         }
 
-        // 2. Fetch Images via unified single-source fallback (Automático) if missing
+        // 2. Fetch Images via unified single-source fallback (Automático: Romaji first, then Unicode fallback)
         bool isImageNotFound = false;
         if (!hasImages)
         {
@@ -362,6 +377,19 @@ public partial class ArtistEnrichmentService : ObservableObject
                 async token => await _lastFm.FetchImageUrlsBySourceAsync(artistName, "Automático", token),
                 ct
             );
+
+            if ((imageUrls == null || imageUrls.Count == 0) && altNames.Count > 0)
+            {
+                foreach (var altName in altNames)
+                {
+                    if (string.IsNullOrWhiteSpace(altName)) continue;
+                    imageUrls = await ExecuteWithBackoffAsync(
+                        async token => await _lastFm.FetchImageUrlsBySourceAsync(altName, "Automático", token),
+                        ct
+                    );
+                    if (imageUrls != null && imageUrls.Count > 0) break;
+                }
+            }
 
             if (imageUrls != null && imageUrls.Count > 0)
             {

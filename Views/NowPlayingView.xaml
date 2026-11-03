@@ -45,6 +45,8 @@
                           LoadedBehavior="Manual"
                           UnloadedBehavior="Stop"
                           Stretch="{Binding NowPlaying.OsuVideoStretch}"
+                          HorizontalAlignment="Center"
+                          VerticalAlignment="Center"
                           IsMuted="True"
                           ScrubbingEnabled="True"
                           Opacity="0.0" />
@@ -412,7 +414,10 @@
                   HorizontalAlignment="Left" VerticalAlignment="Bottom"
                   Margin="48,0,0,16">
                 <Grid.RenderTransform>
-                    <TranslateTransform x:Name="TrackInfoTranslate" X="0" Y="0" />
+                    <TransformGroup>
+                        <TranslateTransform x:Name="TrackInfoTranslate" X="0" Y="0" />
+                        <TranslateTransform x:Name="TrackInfoSlideX" X="0" Y="0" />
+                    </TransformGroup>
                 </Grid.RenderTransform>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
@@ -437,35 +442,72 @@
                 <!-- Track Info, Visualizer & Audio Badges Stack -->
                 <StackPanel Grid.Column="1" VerticalAlignment="Bottom" Margin="28,0,0,0">
                     <!-- Interactive Song Info (Title & Artist • Album) redirects to Album -->
-                    <Button Command="{Binding DataContext.ViewCurrentAlbumCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                            Background="Transparent"
-                            BorderThickness="0"
-                            Padding="0"
-                            Margin="0,0,0,0"
-                            HorizontalAlignment="Left"
-                            HorizontalContentAlignment="Left"
-                            Cursor="Hand"
-                            ToolTip="Ver álbum de la canción">
-                        <Button.Template>
-                            <ControlTemplate TargetType="Button">
-                                <Border Background="Transparent">
-                                    <ContentPresenter />
-                                </Border>
-                            </ControlTemplate>
-                        </Button.Template>
-                        <StackPanel MaxWidth="720">
-                            <!-- Title -->
-                            <TextBlock Text="{Binding NowPlaying.Title}"
-                                       FontFamily="Segoe UI Variable Display, Segoe UI"
-                                       FontSize="36" FontWeight="Bold" Foreground="#FFFFFF"
-                                       TextTrimming="CharacterEllipsis">
-                                <TextBlock.Effect>
-                                    <DropShadowEffect BlurRadius="14" Color="#000000" Opacity="0.5" ShadowDepth="2" />
-                                </TextBlock.Effect>
-                            </TextBlock>
+                    <StackPanel MaxWidth="780" HorizontalAlignment="Left">
+                        <!-- Title + Heart ♥ -->
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <Button Command="{Binding DataContext.ViewCurrentAlbumCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                    Background="Transparent" BorderThickness="0" Padding="0" Margin="0"
+                                    HorizontalAlignment="Left" HorizontalContentAlignment="Left"
+                                    Cursor="Hand" ToolTip="Ver álbum de la canción">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border Background="Transparent">
+                                            <ContentPresenter />
+                                        </Border>
+                                    </ControlTemplate>
+                                </Button.Template>
+                                <TextBlock Text="{Binding NowPlaying.Title}"
+                                           FontFamily="Segoe UI Variable Display, Segoe UI"
+                                           FontSize="36" FontWeight="Bold" Foreground="#FFFFFF"
+                                           TextTrimming="CharacterEllipsis" MaxWidth="680">
+                                    <TextBlock.Effect>
+                                        <DropShadowEffect BlurRadius="14" Color="#000000" Opacity="0.5" ShadowDepth="2" />
+                                    </TextBlock.Effect>
+                                </TextBlock>
+                            </Button>
 
-                            <!-- Interactive Artist • Album -->
-                            <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                            <!-- Corazón ♥ junto al título en Reproductor Grande (State A) -->
+                            <Button Command="{Binding ToggleCurrentTrackFavoriteCommand}"
+                                    Cursor="Hand" Padding="0" Margin="14,4,0,0"
+                                    VerticalAlignment="Center"
+                                    ToolTip="Marcar o quitar de Favoritos">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border x:Name="HudTitleFavBdr" CornerRadius="10" Padding="8,6" Background="Transparent">
+                                            <ui:SymbolIcon x:Name="HudTitleFavIcon" Symbol="Heart24" FontSize="24"
+                                                           Foreground="#E0FFFFFF" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <DataTrigger Binding="{Binding CurrentTrack.IsFavorite}" Value="True">
+                                                <Setter TargetName="HudTitleFavIcon" Property="Filled" Value="True" />
+                                                <Setter TargetName="HudTitleFavIcon" Property="Foreground" Value="#FFE81123" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding NowPlaying.CurrentTrack.IsFavorite}" Value="True">
+                                                <Setter TargetName="HudTitleFavIcon" Property="Filled" Value="True" />
+                                                <Setter TargetName="HudTitleFavIcon" Property="Foreground" Value="#FFE81123" />
+                                            </DataTrigger>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="HudTitleFavBdr" Property="Background" Value="#33000000" />
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Button.Template>
+                            </Button>
+                        </StackPanel>
+
+                        <!-- Interactive Artist • Album -->
+                        <Button Command="{Binding DataContext.ViewCurrentAlbumCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                Background="Transparent" BorderThickness="0" Padding="0" Margin="0,6,0,0"
+                                HorizontalAlignment="Left" HorizontalContentAlignment="Left"
+                                Cursor="Hand" ToolTip="Ver álbum de la canción">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border Background="Transparent">
+                                        <ContentPresenter />
+                                    </Border>
+                                </ControlTemplate>
+                            </Button.Template>
+                            <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="{Binding NowPlaying.Artist}"
                                            FontFamily="Segoe UI Variable Text, Segoe UI"
                                            FontSize="18" Foreground="#D0FFFFFF"
@@ -501,6 +543,12 @@
                                                  Foreground="{Binding Theme.CurrentAccentBrush}"
                                                  Visibility="{Binding NowPlaying.IsFetchingAlbum, Converter={StaticResource BoolToVisConverter}}" />
 
+                                <!-- Not Found Indicator (X Icon when Last.fm search completes without finding the album) -->
+                                <ui:SymbolIcon Symbol="DismissCircle24" FontSize="14" Margin="0,0,6,0" VerticalAlignment="Center"
+                                               Foreground="#99FF5555"
+                                               ToolTip="No se encontró el álbum en Last.fm"
+                                               Visibility="{Binding NowPlaying.IsAlbumNotFound, Converter={StaticResource BoolToVisConverter}}" />
+
                                 <!-- Album Name -->
                                 <TextBlock Text="{Binding NowPlaying.Album}"
                                            FontFamily="Segoe UI Variable Text, Segoe UI"
@@ -511,8 +559,8 @@
                                     </TextBlock.Effect>
                                 </TextBlock>
                             </StackPanel>
-                        </StackPanel>
-                    </Button>
+                        </Button>
+                    </StackPanel>
 
                     <!-- Visualizer Display Area (Posición 1: InfoCancion - left aligned with title) -->
                     <Grid x:Name="VisualizerContainer" Height="36" Width="260" Margin="0,16,0,0" HorizontalAlignment="Left" VerticalAlignment="Bottom">
@@ -941,6 +989,12 @@
                                         </MenuItem.Icon>
                                         <MenuItem Header="+ Nueva lista de reproducción..." />
                                     </MenuItem>
+                                    <MenuItem Header="Marcar / Desmarcar Favorito ♥"
+                                              Command="{Binding ToggleCurrentTrackFavoriteCommand, Source={x:Static vm:MainViewModel.Instance}}">
+                                        <MenuItem.Icon>
+                                            <ui:SymbolIcon Symbol="Heart24" Foreground="#E81123" />
+                                        </MenuItem.Icon>
+                                    </MenuItem>
                                     <MenuItem Header="Ver álbum"
                                               Command="{Binding ViewCurrentAlbumCommand, Source={x:Static vm:MainViewModel.Instance}}">
                                         <MenuItem.Icon>
@@ -1024,26 +1078,65 @@
                         <Border Width="64" Height="64" CornerRadius="8" ClipToBounds="True" Background="#1C1C24" Margin="0,0,16,0">
                             <Image Source="{Binding NowPlaying.AlbumArt}" Stretch="UniformToFill" />
                         </Border>
-                        <Button Command="{Binding DataContext.ViewCurrentAlbumCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                Background="Transparent"
-                                BorderThickness="0"
-                                Padding="0"
-                                HorizontalAlignment="Left"
-                                HorizontalContentAlignment="Left"
-                                Cursor="Hand"
-                                ToolTip="Ver álbum de la canción">
-                            <Button.Template>
-                                <ControlTemplate TargetType="Button">
-                                    <Border Background="Transparent">
-                                        <ContentPresenter />
-                                    </Border>
-                                </ControlTemplate>
-                            </Button.Template>
-                            <StackPanel VerticalAlignment="Center" MaxWidth="320">
-                                <TextBlock Text="{Binding NowPlaying.Title}" FontSize="18" FontWeight="Bold" Foreground="#FFFFFF" TextTrimming="CharacterEllipsis" />
-                                <TextBlock Text="{Binding NowPlaying.ArtistAndAlbum}" FontSize="13" Foreground="#CCFFFFFF" TextTrimming="CharacterEllipsis" Margin="0,2,0,0" />
+                        <StackPanel VerticalAlignment="Center" MaxWidth="360">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <Button Command="{Binding DataContext.ViewCurrentAlbumCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                        Background="Transparent" BorderThickness="0" Padding="0"
+                                        HorizontalAlignment="Left" HorizontalContentAlignment="Left"
+                                        Cursor="Hand" ToolTip="Ver álbum de la canción">
+                                    <Button.Template>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border Background="Transparent">
+                                                <ContentPresenter />
+                                            </Border>
+                                        </ControlTemplate>
+                                    </Button.Template>
+                                    <TextBlock Text="{Binding NowPlaying.Title}" FontSize="18" FontWeight="Bold" Foreground="#FFFFFF" TextTrimming="CharacterEllipsis" MaxWidth="300" />
+                                </Button>
+
+                                <!-- Corazón ♥ junto al título en State B -->
+                                <Button Command="{Binding ToggleCurrentTrackFavoriteCommand}"
+                                        Cursor="Hand" Padding="0" Margin="10,0,0,0"
+                                        VerticalAlignment="Center"
+                                        ToolTip="Marcar o quitar de Favoritos">
+                                    <Button.Template>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border x:Name="StateBTitleFavBdr" CornerRadius="6" Padding="6,4" Background="Transparent">
+                                                <ui:SymbolIcon x:Name="StateBTitleFavIcon" Symbol="Heart24" FontSize="16"
+                                                               Foreground="#D9FFFFFF" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <DataTrigger Binding="{Binding CurrentTrack.IsFavorite}" Value="True">
+                                                    <Setter TargetName="StateBTitleFavIcon" Property="Filled" Value="True" />
+                                                    <Setter TargetName="StateBTitleFavIcon" Property="Foreground" Value="#FFE81123" />
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding NowPlaying.CurrentTrack.IsFavorite}" Value="True">
+                                                    <Setter TargetName="StateBTitleFavIcon" Property="Filled" Value="True" />
+                                                    <Setter TargetName="StateBTitleFavIcon" Property="Foreground" Value="#FFE81123" />
+                                                </DataTrigger>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="StateBTitleFavBdr" Property="Background" Value="#33000000" />
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Button.Template>
+                                </Button>
                             </StackPanel>
-                        </Button>
+
+                            <Button Command="{Binding DataContext.ViewCurrentAlbumCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                    Background="Transparent" BorderThickness="0" Padding="0" Margin="0,2,0,0"
+                                    HorizontalAlignment="Left" HorizontalContentAlignment="Left"
+                                    Cursor="Hand" ToolTip="Ver álbum de la canción">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border Background="Transparent">
+                                            <ContentPresenter />
+                                        </Border>
+                                    </ControlTemplate>
+                                </Button.Template>
+                                <TextBlock Text="{Binding NowPlaying.ArtistAndAlbum}" FontSize="13" Foreground="#CCFFFFFF" TextTrimming="CharacterEllipsis" />
+                            </Button>
+                        </StackPanel>
                     </StackPanel>
 
                     <!-- Full Transport Controls Center-Right in State B -->
@@ -1192,6 +1285,12 @@
                                         </MenuItem.Icon>
                                         <MenuItem Header="+ Nueva lista de reproducción..." />
                                     </MenuItem>
+                                    <MenuItem Header="Marcar / Desmarcar Favorito ♥"
+                                              Command="{Binding ToggleCurrentTrackFavoriteCommand, Source={x:Static vm:MainViewModel.Instance}}">
+                                        <MenuItem.Icon>
+                                            <ui:SymbolIcon Symbol="Heart24" Foreground="#E81123" />
+                                        </MenuItem.Icon>
+                                    </MenuItem>
                                     <MenuItem Header="Ver álbum"
                                               Command="{Binding ViewCurrentAlbumCommand, Source={x:Static vm:MainViewModel.Instance}}">
                                         <MenuItem.Icon>
@@ -1297,6 +1396,7 @@
                 <ListView x:Name="QueueListView" Grid.Row="1" ItemsSource="{Binding Queue.Queue}"
                           SelectedItem="{Binding Queue.SelectedTrack, Mode=TwoWay}"
                           Background="Transparent" BorderThickness="0"
+                          AlternationCount="2"
                           ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                           MouseDoubleClick="OnQueueItemDoubleClick">
                     <ListView.ItemContainerStyle>
@@ -1375,7 +1475,7 @@
                             <Setter Property="Template">
                                 <Setter.Value>
                                     <ControlTemplate TargetType="ListViewItem">
-                                        <Border x:Name="ItemBorder" Background="Transparent" CornerRadius="6" Margin="0,1" Cursor="Hand">
+                                        <Border x:Name="ItemBorder" Background="{TemplateBinding Background}" CornerRadius="6" Margin="0,1" Cursor="Hand">
                                             <ContentPresenter HorizontalAlignment="Stretch" VerticalAlignment="Center" />
                                         </Border>
                                         <ControlTemplate.Triggers>
@@ -1389,6 +1489,11 @@
                                     </ControlTemplate>
                                 </Setter.Value>
                             </Setter>
+                            <Style.Triggers>
+                                <Trigger Property="ItemsControl.AlternationIndex" Value="1">
+                                    <Setter Property="Background" Value="#10FFFFFF" />
+                                </Trigger>
+                            </Style.Triggers>
                         </Style>
                     </ListView.ItemContainerStyle>
                     <ListView.ItemTemplate>
@@ -1412,7 +1517,7 @@
                                         <ColumnDefinition Width="2.5*" /> <!-- Icon + Title -->
                                         <ColumnDefinition Width="1.5*" /> <!-- Artist -->
                                         <ColumnDefinition Width="1.8*" /> <!-- Album -->
-                                        <ColumnDefinition Width="80" />   <!-- Duration -->
+                                        <ColumnDefinition Width="95" />   <!-- Favorite + Duration -->
                                     </Grid.ColumnDefinitions>
 
                                     <!-- Col 1: Equalizer Icon + Song Title -->
@@ -1463,9 +1568,36 @@
                                     <TextBlock Grid.Column="2" Text="{Binding Album}" FontSize="12"
                                                Foreground="#88FFFFFF" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Margin="0,0,10,0" />
 
-                                    <!-- Col 4: Duration -->
-                                    <TextBlock Grid.Column="3" Text="{Binding DurationFormatted}" FontSize="12"
-                                               Foreground="#99FFFFFF" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                                    <!-- Col 4: Favorite ♥ & Duration -->
+                                    <StackPanel Grid.Column="3" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                        <Button Width="28" Height="28" Padding="0" Margin="0,0,8,0"
+                                                Background="Transparent" BorderThickness="0" Cursor="Hand"
+                                                ToolTip="Agregar o quitar de Favoritos"
+                                                Command="{Binding Source={x:Static vm:MainViewModel.Instance}, Path=ToggleFavoriteCommand}"
+                                                CommandParameter="{Binding}">
+                                            <Button.Template>
+                                                <ControlTemplate TargetType="Button">
+                                                    <Border x:Name="FavBdr" CornerRadius="6" Background="Transparent">
+                                                        <ui:SymbolIcon x:Name="FavIcon" Symbol="Heart24" FontSize="14"
+                                                                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                                       Foreground="#88FFFFFF" />
+                                                    </Border>
+                                                    <ControlTemplate.Triggers>
+                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                            <Setter TargetName="FavBdr" Property="Background" Value="#22FFFFFF" />
+                                                        </Trigger>
+                                                        <DataTrigger Binding="{Binding IsFavorite}" Value="True">
+                                                            <Setter TargetName="FavIcon" Property="Filled" Value="True" />
+                                                            <Setter TargetName="FavIcon" Property="Foreground" Value="#FFE81123" />
+                                                        </DataTrigger>
+                                                    </ControlTemplate.Triggers>
+                                                </ControlTemplate>
+                                            </Button.Template>
+                                        </Button>
+
+                                        <TextBlock Text="{Binding DurationFormatted}" FontSize="12"
+                                                   Foreground="#99FFFFFF" VerticalAlignment="Center" />
+                                    </StackPanel>
                                 </Grid>
                             </Border>
                         </DataTemplate>

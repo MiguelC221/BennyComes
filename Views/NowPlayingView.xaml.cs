@@ -56,12 +56,31 @@ public partial class NowPlayingView : UserControl
     {
         if (track == null) return;
         StartBackgroundCinematicMotion();
+        PlayTrackChangedSlideAnimation();
         UpdateOsuVideoState(track);
         if (DataContext is MainViewModel vm && vm.IsNowPlayingQueueExpanded)
         {
             Dispatcher.BeginInvoke(new Action(() => ScrollToCurrentTrack()),
                 System.Windows.Threading.DispatcherPriority.Loaded);
         }
+    }
+
+    private void PlayTrackChangedSlideAnimation()
+    {
+        if (TrackInfoSlideX == null || TrackInfoContainer == null) return;
+
+        var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
+        var slideAnim = new DoubleAnimation(60.0, 0.0, TimeSpan.FromMilliseconds(420))
+        {
+            EasingFunction = ease
+        };
+        var fadeAnim = new DoubleAnimation(0.2, 1.0, TimeSpan.FromMilliseconds(420))
+        {
+            EasingFunction = ease
+        };
+
+        TrackInfoSlideX.BeginAnimation(TranslateTransform.XProperty, slideAnim);
+        TrackInfoContainer.BeginAnimation(OpacityProperty, fadeAnim);
     }
 
     private void UpdateOsuVideoState(Track? track)

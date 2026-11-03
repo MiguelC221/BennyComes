@@ -592,7 +592,7 @@
                                         <!-- Square Artwork -->
                                         <Grid Width="138" Height="138" Margin="0,0,0,10" HorizontalAlignment="Center">
                                             <Border Width="138" Height="138" CornerRadius="8" ClipToBounds="True" Background="#1C1C26">
-                                                <Image Source="{Binding CoverImageSource}" Stretch="UniformToFill" RenderOptions.BitmapScalingMode="HighQuality" />
+                                                <Image Source="{Binding CoverImageSource}" Stretch="UniformToFill" HorizontalAlignment="Center" VerticalAlignment="Center" RenderOptions.BitmapScalingMode="HighQuality" />
                                             </Border>
                                             <!-- Hover Play Button Overlay -->
                                             <Border x:Name="SearchAlbumHover" Width="138" Height="138" CornerRadius="8" Background="#77000000" Opacity="0">
@@ -672,6 +672,7 @@
                     <ListView x:Name="TracksListView"
                               ItemsSource="{Binding Search.MatchingTracks}"
                               Background="Transparent" BorderThickness="0"
+                              AlternationCount="2"
                               ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                               ScrollViewer.VerticalScrollBarVisibility="Disabled"
                               VirtualizingPanel.IsVirtualizing="True"
@@ -689,7 +690,7 @@
                                 <Setter Property="FocusVisualStyle" Value="{x:Null}" />
                                 <Setter Property="Background" Value="Transparent" />
                                 <Setter Property="Padding" Value="0" />
-                                <Setter Property="Margin" Value="0,2" />
+                                <Setter Property="Margin" Value="0,1.5" />
                                 <Setter Property="BorderThickness" Value="0" />
                                 <Setter Property="ContextMenu" Value="{DynamicResource TrackContextMenu}" />
                                 <Setter Property="Template">
@@ -709,6 +710,11 @@
                                         </ControlTemplate>
                                     </Setter.Value>
                                 </Setter>
+                                <Style.Triggers>
+                                    <Trigger Property="ItemsControl.AlternationIndex" Value="1">
+                                        <Setter Property="Background" Value="#14FFFFFF" />
+                                    </Trigger>
+                                </Style.Triggers>
                             </Style>
                         </ListView.ItemContainerStyle>
 
@@ -721,13 +727,13 @@
                                         <ColumnDefinition Width="1.5*" />
                                         <ColumnDefinition Width="1.8*" />
                                         <ColumnDefinition Width="1*" />
-                                        <ColumnDefinition Width="70" />
+                                        <ColumnDefinition Width="95" />
                                     </Grid.ColumnDefinitions>
 
                                     <!-- Col 0: Artwork with hover play button -->
                                     <Grid Grid.Column="0" Width="40" Height="40" HorizontalAlignment="Center" VerticalAlignment="Center">
                                         <Border CornerRadius="6" ClipToBounds="True" Background="#1C1C26">
-                                            <Image Source="{Binding CoverImageSource}" Stretch="UniformToFill" RenderOptions.BitmapScalingMode="HighQuality" />
+                                            <Image Source="{Binding CoverImageSource}" Stretch="UniformToFill" HorizontalAlignment="Center" VerticalAlignment="Center" RenderOptions.BitmapScalingMode="HighQuality" />
                                         </Border>
                                         <Button x:Name="HoverSongPlayButton"
                                                 Background="#99000000" BorderThickness="0"
@@ -761,9 +767,36 @@
                                         <TextBlock Text="{Binding Genre}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" />
                                     </Border>
 
-                                    <!-- Col 5: Duration -->
-                                    <TextBlock Grid.Column="5" Text="{Binding DurationFormatted}" FontSize="12"
-                                               Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,6,0" />
+                                    <!-- Col 5: Favorite ♥ & Duration -->
+                                    <StackPanel Grid.Column="5" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,6,0">
+                                        <Button Width="28" Height="28" Padding="0" Margin="0,0,8,0"
+                                                Background="Transparent" BorderThickness="0" Cursor="Hand"
+                                                ToolTip="Agregar o quitar de Favoritos"
+                                                Command="{Binding DataContext.ToggleFavoriteCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                CommandParameter="{Binding}">
+                                            <Button.Template>
+                                                <ControlTemplate TargetType="Button">
+                                                    <Border x:Name="FavBdr" CornerRadius="6" Background="Transparent">
+                                                        <ui:SymbolIcon x:Name="FavIcon" Symbol="Heart24" FontSize="14"
+                                                                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                                       Foreground="{DynamicResource TextTertiaryBrush}" />
+                                                    </Border>
+                                                    <ControlTemplate.Triggers>
+                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                            <Setter TargetName="FavBdr" Property="Background" Value="{DynamicResource SurfaceCardHoverBrush}" />
+                                                        </Trigger>
+                                                        <DataTrigger Binding="{Binding IsFavorite}" Value="True">
+                                                            <Setter TargetName="FavIcon" Property="Filled" Value="True" />
+                                                            <Setter TargetName="FavIcon" Property="Foreground" Value="#FFE81123" />
+                                                        </DataTrigger>
+                                                    </ControlTemplate.Triggers>
+                                                </ControlTemplate>
+                                            </Button.Template>
+                                        </Button>
+
+                                        <TextBlock Text="{Binding DurationFormatted}" FontSize="12"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
+                                    </StackPanel>
                                 </Grid>
 
                                 <DataTemplate.Triggers>

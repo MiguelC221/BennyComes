@@ -22,7 +22,9 @@ public class PlaylistDao
         using var cmd = conn.CreateCommand();
 
         cmd.CommandText = @"
-            SELECT p.id, p.name, p.created_at, p.description, p.custom_cover_path, COUNT(pt.track_id) AS track_count
+            SELECT p.id, p.name, p.created_at, p.description, p.custom_cover_path, COUNT(pt.track_id) AS track_count,
+                   (SELECT t.file_path FROM playlist_tracks pt2 JOIN tracks t ON pt2.track_id = t.id WHERE pt2.playlist_id = p.id ORDER BY pt2.position ASC LIMIT 1) AS first_track_path,
+                   (SELECT t.artwork_path FROM playlist_tracks pt3 JOIN tracks t ON pt3.track_id = t.id WHERE pt3.playlist_id = p.id ORDER BY pt3.position ASC LIMIT 1) AS first_artwork_path
             FROM playlists p
             LEFT JOIN playlist_tracks pt ON p.id = pt.playlist_id
             GROUP BY p.id, p.name, p.created_at
@@ -39,7 +41,9 @@ public class PlaylistDao
                 CreatedAt = DateTime.TryParse(reader.GetString(reader.GetOrdinal("created_at")), out var dt) ? dt : DateTime.UtcNow,
                 Description = reader.IsDBNull(reader.GetOrdinal("description")) ? "" : reader.GetString(reader.GetOrdinal("description")),
                 CustomCoverPath = reader.IsDBNull(reader.GetOrdinal("custom_cover_path")) ? null : reader.GetString(reader.GetOrdinal("custom_cover_path")),
-                TrackCount = reader.GetInt32(reader.GetOrdinal("track_count"))
+                TrackCount = reader.GetInt32(reader.GetOrdinal("track_count")),
+                FirstTrackFilePath = reader.IsDBNull(reader.GetOrdinal("first_track_path")) ? null : reader.GetString(reader.GetOrdinal("first_track_path")),
+                FirstTrackArtworkPath = reader.IsDBNull(reader.GetOrdinal("first_artwork_path")) ? null : reader.GetString(reader.GetOrdinal("first_artwork_path"))
             };
             p.RefreshCoverImage();
             list.Add(p);
@@ -96,6 +100,7 @@ public class PlaylistDao
             }
 
             playlist.TrackCount = playlist.Tracks.Count;
+            playlist.RefreshCoverImage();
             await tx.CommitAsync();
             return playlist;
         }
@@ -148,10 +153,12 @@ public class PlaylistDao
                 SampleRate = reader.GetInt32(reader.GetOrdinal("sample_rate")),
                 BitsPerSample = reader.GetInt32(reader.GetOrdinal("bits_per_sample")),
                 Channels = reader.GetInt32(reader.GetOrdinal("channels")),
-                FileFormat = reader.IsDBNull(reader.GetOrdinal("format")) ? "FLAC" : reader.GetString(reader.GetOrdinal("format"))
+                FileFormat = reader.IsDBNull(reader.GetOrdinal("format")) ? "FLAC" : reader.GetString(reader.GetOrdinal("format")),
+                ArtworkPath = reader.IsDBNull(reader.GetOrdinal("artwork_path")) ? "" : reader.GetString(reader.GetOrdinal("artwork_path"))
             });
         }
 
+        Favoritos.Instance.SyncTracksFavoriteState(list);
         return list;
     }
 

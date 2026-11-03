@@ -110,9 +110,62 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
                     MiniPlayerBigButton.BeginAnimation(OpacityProperty, fadeIn);
                     var translateIn = (MiniPlayerBigButton.Template?.FindName("MiniTrackInfoTranslate", MiniPlayerBigButton) as System.Windows.Media.TranslateTransform);
                     translateIn?.BeginAnimation(System.Windows.Media.TranslateTransform.XProperty, slideInFromLeft);
+
+                    UpdateMiniTitleMarquee();
                 }
             });
         };
+    }
+
+    private void OnMiniTitleSizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        UpdateMiniTitleMarquee();
+    }
+
+    private void UpdateMiniTitleMarquee()
+    {
+        if (MiniPlayerBigButton?.Template == null) return;
+
+        var viewport = MiniPlayerBigButton.Template.FindName("MiniTitleViewport", MiniPlayerBigButton) as FrameworkElement;
+        var textBlock = MiniPlayerBigButton.Template.FindName("MiniTitleTextBlock", MiniPlayerBigButton) as TextBlock;
+        var transform = MiniPlayerBigButton.Template.FindName("MiniTitleMarqueeTransform", MiniPlayerBigButton) as System.Windows.Media.TranslateTransform;
+
+        if (viewport == null || textBlock == null || transform == null) return;
+
+        // Detener cualquier animación previa y reiniciar posición
+        transform.BeginAnimation(System.Windows.Media.TranslateTransform.XProperty, null);
+        transform.X = 0;
+
+        double viewportWidth = viewport.ActualWidth;
+        double textWidth = textBlock.ActualWidth;
+        double overflow = textWidth - viewportWidth;
+
+        // Si el título supera el ancho disponible del viewport, desplazar suavemente de ida y vuelta
+        if (viewportWidth > 10 && overflow > 2.0)
+        {
+            // Velocidad constante y lenta (~24 px/s), mínimo 3.5 s por tramo
+            double scrollSeconds = Math.Max(3.5, overflow / 24.0);
+            double pauseSeconds = 2.0;
+
+            var keyFrames = new System.Windows.Media.Animation.DoubleAnimationUsingKeyFrames
+            {
+                RepeatBehavior = System.Windows.Media.Animation.RepeatBehavior.Forever
+            };
+
+            double t0 = 0;
+            double t1 = pauseSeconds;
+            double t2 = t1 + scrollSeconds;
+            double t3 = t2 + pauseSeconds;
+            double t4 = t3 + scrollSeconds;
+
+            keyFrames.KeyFrames.Add(new System.Windows.Media.Animation.LinearDoubleKeyFrame(0, TimeSpan.FromSeconds(t0)));
+            keyFrames.KeyFrames.Add(new System.Windows.Media.Animation.LinearDoubleKeyFrame(0, TimeSpan.FromSeconds(t1)));
+            keyFrames.KeyFrames.Add(new System.Windows.Media.Animation.LinearDoubleKeyFrame(-overflow, TimeSpan.FromSeconds(t2)));
+            keyFrames.KeyFrames.Add(new System.Windows.Media.Animation.LinearDoubleKeyFrame(-overflow, TimeSpan.FromSeconds(t3)));
+            keyFrames.KeyFrames.Add(new System.Windows.Media.Animation.LinearDoubleKeyFrame(0, TimeSpan.FromSeconds(t4)));
+
+            transform.BeginAnimation(System.Windows.Media.TranslateTransform.XProperty, keyFrames);
+        }
     }
 
     private sealed class WindowBoundsState
@@ -279,6 +332,8 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
     {
         if (DataContext is not MainViewModel vm) return;
 
+        vm.IsMiniPlayerCompact = e.NewSize.Width < 900;
+
         bool isNarrow = e.NewSize.Width < 1080;
         if (isNarrow && !_wasNarrowWindow)
         {
@@ -366,9 +421,14 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
 
     private void OnTrackContextMenuOpened(object sender, RoutedEventArgs e)
     {
-        if (sender is ContextMenu cm && cm.DataContext is Models.Track track)
+        if (sender is ContextMenu cm)
         {
-            ViewModel.SelectedTrackForContext = track;
+            var track = cm.DataContext as Models.Track
+                     ?? (cm.PlacementTarget as FrameworkElement)?.DataContext as Models.Track;
+            if (track != null)
+            {
+                ViewModel.SelectedTrackForContext = track;
+            }
         }
     }
 
@@ -806,7 +866,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
             return;
         }
 
-        // 2.1 En Modo osu!, si está en detalle de artista o álbum, cerrar detalle con Esc
+        // 2.1 En Modo osu! o Favoritos, si está en detalle de artista o álbum, cerrar detalle con Esc
         if (ViewModel.CurrentView == "OsuLibrary" && ViewModel.OsuLibrary.IsInDetailView)
         {
             if (ViewModel.CanGoBack)
@@ -817,6 +877,21 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
             {
                 ViewModel.OsuLibrary.SelectedArtistDetail = null;
                 ViewModel.OsuLibrary.SelectedAlbumDetail = null;
+            }
+            e.Handled = true;
+            return;
+        }
+
+        if (ViewModel.CurrentView == "Favorites" && ViewModel.Favorites.IsInDetailView)
+        {
+            if (ViewModel.CanGoBack)
+            {
+                ViewModel.GoBack();
+            }
+            else
+            {
+                ViewModel.Favorites.SelectedArtistDetail = null;
+                ViewModel.Favorites.SelectedAlbumDetail = null;
             }
             e.Handled = true;
             return;

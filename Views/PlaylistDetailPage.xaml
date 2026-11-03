@@ -119,7 +119,7 @@
                     <ColumnDefinition Width="3.5*" /> <!-- Title -->
                     <ColumnDefinition Width="2.5*" /> <!-- Artist -->
                     <ColumnDefinition Width="2.5*" /> <!-- Album -->
-                    <ColumnDefinition Width="90" />  <!-- Reorder / Remove -->
+                    <ColumnDefinition Width="120" /> <!-- Favorite / Reorder / Remove -->
                     <ColumnDefinition Width="65" />  <!-- Duration -->
                 </Grid.ColumnDefinitions>
                 <TextBlock Grid.Column="0" Text="#" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource TextTertiaryBrush}" HorizontalAlignment="Center" />
@@ -139,6 +139,7 @@
                       PreviewMouseWheel="OnListViewPreviewMouseWheel"
                       MouseDoubleClick="OnTrackItemDoubleClick"
                       Background="Transparent" BorderThickness="0"
+                      AlternationCount="2"
                       ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                 <ListView.ItemContainerStyle>
                     <Style TargetType="ListViewItem">
@@ -172,6 +173,12 @@
                                 </ControlTemplate>
                             </Setter.Value>
                         </Setter>
+                        <Style.Triggers>
+                            <!-- Zebra Striping -->
+                            <Trigger Property="ItemsControl.AlternationIndex" Value="1">
+                                <Setter Property="Background" Value="{DynamicResource TableRowAlternateBrush}" />
+                            </Trigger>
+                        </Style.Triggers>
                     </Style>
                 </ListView.ItemContainerStyle>
                 <ListView.ItemTemplate>
@@ -184,7 +191,7 @@
                                     <ColumnDefinition Width="3.5*" />
                                     <ColumnDefinition Width="2.5*" />
                                     <ColumnDefinition Width="2.5*" />
-                                    <ColumnDefinition Width="90" />
+                                    <ColumnDefinition Width="120" />
                                     <ColumnDefinition Width="65" />
                                 </Grid.ColumnDefinitions>
 
@@ -237,7 +244,7 @@
 
                                 <!-- Column 1: Album Art Thumbnail -->
                                 <Border Grid.Column="1" Width="38" Height="38" CornerRadius="6" ClipToBounds="True" Background="#1C1C24" HorizontalAlignment="Center">
-                                    <Image Source="{Binding CoverImageSource}" Stretch="UniformToFill" RenderOptions.BitmapScalingMode="HighQuality" />
+                                    <Image Source="{Binding CoverImageSource}" Stretch="UniformToFill" HorizontalAlignment="Center" VerticalAlignment="Center" RenderOptions.BitmapScalingMode="HighQuality" />
                                 </Border>
 
                                 <!-- Column 2: Track Title -->
@@ -266,8 +273,31 @@
                                            Foreground="{DynamicResource TextTertiaryBrush}" TextTrimming="CharacterEllipsis"
                                            VerticalAlignment="Center" Margin="0,0,12,0" />
 
-                                <!-- Column 5: Reorder & Remove Actions -->
+                                <!-- Column 5: Favorite, Reorder & Remove Actions -->
                                 <StackPanel Grid.Column="5" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <!-- Favorite Heart Toggle -->
+                                    <Button Width="26" Height="26" Padding="0" Cursor="Hand" Background="Transparent" BorderThickness="0" Margin="0,0,4,0"
+                                            ToolTip="Agregar o quitar de Favoritos"
+                                            Command="{Binding DataContext.ToggleFavoriteCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                            CommandParameter="{Binding}">
+                                        <Button.Template>
+                                            <ControlTemplate TargetType="Button">
+                                                <Border x:Name="BtnBdr" CornerRadius="4" Background="Transparent">
+                                                    <ui:SymbolIcon x:Name="FavIcon" Symbol="Heart24" FontSize="14" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter TargetName="BtnBdr" Property="Background" Value="{DynamicResource SurfaceCardHoverBrush}" />
+                                                    </Trigger>
+                                                    <DataTrigger Binding="{Binding IsFavorite}" Value="True">
+                                                        <Setter TargetName="FavIcon" Property="Filled" Value="True" />
+                                                        <Setter TargetName="FavIcon" Property="Foreground" Value="#FFE81123" />
+                                                    </DataTrigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Button.Template>
+                                    </Button>
+
                                     <!-- Move Up -->
                                     <Button Width="26" Height="26" Padding="0" Cursor="Hand" Background="Transparent" BorderThickness="0" Margin="0,0,2,0"
                                             ToolTip="Mover arriba en la lista"
@@ -435,13 +465,13 @@
                                                 <ColumnDefinition Width="3*" />
                                                 <ColumnDefinition Width="2*" />
                                                 <ColumnDefinition Width="2*" />
-                                                <ColumnDefinition Width="65" />
+                                                <ColumnDefinition Width="85" />
                                                 <ColumnDefinition Width="Auto" />
                                             </Grid.ColumnDefinitions>
 
                                             <!-- Thumbnail -->
                                             <Border Grid.Column="0" Width="36" Height="36" CornerRadius="6" ClipToBounds="True" Background="#1C1C24" HorizontalAlignment="Left">
-                                                <Image Source="{Binding CoverImageSource}" Stretch="UniformToFill" RenderOptions.BitmapScalingMode="HighQuality" />
+                                                <Image Source="{Binding CoverImageSource}" Stretch="UniformToFill" HorizontalAlignment="Center" VerticalAlignment="Center" RenderOptions.BitmapScalingMode="HighQuality" />
                                             </Border>
 
                                             <!-- Title -->
@@ -459,9 +489,34 @@
                                                        Foreground="{DynamicResource TextTertiaryBrush}" TextTrimming="CharacterEllipsis"
                                                        VerticalAlignment="Center" Margin="0,0,10,0" />
 
-                                            <!-- Duration -->
-                                            <TextBlock Grid.Column="4" Text="{Binding DurationFormatted}" FontSize="12"
-                                                       Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,12,0" />
+                                            <!-- Favorite ♥ + Duration -->
+                                            <StackPanel Grid.Column="4" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,12,0">
+                                                <Button Width="26" Height="26" Padding="0" Margin="0,0,6,0"
+                                                        Background="Transparent" BorderThickness="0" Cursor="Hand"
+                                                        ToolTip="Agregar o quitar de Favoritos"
+                                                        Command="{Binding DataContext.ToggleFavoriteCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                        CommandParameter="{Binding}">
+                                                    <Button.Template>
+                                                        <ControlTemplate TargetType="Button">
+                                                            <Border x:Name="BtnBdr" CornerRadius="4" Background="Transparent">
+                                                                <ui:SymbolIcon x:Name="FavIcon" Symbol="Heart24" FontSize="14" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                            </Border>
+                                                            <ControlTemplate.Triggers>
+                                                                <Trigger Property="IsMouseOver" Value="True">
+                                                                    <Setter TargetName="BtnBdr" Property="Background" Value="{DynamicResource SurfaceCardHoverBrush}" />
+                                                                </Trigger>
+                                                                <DataTrigger Binding="{Binding IsFavorite}" Value="True">
+                                                                    <Setter TargetName="FavIcon" Property="Filled" Value="True" />
+                                                                    <Setter TargetName="FavIcon" Property="Foreground" Value="#FFE81123" />
+                                                                </DataTrigger>
+                                                            </ControlTemplate.Triggers>
+                                                        </ControlTemplate>
+                                                    </Button.Template>
+                                                </Button>
+
+                                                <TextBlock Text="{Binding DurationFormatted}" FontSize="12"
+                                                           Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
+                                            </StackPanel>
 
                                             <!-- + Add Button -->
                                             <ui:Button Grid.Column="5" Appearance="Secondary" Padding="12,5"

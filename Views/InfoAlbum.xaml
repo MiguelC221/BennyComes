@@ -1,0 +1,603 @@
+<UserControl x:Class="BenyComes.Views.InfoAlbum"
+             x:Name="RootInfoAlbum"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2002/xaml"
+             xmlns:ui2="http://schemas.lepo.co/wpfui/2022/xaml"
+             xmlns:models="clr-namespace:BenyComes.Models"
+             xmlns:vm="clr-namespace:BenyComes.ViewModels"
+             mc:Ignorable="d"
+             d:DesignHeight="680" d:DesignWidth="960">
+
+    <Grid x:Name="RootAlbumContentGrid"
+          Background="Transparent"
+          PreviewMouseWheel="OnRootPreviewMouseWheel"
+          Visibility="{Binding Album, ElementName=RootInfoAlbum, Converter={StaticResource NullToVisibilityConverter}}">
+        <Grid.RenderTransform>
+            <TranslateTransform x:Name="RootAlbumSlideTransform" Y="0" />
+        </Grid.RenderTransform>
+
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- ============================================================== -->
+        <!-- ALBUM HERO BOX (Accented like MiniPlayer + Smooth Animations)  -->
+        <!-- ============================================================== -->
+        <Border Grid.Row="0"
+                CornerRadius="12"
+                ClipToBounds="True"
+                Background="{Binding Album.DominantHeaderBrush, ElementName=RootInfoAlbum, FallbackValue='#242632', TargetNullValue='#242632'}"
+                BorderBrush="#26FFFFFF"
+                BorderThickness="1">
+            <Border.Style>
+                <Style TargetType="Border">
+                    <Setter Property="Margin" Value="0,0,0,22" />
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding IsCompactHeader, ElementName=RootInfoAlbum}" Value="True">
+                            <Setter Property="Margin" Value="0,0,0,10" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Border.Style>
+
+            <Grid>
+                <Grid.Style>
+                    <Style TargetType="Grid">
+                        <Setter Property="Margin" Value="24,22" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsCompactHeader, ElementName=RootInfoAlbum}" Value="True">
+                                <Setter Property="Margin" Value="18,10" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Grid.Style>
+
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <!-- Left: Square Album Cover (Smoothly animates 176x176 <-> 72x72) -->
+                <Border x:Name="AlbumCoverContainer"
+                        Grid.Column="0"
+                        Width="176" Height="176"
+                        Margin="0,0,26,0"
+                        CornerRadius="8"
+                        ClipToBounds="True"
+                        Background="#18FFFFFF"
+                        BorderBrush="#22FFFFFF"
+                        BorderThickness="1"
+                        VerticalAlignment="Center">
+                    <Border.Style>
+                        <Style TargetType="Border">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsCompactHeader, ElementName=RootInfoAlbum}" Value="True">
+                                    <DataTrigger.EnterActions>
+                                        <BeginStoryboard>
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetProperty="Width" To="72" Duration="0:0:0.26">
+                                                    <DoubleAnimation.EasingFunction>
+                                                        <CubicEase EasingMode="EaseOut" />
+                                                    </DoubleAnimation.EasingFunction>
+                                                </DoubleAnimation>
+                                                <DoubleAnimation Storyboard.TargetProperty="Height" To="72" Duration="0:0:0.26">
+                                                    <DoubleAnimation.EasingFunction>
+                                                        <CubicEase EasingMode="EaseOut" />
+                                                    </DoubleAnimation.EasingFunction>
+                                                </DoubleAnimation>
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </DataTrigger.EnterActions>
+                                    <DataTrigger.ExitActions>
+                                        <BeginStoryboard>
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetProperty="Width" To="176" Duration="0:0:0.26">
+                                                    <DoubleAnimation.EasingFunction>
+                                                        <CubicEase EasingMode="EaseOut" />
+                                                    </DoubleAnimation.EasingFunction>
+                                                </DoubleAnimation>
+                                                <DoubleAnimation Storyboard.TargetProperty="Height" To="176" Duration="0:0:0.26">
+                                                    <DoubleAnimation.EasingFunction>
+                                                        <CubicEase EasingMode="EaseOut" />
+                                                    </DoubleAnimation.EasingFunction>
+                                                </DoubleAnimation>
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </DataTrigger.ExitActions>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Border.Style>
+                    <Border.Effect>
+                        <DropShadowEffect BlurRadius="24" Color="#000000" Opacity="0.40" ShadowDepth="4" />
+                    </Border.Effect>
+                    <Grid>
+                        <ui2:SymbolIcon Symbol="Album24" FontSize="38" Foreground="#66FFFFFF"
+                                        HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        <Image Source="{Binding Album.CoverImageSource, ElementName=RootInfoAlbum}"
+                               Stretch="UniformToFill"
+                               RenderOptions.BitmapScalingMode="HighQuality" />
+                    </Grid>
+                </Border>
+
+                <!-- Right: Album Title, Clickable Artist, Stats Summary, and Action Buttons -->
+                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                    <!-- Album Title (Smooth Scale Animation on Compact Header) -->
+                    <TextBlock Text="{Binding Album.Name, ElementName=RootInfoAlbum}"
+                               FontSize="30"
+                               FontWeight="Bold"
+                               Foreground="#FFFFFF"
+                               TextTrimming="CharacterEllipsis"
+                               RenderTransformOrigin="0,0.5"
+                               ToolTip="{Binding Album.Name, ElementName=RootInfoAlbum}">
+                        <TextBlock.RenderTransform>
+                            <ScaleTransform ScaleX="1.0" ScaleY="1.0" />
+                        </TextBlock.RenderTransform>
+                        <TextBlock.Style>
+                            <Style TargetType="TextBlock">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsCompactHeader, ElementName=RootInfoAlbum}" Value="True">
+                                        <DataTrigger.EnterActions>
+                                            <BeginStoryboard>
+                                                <Storyboard>
+                                                    <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)" To="0.72" Duration="0:0:0.25">
+                                                        <DoubleAnimation.EasingFunction>
+                                                            <CubicEase EasingMode="EaseOut" />
+                                                        </DoubleAnimation.EasingFunction>
+                                                    </DoubleAnimation>
+                                                    <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)" To="0.72" Duration="0:0:0.25">
+                                                        <DoubleAnimation.EasingFunction>
+                                                            <CubicEase EasingMode="EaseOut" />
+                                                        </DoubleAnimation.EasingFunction>
+                                                    </DoubleAnimation>
+                                                </Storyboard>
+                                            </BeginStoryboard>
+                                        </DataTrigger.EnterActions>
+                                        <DataTrigger.ExitActions>
+                                            <BeginStoryboard>
+                                                <Storyboard>
+                                                    <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)" To="1.0" Duration="0:0:0.25">
+                                                        <DoubleAnimation.EasingFunction>
+                                                            <CubicEase EasingMode="EaseOut" />
+                                                        </DoubleAnimation.EasingFunction>
+                                                    </DoubleAnimation>
+                                                    <DoubleAnimation Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)" To="1.0" Duration="0:0:0.25">
+                                                        <DoubleAnimation.EasingFunction>
+                                                            <CubicEase EasingMode="EaseOut" />
+                                                        </DoubleAnimation.EasingFunction>
+                                                    </DoubleAnimation>
+                                                </Storyboard>
+                                            </BeginStoryboard>
+                                        </DataTrigger.ExitActions>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+
+                    <!-- Clickable Artist Name -->
+                    <Button Background="Transparent" BorderThickness="0" Padding="0,2"
+                            Margin="0,2,0,0" HorizontalAlignment="Left" Cursor="Hand"
+                            Click="OnHeaderArtistButtonClick"
+                            ToolTip="Ver artista">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <TextBlock x:Name="ArtistText"
+                                           Text="{Binding Album.Artist, ElementName=RootInfoAlbum}"
+                                           FontWeight="SemiBold"
+                                           Foreground="#F2F5FA"
+                                           TextTrimming="CharacterEllipsis">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="FontSize" Value="16" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsCompactHeader, ElementName=RootInfoAlbum}" Value="True">
+                                                    <Setter Property="FontSize" Value="13.5" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="ArtistText" Property="TextDecorations" Value="Underline" />
+                                        <Setter TargetName="ArtistText" Property="Foreground" Value="#FFFFFF" />
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Button.Template>
+                    </Button>
+
+                    <!-- Song Count & Total Duration ("4 canciones • Duración 13:18") - Smoothly animates MaxHeight & Opacity -->
+                    <Border MaxHeight="40" Opacity="1.0" ClipToBounds="True">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsCompactHeader, ElementName=RootInfoAlbum}" Value="True">
+                                        <DataTrigger.EnterActions>
+                                            <BeginStoryboard>
+                                                <Storyboard>
+                                                    <DoubleAnimation Storyboard.TargetProperty="MaxHeight" To="0" Duration="0:0:0.24">
+                                                        <DoubleAnimation.EasingFunction>
+                                                            <CubicEase EasingMode="EaseOut" />
+                                                        </DoubleAnimation.EasingFunction>
+                                                    </DoubleAnimation>
+                                                    <DoubleAnimation Storyboard.TargetProperty="Opacity" To="0.0" Duration="0:0:0.18">
+                                                        <DoubleAnimation.EasingFunction>
+                                                            <CubicEase EasingMode="EaseOut" />
+                                                        </DoubleAnimation.EasingFunction>
+                                                    </DoubleAnimation>
+                                                </Storyboard>
+                                            </BeginStoryboard>
+                                        </DataTrigger.EnterActions>
+                                        <DataTrigger.ExitActions>
+                                            <BeginStoryboard>
+                                                <Storyboard>
+                                                    <DoubleAnimation Storyboard.TargetProperty="MaxHeight" To="40" Duration="0:0:0.25">
+                                                        <DoubleAnimation.EasingFunction>
+                                                            <CubicEase EasingMode="EaseOut" />
+                                                        </DoubleAnimation.EasingFunction>
+                                                    </DoubleAnimation>
+                                                    <DoubleAnimation Storyboard.TargetProperty="Opacity" To="1.0" Duration="0:0:0.22">
+                                                        <DoubleAnimation.EasingFunction>
+                                                            <CubicEase EasingMode="EaseOut" />
+                                                        </DoubleAnimation.EasingFunction>
+                                                    </DoubleAnimation>
+                                                </Storyboard>
+                                            </BeginStoryboard>
+                                        </DataTrigger.ExitActions>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        <TextBlock Text="{Binding Album.StatsSummary, ElementName=RootInfoAlbum}"
+                                   FontSize="13"
+                                   Foreground="#D6DCE6"
+                                   Margin="0,6,0,10" />
+                    </Border>
+
+                    <!-- Action Buttons Row -->
+                    <WrapPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,4,0,0">
+                        <!-- 1. Reproducir todo (Primary Accent Button) -->
+                        <Button Cursor="Hand" Margin="0,0,10,4"
+                                Click="OnPlayAllClick"
+                                ToolTip="Reproducir todo el álbum">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border x:Name="PrimaryBtnBdr"
+                                            CornerRadius="6"
+                                            Padding="15,7"
+                                            Background="{Binding Source={x:Static vm:MainViewModel.Instance}, Path=Theme.CurrentAccentBrush}">
+                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                            <ui2:SymbolIcon Symbol="Play24" FontSize="15"
+                                                            Foreground="{Binding Source={x:Static vm:MainViewModel.Instance}, Path=Theme.AccentForegroundBrush}"
+                                                            Margin="0,0,8,0" VerticalAlignment="Center" />
+                                            <TextBlock Text="Reproducir todo" FontSize="13" FontWeight="SemiBold"
+                                                       Foreground="{Binding Source={x:Static vm:MainViewModel.Instance}, Path=Theme.AccentForegroundBrush}"
+                                                       VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="PrimaryBtnBdr" Property="Opacity" Value="0.90" />
+                                        </Trigger>
+                                        <Trigger Property="IsPressed" Value="True">
+                                            <Setter TargetName="PrimaryBtnBdr" Property="Opacity" Value="0.80" />
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Button.Template>
+                        </Button>
+
+                        <!-- 2. Reproducir en orden aleatorio -->
+                        <Button Cursor="Hand" Margin="0,0,10,4"
+                                Click="OnShuffleAlbumClick"
+                                ToolTip="Reproducir álbum en orden aleatorio">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border x:Name="SecBtnBdr"
+                                            CornerRadius="6"
+                                            Padding="15,7"
+                                            Background="#22FFFFFF"
+                                            BorderBrush="#32FFFFFF"
+                                            BorderThickness="1">
+                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                            <ui2:SymbolIcon Symbol="ArrowShuffle24" FontSize="15"
+                                                            Foreground="#FFFFFF"
+                                                            Margin="0,0,8,0" VerticalAlignment="Center" />
+                                            <TextBlock Text="Reproducir en orden aleatorio" FontSize="13" FontWeight="SemiBold"
+                                                       Foreground="#FFFFFF" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="SecBtnBdr" Property="Background" Value="#36FFFFFF" />
+                                            <Setter TargetName="SecBtnBdr" Property="BorderBrush" Value="#55FFFFFF" />
+                                        </Trigger>
+                                        <Trigger Property="IsPressed" Value="True">
+                                            <Setter TargetName="SecBtnBdr" Property="Background" Value="#48FFFFFF" />
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Button.Template>
+                        </Button>
+
+                        <!-- 3. + Agregar a -->
+                        <Button Cursor="Hand" Margin="0,0,10,4"
+                                Click="OnAddToButtonClick"
+                                ToolTip="Agregar álbum a cola o lista de reproducción">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border x:Name="AddBtnBdr"
+                                            CornerRadius="6"
+                                            Padding="15,7"
+                                            Background="#22FFFFFF"
+                                            BorderBrush="#32FFFFFF"
+                                            BorderThickness="1">
+                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                            <ui2:SymbolIcon Symbol="Add24" FontSize="15"
+                                                            Foreground="#FFFFFF"
+                                                            Margin="0,0,8,0" VerticalAlignment="Center" />
+                                            <TextBlock Text="Agregar a" FontSize="13" FontWeight="SemiBold"
+                                                       Foreground="#FFFFFF" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="AddBtnBdr" Property="Background" Value="#36FFFFFF" />
+                                            <Setter TargetName="AddBtnBdr" Property="BorderBrush" Value="#55FFFFFF" />
+                                        </Trigger>
+                                        <Trigger Property="IsPressed" Value="True">
+                                            <Setter TargetName="AddBtnBdr" Property="Background" Value="#48FFFFFF" />
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Button.Template>
+                        </Button>
+
+                        <!-- 4. ••• (Más opciones) -->
+                        <Button Cursor="Hand" Margin="0,0,0,4"
+                                Click="OnMoreOptionsButtonClick"
+                                ToolTip="Más opciones">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border x:Name="MoreBtnBdr"
+                                            CornerRadius="6"
+                                            Padding="11,7"
+                                            Background="#22FFFFFF"
+                                            BorderBrush="#32FFFFFF"
+                                            BorderThickness="1">
+                                        <ui2:SymbolIcon Symbol="MoreHorizontal24" FontSize="16"
+                                                        Foreground="#FFFFFF" VerticalAlignment="Center" />
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="MoreBtnBdr" Property="Background" Value="#36FFFFFF" />
+                                            <Setter TargetName="MoreBtnBdr" Property="BorderBrush" Value="#55FFFFFF" />
+                                        </Trigger>
+                                        <Trigger Property="IsPressed" Value="True">
+                                            <Setter TargetName="MoreBtnBdr" Property="Background" Value="#48FFFFFF" />
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Button.Template>
+                        </Button>
+                    </WrapPanel>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- ============================================================== -->
+        <!-- TRACK LIST (Clean Zebra Rows: # + Title | Artist | Genre | Dur)-->
+        <!-- ============================================================== -->
+        <ListView x:Name="AlbumTracksListView"
+                  Grid.Row="1"
+                  ItemsSource="{Binding Album.Tracks, ElementName=RootInfoAlbum}"
+                  Background="Transparent"
+                  BorderThickness="0"
+                  VirtualizingPanel.IsVirtualizing="True"
+                  VirtualizingPanel.VirtualizationMode="Recycling"
+                  VirtualizingPanel.ScrollUnit="Pixel"
+                  ScrollViewer.CanContentScroll="True"
+                  ScrollViewer.ScrollChanged="OnTracksScrollChanged"
+                  AlternationCount="2"
+                  ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+            <ListView.ItemContainerStyle>
+                <Style TargetType="ListViewItem">
+                    <Setter Property="Background" Value="#12FFFFFF" />
+                    <Setter Property="Padding" Value="18,11" />
+                    <Setter Property="Margin" Value="0,2" />
+                    <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                    <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+                    <Setter Property="ContextMenu" Value="{Binding TrackContextMenu, ElementName=RootInfoAlbum}" />
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="ListViewItem">
+                                <Border x:Name="ItemBorder"
+                                        Background="{TemplateBinding Background}"
+                                        CornerRadius="6"
+                                        Padding="{TemplateBinding Padding}">
+                                    <ContentPresenter HorizontalAlignment="Stretch" />
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="ItemBorder" Property="Background" Value="{DynamicResource SurfaceCardHoverBrush}" />
+                                    </Trigger>
+                                    <DataTrigger Binding="{Binding IsCurrent}" Value="True">
+                                        <Setter TargetName="ItemBorder" Property="Background" Value="#22FFFFFF" />
+                                    </DataTrigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                    <Style.Triggers>
+                        <Trigger Property="ItemsControl.AlternationIndex" Value="1">
+                            <Setter Property="Background" Value="Transparent" />
+                        </Trigger>
+                    </Style.Triggers>
+                </Style>
+            </ListView.ItemContainerStyle>
+
+            <ListView.ItemTemplate>
+                <DataTemplate DataType="{x:Type models:Track}">
+                    <Grid x:Name="RowGrid" Background="Transparent" Cursor="Hand">
+                        <Grid.InputBindings>
+                            <MouseBinding Gesture="LeftClick"
+                                          Command="{Binding PlayTrackCommand, ElementName=RootInfoAlbum}"
+                                          CommandParameter="{Binding}" />
+                        </Grid.InputBindings>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="38" />
+                            <ColumnDefinition Width="2.4*" />
+                            <ColumnDefinition Width="1.5*" />
+                            <ColumnDefinition Width="1.3*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Column 0: Track Number ("1.") or Speaker/Play Icon -->
+                        <Grid Grid.Column="0" VerticalAlignment="Center">
+                            <TextBlock x:Name="TrackNumTxt"
+                                       Text="{Binding TrackNumberDisplay}"
+                                       FontSize="13"
+                                       Foreground="{DynamicResource TextSecondaryBrush}"
+                                       VerticalAlignment="Center"
+                                       HorizontalAlignment="Left"
+                                       Margin="4,0,0,0" />
+                            <ui2:SymbolIcon x:Name="HoverPlayIcon"
+                                            Symbol="Play24"
+                                            FontSize="14"
+                                            Foreground="{Binding Source={x:Static vm:MainViewModel.Instance}, Path=Theme.CurrentAccentBrush}"
+                                            VerticalAlignment="Center"
+                                            HorizontalAlignment="Left"
+                                            Margin="4,0,0,0"
+                                            Visibility="Collapsed" />
+                            <ui2:SymbolIcon x:Name="CurrentSpeakerIcon"
+                                            Symbol="Speaker224"
+                                            FontSize="14"
+                                            Foreground="{Binding Source={x:Static vm:MainViewModel.Instance}, Path=Theme.CurrentAccentBrush}"
+                                            VerticalAlignment="Center"
+                                            HorizontalAlignment="Left"
+                                            Margin="4,0,0,0"
+                                            Visibility="Collapsed" />
+                        </Grid>
+
+                        <!-- Column 1: Track Title + Optional VIDEO Badge -->
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,16,0">
+                            <TextBlock x:Name="TrackTitleTxt"
+                                       Text="{Binding Title}"
+                                       FontSize="13.5"
+                                       FontWeight="Normal"
+                                       Foreground="{DynamicResource TextPrimaryBrush}"
+                                       TextTrimming="CharacterEllipsis"
+                                       VerticalAlignment="Center" />
+
+                            <Border Margin="8,0,0,0" Padding="4,1" CornerRadius="4"
+                                    Background="{DynamicResource SurfaceCardSubtleBrush}"
+                                    BorderBrush="{DynamicResource SurfaceCardBorderBrush}" BorderThickness="1"
+                                    ToolTip="Contiene video musical (osu!)"
+                                    Visibility="{Binding HasVideo, Converter={StaticResource BoolToVisConverter}}">
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <ui2:SymbolIcon Symbol="Video24" FontSize="11"
+                                                    Foreground="{Binding Source={x:Static vm:MainViewModel.Instance}, Path=Theme.CurrentAccentBrush}"
+                                                    Margin="0,0,3,0" />
+                                    <TextBlock Text="VIDEO" FontSize="9" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}" />
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+
+                        <!-- Column 2: Artist (Invisible Button to redirect to Artist Detail) -->
+                        <Button Grid.Column="2"
+                                Background="Transparent" BorderThickness="0" Padding="0,2"
+                                HorizontalAlignment="Left" VerticalAlignment="Center"
+                                Margin="0,0,16,0"
+                                Cursor="Hand"
+                                ToolTip="Ir al artista"
+                                Click="OnTrackArtistButtonClick">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border Background="Transparent">
+                                        <TextBlock x:Name="TrackArtistCellTxt"
+                                                   Text="{Binding Artist}"
+                                                   FontSize="13"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   VerticalAlignment="Center" />
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="TrackArtistCellTxt" Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+                                            <Setter TargetName="TrackArtistCellTxt" Property="TextDecorations" Value="Underline" />
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Button.Template>
+                        </Button>
+
+                        <!-- Column 3: Genre ("Género desconocido" fallback) -->
+                        <TextBlock Grid.Column="3"
+                                   Text="{Binding GenreDisplay}"
+                                   FontSize="13"
+                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                   TextTrimming="CharacterEllipsis"
+                                   VerticalAlignment="Center"
+                                   Margin="0,0,16,0" />
+
+                        <!-- Column 4: Favorite Heart ♥ + Two-Digit Duration ("02:44") -->
+                        <StackPanel Grid.Column="4" Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Right">
+                            <Button x:Name="FavBtn"
+                                    Width="28" Height="28" Padding="0" Margin="0,0,10,0"
+                                    Background="Transparent" BorderThickness="0" Cursor="Hand"
+                                    ToolTip="Agregar o quitar de Favoritos"
+                                    Command="{Binding Source={x:Static vm:MainViewModel.Instance}, Path=ToggleFavoriteCommand}"
+                                    CommandParameter="{Binding}">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border x:Name="FavBdr" CornerRadius="6" Background="Transparent">
+                                            <ui2:SymbolIcon x:Name="FavIcon" Symbol="Heart24" FontSize="14"
+                                                            HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                            Foreground="{DynamicResource TextTertiaryBrush}" />
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="FavBdr" Property="Background" Value="{DynamicResource SurfaceCardHoverBrush}" />
+                                            </Trigger>
+                                            <DataTrigger Binding="{Binding IsFavorite}" Value="True">
+                                                <Setter TargetName="FavIcon" Property="Filled" Value="True" />
+                                                <Setter TargetName="FavIcon" Property="Foreground" Value="#FFE81123" />
+                                            </DataTrigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Button.Template>
+                            </Button>
+
+                            <TextBlock Text="{Binding DurationTwoDigitFormatted}"
+                                       FontSize="13"
+                                       Foreground="{DynamicResource TextSecondaryBrush}"
+                                       VerticalAlignment="Center"
+                                       MinWidth="40"
+                                       TextAlignment="Right" />
+                        </StackPanel>
+                    </Grid>
+
+                    <DataTemplate.Triggers>
+                        <Trigger SourceName="RowGrid" Property="IsMouseOver" Value="True">
+                            <Setter TargetName="TrackNumTxt" Property="Visibility" Value="Collapsed" />
+                            <Setter TargetName="HoverPlayIcon" Property="Visibility" Value="Visible" />
+                        </Trigger>
+                        <DataTrigger Binding="{Binding IsCurrent}" Value="True">
+                            <Setter TargetName="TrackTitleTxt" Property="Foreground" Value="{Binding Source={x:Static vm:MainViewModel.Instance}, Path=Theme.CurrentAccentBrush}" />
+                            <Setter TargetName="TrackTitleTxt" Property="FontWeight" Value="SemiBold" />
+                            <Setter TargetName="TrackNumTxt" Property="Visibility" Value="Collapsed" />
+                            <Setter TargetName="HoverPlayIcon" Property="Visibility" Value="Collapsed" />
+                            <Setter TargetName="CurrentSpeakerIcon" Property="Visibility" Value="Visible" />
+                        </DataTrigger>
+                    </DataTemplate.Triggers>
+                </DataTemplate>
+            </ListView.ItemTemplate>
+        </ListView>
+    </Grid>
+</UserControl>

@@ -309,28 +309,25 @@ public class LastFmService
             catch { }
         }
 
-        // Si el interruptor global de Last.fm está desactivado, o la sincronización/búsqueda de artistas está desactivada, se omite cualquier petición HTTP externa
-        if (!IsEnabled || !ArtistModel.IsLastFmArtistSyncActive)
+        // Si el interruptor global de Last.fm está desactivado, se omite cualquier petición HTTP externa
+        if (!IsEnabled)
         {
             result.CachedImagePaths = GetLocalArtistImages(artistDir);
             return result;
         }
 
-        // 2. Fetch biography strictly via official Last.fm REST API (artist.getInfo)
-        if (IsEnabled && !string.IsNullOrWhiteSpace(ApiKey))
+        // 2. Fetch biography via official Last.fm REST API (artist.getInfo)
+        try
         {
-            try
-            {
-                var (bioSum, bioFull, _, _) = await FetchArtistBioViaApiAsync(artistName);
-                if (!string.IsNullOrWhiteSpace(bioSum))
-                    result.BioSummary = bioSum;
-                if (!string.IsNullOrWhiteSpace(bioFull))
-                    result.BioFull = bioFull;
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"[LastFmService] Error querying Last.fm info: {ex.Message}");
-            }
+            var (bioSum, bioFull, _, _) = await FetchArtistBioViaApiAsync(artistName);
+            if (!string.IsNullOrWhiteSpace(bioSum))
+                result.BioSummary = bioSum;
+            if (!string.IsNullOrWhiteSpace(bioFull))
+                result.BioFull = bioFull;
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[LastFmService] Error querying Last.fm info: {ex.Message}");
         }
 
         // 3. Obtain high-resolution artist images strictly from ONE source if no error (or fallback in Automático)
@@ -405,15 +402,32 @@ public class LastFmService
     }
 
     /// <summary>
-    /// Fetches artist biography strictly via the official Last.fm REST API (artist.getInfo) without web scraping.
-    /// Validates artist name matching to avoid saving incorrect data from autocorrect.
+    /// Fetches artist biography via the official Last.fm REST API (artist.getInfo).
+    /// Tries Spanish first, then falls back to English if Spanish biography is empty.
     /// </summary>
     public async Task<(string? BioSummary, string? BioFull, string? ReturnedName, bool IsNotFound)> FetchArtistBioViaApiAsync(string artistName, System.Threading.CancellationToken ct = default)
     {
-        if (!IsEnabled || string.IsNullOrWhiteSpace(ApiKey) || string.IsNullOrWhiteSpace(artistName))
+        string effectiveKey = !string.IsNullOrWhiteSpace(ApiKey) ? ApiKey.Trim() : LEGACY_DEV_TEST_KEY;
+        if (!IsEnabled || string.IsNullOrWhiteSpace(effectiveKey) || string.IsNullOrWhiteSpace(artistName))
             return (null, null, null, false);
 
-        string url = $"https://ws.audioscrobbler.com/2.0/?method=artist.getinfo&artist={Uri.EscapeDataString(artistName.Trim())}&api_key={Uri.EscapeDataString(ApiKey.Trim())}&autocorrect=1&format=json";
+        var esResult = await QueryArtistBioForLangAsync(artistName, effectiveKey, "es", ct).ConfigureAwait(false);
+        if (!string.IsNullOrWhiteSpace(esResult.BioSummary) || esResult.IsNotFound)
+        {
+            return esResult;
+        }
+
+        return await QueryArtistBioForLangAsync(artistName, effectiveKey, null, ct).ConfigureAwait(false);
+    }
+
+    private async Task<(string? BioSummary, string? BioFull, string? ReturnedName, bool IsNotFound)> QueryArtistBioForLangAsync(
+        string artistName,
+        string effectiveKey,
+        string? lang,
+        System.Threading.CancellationToken ct)
+    {
+        string langParam = !string.IsNullOrWhiteSpace(lang) ? $"&lang={lang}" : "";
+        string url = $"https://ws.audioscrobbler.com/2.0/?method=artist.getinfo&artist={Uri.EscapeDataString(artistName.Trim())}&api_key={Uri.EscapeDataString(effectiveKey)}&autocorrect=1{langParam}&format=json";
 
         using var response = await _http.GetAsync(url, ct).ConfigureAwait(false);
         if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
@@ -423,11 +437,6 @@ public class LastFmService
 
         if (!response.IsSuccessStatusCode)
         {
-            if ((int)response.StatusCode == 429 || (int)response.StatusCode >= 500)
-            {
-                // Transient server/rate limit error
-                throw new HttpRequestException($"Last.fm API returned HTTP {(int)response.StatusCode}", null, response.StatusCode);
-            }
             return (null, null, null, false);
         }
 
@@ -447,18 +456,6 @@ public class LastFmService
         if (doc.RootElement.TryGetProperty("artist", out var artistElem))
         {
             string returnedName = artistElem.TryGetProperty("name", out var nameProp) ? (nameProp.GetString() ?? "") : "";
-
-            // Validate that autocorrect did not match a completely different artist
-            if (!string.IsNullOrWhiteSpace(returnedName))
-            {
-                string normTarget = DeezerImageProvider.NormalizeName(artistName);
-                string normReturned = DeezerImageProvider.NormalizeName(returnedName);
-                if (!DeezerImageProvider.AreNamesMatching(normTarget, normReturned))
-                {
-                    System.Diagnostics.Debug.WriteLine($"[LastFmService] Autocorrect mismatch: queried '{artistName}' but received '{returnedName}'. Rejecting.");
-                    return (null, null, returnedName, true);
-                }
-            }
 
             string? summary = null;
             string? full = null;
@@ -481,13 +478,87 @@ public class LastFmService
         return (null, null, null, false);
     }
 
+    public async Task<(string Summary, string Full)> FetchArtistBioOnDemandAsync(
+        string artistName,
+        IReadOnlyList<string>? altNames = null,
+        System.Threading.CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(artistName) || artistName.Equals("Unknown Artist", StringComparison.OrdinalIgnoreCase))
+            return (string.Empty, string.Empty);
+
+        string artistDir = GetArtistDirectory(artistName);
+        string bioSummaryFile = Path.Combine(artistDir, "bio_summary.txt");
+        string bioFullFile = Path.Combine(artistDir, "bio_full.txt");
+
+        if (File.Exists(bioSummaryFile))
+        {
+            try
+            {
+                string cachedSum = (await File.ReadAllTextAsync(bioSummaryFile, ct).ConfigureAwait(false)).Trim();
+                string cachedFull = File.Exists(bioFullFile)
+                    ? (await File.ReadAllTextAsync(bioFullFile, ct).ConfigureAwait(false)).Trim()
+                    : cachedSum;
+                if (!string.IsNullOrWhiteSpace(cachedSum))
+                {
+                    return (cachedSum, string.IsNullOrWhiteSpace(cachedFull) ? cachedSum : cachedFull);
+                }
+            }
+            catch { }
+        }
+
+        if (!IsEnabled) return (string.Empty, string.Empty);
+
+        var candidates = new List<string> { artistName };
+        if (altNames != null)
+        {
+            foreach (var alt in altNames)
+            {
+                if (!string.IsNullOrWhiteSpace(alt) && !candidates.Contains(alt, StringComparer.OrdinalIgnoreCase))
+                    candidates.Add(alt);
+            }
+        }
+
+        foreach (var candidate in candidates)
+        {
+            try
+            {
+                var (bioSum, bioFull, _, _) = await FetchArtistBioViaApiAsync(candidate, ct).ConfigureAwait(false);
+                if (!string.IsNullOrWhiteSpace(bioSum))
+                {
+                    string finalFull = string.IsNullOrWhiteSpace(bioFull) ? bioSum : bioFull;
+                    try
+                    {
+                        await File.WriteAllTextAsync(bioSummaryFile, bioSum, ct).ConfigureAwait(false);
+                        await File.WriteAllTextAsync(bioFullFile, finalFull, ct).ConfigureAwait(false);
+                    }
+                    catch { }
+                    return (bioSum, finalFull);
+                }
+            }
+            catch { }
+        }
+
+        return (string.Empty, string.Empty);
+    }
+
     /// <summary>
-    /// Fast lightweight fetch that downloads ONLY the first artist image via official APIs (Fanart.tv / Deezer)
-    /// without any web scraping.
+    /// Fast lightweight fetch that downloads ONLY the first artist image via official APIs (Fanart.tv / Deezer / Last.fm).
     /// </summary>
     public async Task<string?> FetchFirstArtistThumbnailAsync(string artistName, System.Threading.CancellationToken ct = default)
     {
         if (!IsEnabled || !ArtistModel.IsLastFmArtistSyncActive || string.IsNullOrWhiteSpace(artistName) || artistName.Equals("Unknown Artist", StringComparison.OrdinalIgnoreCase))
+            return null;
+
+        return await FetchArtistThumbnailOnDemandAsync(artistName, null, ct).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Fetches and caches the primary artist photo on demand (used when opening InfoArtista) using Fanart.tv, Deezer, or Last.fm,
+    /// with fallback to alternative names (e.g., Unicode/Romaji).
+    /// </summary>
+    public async Task<string?> FetchArtistThumbnailOnDemandAsync(string artistName, IReadOnlyList<string>? altNames = null, System.Threading.CancellationToken ct = default)
+    {
+        if (!IsEnabled || string.IsNullOrWhiteSpace(artistName) || artistName.Equals("Unknown Artist", StringComparison.OrdinalIgnoreCase))
             return null;
 
         string artistDir = GetArtistDirectory(artistName);
@@ -495,10 +566,19 @@ public class LastFmService
         if (existing.Count > 0) return existing[0];
 
         var urls = await FetchImageUrlsBySourceAsync(artistName, "Automático", ct).ConfigureAwait(false);
+        if (urls.Count == 0 && altNames != null)
+        {
+            foreach (var alt in altNames)
+            {
+                if (string.IsNullOrWhiteSpace(alt)) continue;
+                urls = await FetchImageUrlsBySourceAsync(alt, "Automático", ct).ConfigureAwait(false);
+                if (urls.Count > 0) break;
+            }
+        }
+
         if (urls.Count == 0 || ct.IsCancellationRequested) return null;
         string thumbUrl = urls[0];
 
-        // 3. Download only this 1 thumbnail file
         try
         {
             string targetFile = Path.Combine(artistDir, "img_00.jpg");
@@ -661,7 +741,7 @@ public class LastFmService
     }
 
     /// <summary>
-    /// Fetches track metadata (specifically Album name and Cover Art) from Last.fm API track.getInfo.
+    /// Fetches track metadata (specifically Album name and Cover Art) from Last.fm API track.getInfo with track.search and album.search fallbacks.
     /// Supports multiple candidate pairs (e.g. Roumaji vs Native Unicode / Japanese / Cyrillic) and split artists.
     /// </summary>
     public async Task<(string? AlbumTitle, string? AlbumCoverUrl)> FetchTrackAlbumInfoAsync(
@@ -681,34 +761,38 @@ public class LastFmService
         {
             if (string.IsNullOrWhiteSpace(art) || string.IsNullOrWhiteSpace(tit)) return;
 
-            // Generate clean title candidates: original, stripped parenthesis/brackets (e.g. "#1f1e33 (#00102g ver)" -> "#1f1e33")
+            // Generate clean title candidates: original intact title is ALWAYS top priority
             var titleVariants = new List<string>();
             string cleanTit = tit.Trim();
             titleVariants.Add(cleanTit);
 
-            // If title contains "(...)", "[...]" or " - ", extract base title
-            int parenIdx = cleanTit.IndexOf('(');
-            int bracketIdx = cleanTit.IndexOf('[');
-            int dashIdx = cleanTit.IndexOf(" - ", StringComparison.Ordinal);
-            int cutIdx = -1;
-            if (parenIdx > 0) cutIdx = parenIdx;
-            if (bracketIdx > 0 && (cutIdx == -1 || bracketIdx < cutIdx)) cutIdx = bracketIdx;
-            if (dashIdx > 0 && (cutIdx == -1 || dashIdx < cutIdx)) cutIdx = dashIdx;
-
-            if (cutIdx > 0)
+            // Strip out common osu! / release difficulty suffixes or metadata tags only (e.g. "TV Size", "(Short Ver.)", "feat.")
+            // without corrupting stylized names like "ai[ue]on" or "#1f1e33"
+            string cutVersion = Regex.Replace(cleanTit, @"\s*[\(\[]?(TV[\s\-]?Size|Short\s*Ver\.?|Cut\s*Ver\.?|Game\s*Ver\.?|Extended\s*Mix|Original\s*Mix)[\)\]]?", "", RegexOptions.IgnoreCase).Trim();
+            if (!string.IsNullOrWhiteSpace(cutVersion) && !titleVariants.Contains(cutVersion, StringComparer.OrdinalIgnoreCase))
             {
-                string baseTit = cleanTit.Substring(0, cutIdx).Trim();
+                titleVariants.Add(cutVersion);
+            }
+
+            // Only strip parentheses if they contain identifiable metadata like (feat ...), (ver ...), (from ...), etc.
+            int parenIdx = cleanTit.IndexOf('(');
+            if (parenIdx > 0 && cleanTit.EndsWith(")"))
+            {
+                string baseTit = cleanTit.Substring(0, parenIdx).Trim();
                 if (!string.IsNullOrWhiteSpace(baseTit) && !titleVariants.Contains(baseTit, StringComparer.OrdinalIgnoreCase))
                 {
                     titleVariants.Add(baseTit);
                 }
             }
 
-            // Also check for trailing " TV Size", " (TV Size)", " (Cut Ver.)", " (Short Ver.)", " Short Ver."
-            string cutVersion = Regex.Replace(cleanTit, @"\s*[\(\[]?(TV[\s\-]?Size|Short\s*Ver\.?|Cut\s*Ver\.?|Game\s*Ver\.?)[\)\]]?", "", RegexOptions.IgnoreCase).Trim();
-            if (!string.IsNullOrWhiteSpace(cutVersion) && !titleVariants.Contains(cutVersion, StringComparer.OrdinalIgnoreCase))
+            int dashIdx = cleanTit.IndexOf(" - ", StringComparison.Ordinal);
+            if (dashIdx > 0)
             {
-                titleVariants.Add(cutVersion);
+                string baseTit = cleanTit.Substring(0, dashIdx).Trim();
+                if (!string.IsNullOrWhiteSpace(baseTit) && !titleVariants.Contains(baseTit, StringComparer.OrdinalIgnoreCase))
+                {
+                    titleVariants.Add(baseTit);
+                }
             }
 
             // Primary split artist candidate (e.g. "Camellia" from "Camellia feat. Nanahira")
@@ -765,6 +849,7 @@ public class LastFmService
             AddArtistPairs(artist, alternateTitle);
         }
 
+        // --- STEP 1: Direct track.getInfo queries for all candidate pairs ---
         foreach (var (artCandidate, titCandidate) in pairsToTry)
         {
             try
@@ -815,6 +900,167 @@ public class LastFmService
             }
         }
 
+        // --- STEP 2: Fuzzy fallback via track.search (handles stylized casing / titles like AI[UE]OON) ---
+        foreach (var (artCandidate, titCandidate) in pairsToTry.Take(3))
+        {
+            try
+            {
+                string searchUrl = $"https://ws.audioscrobbler.com/2.0/?method=track.search&track={Uri.EscapeDataString(titCandidate)}&artist={Uri.EscapeDataString(artCandidate)}&api_key={Uri.EscapeDataString(ApiKey.Trim())}&format=json";
+                using var response = await _http.GetAsync(searchUrl, ct).ConfigureAwait(false);
+                if (!response.IsSuccessStatusCode) continue;
+
+                string json = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+                using var doc = JsonDocument.Parse(json);
+                if (doc.RootElement.TryGetProperty("results", out var resElem) &&
+                    resElem.TryGetProperty("trackmatches", out var tmElem) &&
+                    tmElem.TryGetProperty("track", out var tListElem) &&
+                    tListElem.ValueKind == JsonValueKind.Array)
+                {
+                    foreach (var matchedTrack in tListElem.EnumerateArray())
+                    {
+                        string? matchedName = matchedTrack.TryGetProperty("name", out var np) ? np.GetString() : null;
+                        string? matchedArtist = matchedTrack.TryGetProperty("artist", out var ap) ? ap.GetString() : null;
+
+                        if (!string.IsNullOrWhiteSpace(matchedName) && !string.IsNullOrWhiteSpace(matchedArtist))
+                        {
+                            // If the track name returned is different in case or spelling, re-query track.getInfo with exact Last.fm name
+                            if (!string.Equals(matchedName, titCandidate, StringComparison.Ordinal) ||
+                                !string.Equals(matchedArtist, artCandidate, StringComparison.Ordinal))
+                            {
+                                string infoUrl = $"https://ws.audioscrobbler.com/2.0/?method=track.getInfo&artist={Uri.EscapeDataString(matchedArtist)}&track={Uri.EscapeDataString(matchedName)}&api_key={Uri.EscapeDataString(ApiKey.Trim())}&autocorrect=1&format=json";
+                                using var infoResp = await _http.GetAsync(infoUrl, ct).ConfigureAwait(false);
+                                if (infoResp.IsSuccessStatusCode)
+                                {
+                                    string infoJson = await infoResp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+                                    using var infoDoc = JsonDocument.Parse(infoJson);
+                                    if (infoDoc.RootElement.TryGetProperty("track", out var tSubElem) &&
+                                        tSubElem.TryGetProperty("album", out var aSubElem))
+                                    {
+                                        string? foundTitle = aSubElem.TryGetProperty("title", out var tp) ? tp.GetString() : null;
+                                        string? coverUrl = null;
+                                        if (aSubElem.TryGetProperty("image", out var imgArr) && imgArr.ValueKind == JsonValueKind.Array)
+                                        {
+                                            foreach (var img in imgArr.EnumerateArray())
+                                            {
+                                                string size = img.TryGetProperty("size", out var sp) ? (sp.GetString() ?? "") : "";
+                                                string text = img.TryGetProperty("#text", out var tp2) ? (tp2.GetString() ?? "") : "";
+                                                if (!string.IsNullOrEmpty(text))
+                                                {
+                                                    coverUrl = text;
+                                                    if (size is "extralarge" or "large") break;
+                                                }
+                                            }
+                                        }
+
+                                        if (!string.IsNullOrWhiteSpace(foundTitle))
+                                        {
+                                            return (foundTitle, coverUrl);
+                                        }
+                                    }
+                                }
+                            }
+                            break; // Check the top match first
+                        }
+                    }
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                return (null, null);
+            }
+            catch { }
+        }
+
+        // --- STEP 3: Fallback via album.search / album.getInfo (for singles where track title == album title, e.g. #1f1e33) ---
+        foreach (var (artCandidate, titCandidate) in pairsToTry.Take(2))
+        {
+            try
+            {
+                string albInfoUrl = $"https://ws.audioscrobbler.com/2.0/?method=album.getinfo&artist={Uri.EscapeDataString(artCandidate)}&album={Uri.EscapeDataString(titCandidate)}&api_key={Uri.EscapeDataString(ApiKey.Trim())}&autocorrect=1&format=json";
+                using var albResp = await _http.GetAsync(albInfoUrl, ct).ConfigureAwait(false);
+                if (albResp.IsSuccessStatusCode)
+                {
+                    string json = await albResp.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+                    using var doc = JsonDocument.Parse(json);
+                    if (doc.RootElement.TryGetProperty("album", out var albElem))
+                    {
+                        string? name = albElem.TryGetProperty("name", out var np) ? np.GetString() : null;
+                        string? coverUrl = null;
+                        if (albElem.TryGetProperty("image", out var imgArr) && imgArr.ValueKind == JsonValueKind.Array)
+                        {
+                            foreach (var img in imgArr.EnumerateArray())
+                            {
+                                string size = img.TryGetProperty("size", out var sp) ? (sp.GetString() ?? "") : "";
+                                string text = img.TryGetProperty("#text", out var tp2) ? (tp2.GetString() ?? "") : "";
+                                if (!string.IsNullOrEmpty(text))
+                                {
+                                    coverUrl = text;
+                                    if (size is "extralarge" or "large" or "mega") break;
+                                }
+                            }
+                        }
+                        if (!string.IsNullOrWhiteSpace(name))
+                        {
+                            return (name, coverUrl);
+                        }
+                    }
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                return (null, null);
+            }
+            catch { }
+        }
+
         return (null, null);
+    }
+
+    /// <summary>
+    /// Downloads an online album cover from Last.fm, saves it to AppData/MusicPlayer/ArtworkCache, and returns the local file path.
+    /// If the file is already cached on disk, returns it directly without performing network calls.
+    /// </summary>
+    public async Task<string?> DownloadAndCacheAlbumCoverAsync(string artist, string album, string imageUrl)
+    {
+        if (string.IsNullOrWhiteSpace(imageUrl)) return null;
+
+        try
+        {
+            string hash = Metadata.MetadataService.GetAlbumArtHash(artist, album);
+            string cacheDir = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "MusicPlayer",
+                "ArtworkCache");
+
+            Directory.CreateDirectory(cacheDir);
+            string localFilePath = Path.Combine(cacheDir, $"{hash}.jpg");
+
+            if (File.Exists(localFilePath) && new FileInfo(localFilePath).Length > 100)
+            {
+                return localFilePath;
+            }
+
+            using var resp = await _http.GetAsync(imageUrl).ConfigureAwait(false);
+            if (!resp.IsSuccessStatusCode) return null;
+
+            byte[] bytes = await resp.Content.ReadAsByteArrayAsync().ConfigureAwait(false);
+            if (bytes.Length < 100) return null;
+
+            Metadata.MetadataService.SaveArtToDiskCache(artist, album, bytes);
+
+            if (File.Exists(localFilePath))
+            {
+                return localFilePath;
+            }
+
+            // Fallback direct write if SaveArtToDiskCache didn't produce the file
+            await File.WriteAllBytesAsync(localFilePath, bytes).ConfigureAwait(false);
+            return localFilePath;
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[LastFmService] DownloadAndCacheAlbumCoverAsync error: {ex.Message}");
+            return null;
+        }
     }
 }

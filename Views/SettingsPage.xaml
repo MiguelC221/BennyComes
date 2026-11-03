@@ -7,44 +7,198 @@
              mc:Ignorable="d" 
              d:DesignHeight="950" d:DesignWidth="900">
 
+    <UserControl.Resources>
+        <!-- Windows 11 Settings Collapsible Category Card Style -->
+        <Style x:Key="Win11SettingsExpanderStyle" TargetType="Expander">
+            <Setter Property="Background" Value="#35202028" />
+            <Setter Property="BorderBrush" Value="#25FFFFFF" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+            <Setter Property="Margin" Value="0,0,0,10" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Expander">
+                        <Border x:Name="CardBorder"
+                                CornerRadius="8"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                SnapsToDevicePixels="True">
+                            <StackPanel>
+                                <!-- Collapsible Header Row (Windows 11 Settings Header) -->
+                                <ToggleButton x:Name="HeaderToggle"
+                                              IsChecked="{Binding IsExpanded, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
+                                              Cursor="Hand"
+                                              HorizontalAlignment="Stretch"
+                                              HorizontalContentAlignment="Stretch"
+                                              FocusVisualStyle="{x:Null}">
+                                    <ToggleButton.Template>
+                                        <ControlTemplate TargetType="ToggleButton">
+                                            <Border x:Name="HeaderBg" CornerRadius="8" Background="Transparent" Padding="20,16" HorizontalAlignment="Stretch">
+                                                <Grid HorizontalAlignment="Stretch">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <ContentPresenter Grid.Column="0"
+                                                                      ContentSource="Content"
+                                                                      VerticalAlignment="Center" />
+                                                    <Border Grid.Column="1" Width="32" Height="32" CornerRadius="6"
+                                                            Background="Transparent" VerticalAlignment="Center" Margin="14,0,0,0">
+                                                        <ui:SymbolIcon x:Name="ChevronIcon"
+                                                                       Symbol="ChevronDown24"
+                                                                       FontSize="16"
+                                                                       Foreground="{DynamicResource TextSecondaryBrush}"
+                                                                       HorizontalAlignment="Center"
+                                                                       VerticalAlignment="Center"
+                                                                       RenderTransformOrigin="0.5,0.5">
+                                                            <ui:SymbolIcon.RenderTransform>
+                                                                <RotateTransform Angle="0" />
+                                                            </ui:SymbolIcon.RenderTransform>
+                                                        </ui:SymbolIcon>
+                                                    </Border>
+                                                </Grid>
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="HeaderBg" Property="Background" Value="#22FFFFFF" />
+                                                </Trigger>
+                                                <Trigger Property="IsChecked" Value="True">
+                                                    <Trigger.EnterActions>
+                                                        <BeginStoryboard>
+                                                            <Storyboard>
+                                                                <DoubleAnimation Storyboard.TargetName="ChevronIcon"
+                                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(RotateTransform.Angle)"
+                                                                                 To="180" Duration="0:0:0.2">
+                                                                    <DoubleAnimation.EasingFunction>
+                                                                        <CubicEase EasingMode="EaseOut" />
+                                                                    </DoubleAnimation.EasingFunction>
+                                                                </DoubleAnimation>
+                                                            </Storyboard>
+                                                        </BeginStoryboard>
+                                                    </Trigger.EnterActions>
+                                                    <Trigger.ExitActions>
+                                                        <BeginStoryboard>
+                                                            <Storyboard>
+                                                                <DoubleAnimation Storyboard.TargetName="ChevronIcon"
+                                                                                 Storyboard.TargetProperty="(UIElement.RenderTransform).(RotateTransform.Angle)"
+                                                                                 To="0" Duration="0:0:0.2">
+                                                                    <DoubleAnimation.EasingFunction>
+                                                                        <CubicEase EasingMode="EaseOut" />
+                                                                    </DoubleAnimation.EasingFunction>
+                                                                </DoubleAnimation>
+                                                            </Storyboard>
+                                                        </BeginStoryboard>
+                                                    </Trigger.ExitActions>
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </ToggleButton.Template>
+                                    <ContentPresenter ContentSource="Header" HorizontalAlignment="Stretch" />
+                                </ToggleButton>
+
+                                <!-- Expandable Content Area -->
+                                <Border x:Name="ExpandSite"
+                                        Visibility="Collapsed"
+                                        BorderBrush="{DynamicResource DividerBrush}"
+                                        BorderThickness="0,1,0,0"
+                                        Padding="20,16,20,20"
+                                        Opacity="0">
+                                    <Border.RenderTransform>
+                                        <TranslateTransform Y="-8" />
+                                    </Border.RenderTransform>
+                                    <ContentPresenter ContentSource="Content"
+                                                      HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                                      VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+                                </Border>
+                            </StackPanel>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsExpanded" Value="True">
+                                <Setter TargetName="ExpandSite" Property="Visibility" Value="Visible" />
+                                <Trigger.EnterActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetName="ExpandSite"
+                                                             Storyboard.TargetProperty="Opacity"
+                                                             From="0.0" To="1.0" Duration="0:0:0.22">
+                                                <DoubleAnimation.EasingFunction>
+                                                    <CubicEase EasingMode="EaseOut" />
+                                                </DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
+                                            <DoubleAnimation Storyboard.TargetName="ExpandSite"
+                                                             Storyboard.TargetProperty="(UIElement.RenderTransform).(TranslateTransform.Y)"
+                                                             From="-8" To="0" Duration="0:0:0.22">
+                                                <DoubleAnimation.EasingFunction>
+                                                    <CubicEase EasingMode="EaseOut" />
+                                                </DoubleAnimation.EasingFunction>
+                                            </DoubleAnimation>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.EnterActions>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+
     <ScrollViewer VerticalScrollBarVisibility="Auto">
-        <StackPanel MaxWidth="800" HorizontalAlignment="Left" Margin="28,20,28,30">
+        <StackPanel MaxWidth="840" HorizontalAlignment="Stretch" Margin="28,20,28,30">
             <!-- Header -->
             <TextBlock Text="Configuración"
                        FontFamily="Segoe UI Variable Display, Segoe UI"
-                       FontSize="28" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,24" />
+                       FontSize="28" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,20" />
 
             <!-- ============================================== -->
             <!-- SECTION 1: BIBLIOTECA DE MÚSICA (CARPETAS)    -->
             <!-- ============================================== -->
-            <Border x:Name="LibraryFoldersCard" CornerRadius="12" Background="{DynamicResource SurfaceCardBrush}" BorderBrush="{DynamicResource SurfaceCardBorderBrush}" BorderThickness="1" Padding="20" Margin="0,0,0,20">
-                <Border.Style>
-                    <Style TargetType="Border">
+            <Expander x:Name="LibraryFoldersCard" IsExpanded="True">
+                <Expander.Style>
+                    <Style TargetType="Expander" BasedOn="{StaticResource Win11SettingsExpanderStyle}">
                         <Style.Triggers>
                             <DataTrigger Binding="{Binding Settings.HighlightLibraryFoldersSection}" Value="True">
                                 <Setter Property="BorderBrush" Value="{Binding Theme.CurrentAccentBrush}" />
                                 <Setter Property="BorderThickness" Value="2" />
+                                <Setter Property="IsExpanded" Value="True" />
                             </DataTrigger>
                         </Style.Triggers>
                     </Style>
-                </Border.Style>
+                </Expander.Style>
+                <Expander.Header>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <ui:SymbolIcon Grid.Column="0" Symbol="FolderOpen24" FontSize="22" Foreground="{Binding Theme.CurrentAccentBrush}" Margin="0,0,16,0" VerticalAlignment="Center" />
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                            <TextBlock Text="Biblioteca de Música" FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" />
+                            <TextBlock Text="Carpetas locales supervisadas para indexación de canciones, álbumes y artistas"
+                                       FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,2,0,0" TextWrapping="Wrap" />
+                        </StackPanel>
+                    </Grid>
+                </Expander.Header>
                 <StackPanel>
+                    <!-- Action Toolbar inside Biblioteca de Música -->
                     <Grid Margin="0,0,0,12">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
-                        <StackPanel Grid.Column="0">
-                            <StackPanel Orientation="Horizontal">
-                                <ui:SymbolIcon Symbol="FolderOpen24" FontSize="20" Foreground="{Binding Theme.CurrentAccentBrush}" Margin="0,0,10,0" />
-                                <TextBlock Text="Biblioteca de Música" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" />
-                            </StackPanel>
-                            <TextBlock Text="Carpetas locales supervisadas para indexación de canciones, álbumes y artistas."
-                                       FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="30,4,0,0" />
-                        </StackPanel>
-
+                        <TextBlock Grid.Column="0" Text="{Binding Settings.ScanningStatus}" FontSize="12" Foreground="{Binding Theme.CurrentAccentBrush}" VerticalAlignment="Center" />
                         <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                            <ui:Button Appearance="Primary" Padding="14,7"
+                            <ui:Button Appearance="Secondary" Padding="12,6" Margin="0,0,8,0"
+                                       Command="{Binding Settings.RescanAllCommand}">
+                                <StackPanel Orientation="Horizontal">
+                                    <ui:SymbolIcon Symbol="ArrowClockwise24" FontSize="14" Margin="0,0,6,0" />
+                                    <TextBlock Text="Re-escanear todo" FontSize="12" />
+                                </StackPanel>
+                            </ui:Button>
+                            <ui:Button Appearance="Primary" Padding="14,6"
                                        Background="{Binding Theme.CurrentAccentBrush}"
                                        Command="{Binding Settings.AddFolderCommand}">
                                 <StackPanel Orientation="Horizontal">
@@ -53,22 +207,6 @@
                                 </StackPanel>
                             </ui:Button>
                         </StackPanel>
-                    </Grid>
-
-                    <!-- Rescan Button & Status -->
-                    <Grid Margin="0,4,0,14">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="{Binding Settings.ScanningStatus}" FontSize="12" Foreground="{Binding Theme.CurrentAccentBrush}" VerticalAlignment="Center" />
-                        <ui:Button Grid.Column="1" Appearance="Secondary" Padding="12,5"
-                                   Command="{Binding Settings.RescanAllCommand}">
-                            <StackPanel Orientation="Horizontal">
-                                <ui:SymbolIcon Symbol="ArrowClockwise24" FontSize="14" Margin="0,0,6,0" />
-                                <TextBlock Text="Re-escanear todo" FontSize="12" />
-                            </StackPanel>
-                        </ui:Button>
                     </Grid>
 
                     <!-- Folders List -->
@@ -105,17 +243,27 @@
                         </StackPanel>
                     </ui:Button>
                 </StackPanel>
-            </Border>
+            </Expander>
 
             <!-- ============================================== -->
             <!-- SECTION 2: PERSONALIZACIÓN Y COLORES           -->
             <!-- ============================================== -->
-            <Border CornerRadius="12" Background="{DynamicResource SurfaceCardBrush}" BorderBrush="{DynamicResource SurfaceCardBorderBrush}" BorderThickness="1" Padding="20" Margin="0,0,0,20">
+            <Expander Style="{StaticResource Win11SettingsExpanderStyle}" IsExpanded="False">
+                <Expander.Header>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <ui:SymbolIcon Grid.Column="0" Symbol="Color24" FontSize="22" Foreground="{Binding Theme.CurrentAccentBrush}" Margin="0,0,16,0" VerticalAlignment="Center" />
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                            <TextBlock Text="Personalización y Colores" FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" />
+                            <TextBlock Text="Tema de la aplicación, colores de acento Material You y opacidad de ventana"
+                                       FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,2,0,0" TextWrapping="Wrap" />
+                        </StackPanel>
+                    </Grid>
+                </Expander.Header>
                 <StackPanel>
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
-                        <ui:SymbolIcon Symbol="Color24" FontSize="20" Foreground="{Binding Theme.CurrentAccentBrush}" Margin="0,0,10,0" />
-                        <TextBlock Text="Personalización y Colores" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" />
-                    </StackPanel>
 
                     <!-- Theme Selector -->
                     <Grid Margin="0,0,0,16">
@@ -248,26 +396,34 @@
                         </StackPanel>
                     </Grid>
                 </StackPanel>
-            </Border>
+            </Expander>
 
             <!-- ============================================== -->
             <!-- SECTION 3: REPRODUCCIÓN EN CURSO & VISUALIZADOR -->
             <!-- ============================================== -->
-            <Border CornerRadius="12" Background="{DynamicResource SurfaceCardBrush}" BorderBrush="{DynamicResource SurfaceCardBorderBrush}" BorderThickness="1" Padding="20" Margin="0,0,0,20">
+            <Expander Style="{StaticResource Win11SettingsExpanderStyle}" IsExpanded="False">
+                <Expander.Header>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <ui:SymbolIcon Grid.Column="0" Symbol="SoundSource24" FontSize="22" Foreground="{Binding Theme.CurrentAccentBrush}" Margin="0,0,16,0" VerticalAlignment="Center" />
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                            <TextBlock Text="Personalización de Reproducción en Curso" FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" />
+                            <TextBlock Text="Ajusta el fondo animado con efecto Ken Burns, difuminado, oscurecimiento y visualizadores"
+                                       FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,2,0,0" TextWrapping="Wrap" />
+                        </StackPanel>
+                    </Grid>
+                </Expander.Header>
                 <StackPanel>
                     <Grid Margin="0,0,0,14">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
-                        <StackPanel Grid.Column="0">
-                            <StackPanel Orientation="Horizontal">
-                                <ui:SymbolIcon Symbol="SoundSource24" FontSize="20" Foreground="{Binding Theme.CurrentAccentBrush}" Margin="0,0,10,0" />
-                                <TextBlock Text="Personalización de Reproducción en Curso" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" />
-                            </StackPanel>
-                            <TextBlock Text="Ajusta el fondo animado con efecto Ken Burns, difuminado, oscurecimiento y visualizadores."
-                                       FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" Margin="30,2,0,0" />
-                        </StackPanel>
+                        <TextBlock Grid.Column="0" Text="Administra las fotos descargadas para el artista en reproducción."
+                                   FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
 
                         <ui:Button Grid.Column="1" Appearance="Secondary" Padding="12,6"
                                    Command="{Binding Settings.OpenCurrentArtistGalleryCommand}"
@@ -395,19 +551,27 @@
                         </ComboBox>
                     </Grid>
                 </StackPanel>
-            </Border>
+            </Expander>
 
             <!-- ============================================== -->
             <!-- SECTION OSU: BIBLIOTECA OSU! (STABLE)           -->
             <!-- ============================================== -->
-            <Border CornerRadius="12" Background="{DynamicResource SurfaceCardBrush}" BorderBrush="{DynamicResource SurfaceCardBorderBrush}" BorderThickness="1" Padding="20" Margin="0,0,0,20">
+            <Expander Style="{StaticResource Win11SettingsExpanderStyle}" IsExpanded="False">
+                <Expander.Header>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <ui:SymbolIcon Grid.Column="0" Symbol="Games24" FontSize="22" Foreground="{Binding Theme.CurrentAccentBrush}" Margin="0,0,16,0" VerticalAlignment="Center" />
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                            <TextBlock Text="Modo Especial: Biblioteca de osu! (Stable)" FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" />
+                            <TextBlock Text="Lee directamente osu!.db y reproduce tus beatmaps sin abrir osu! y sin alterar tu biblioteca musical principal"
+                                       FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,2,0,0" TextWrapping="Wrap" />
+                        </StackPanel>
+                    </Grid>
+                </Expander.Header>
                 <StackPanel>
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
-                        <ui:SymbolIcon Symbol="Games24" FontSize="20" Foreground="{Binding Theme.CurrentAccentBrush}" Margin="0,0,10,0" />
-                        <TextBlock Text="Modo Especial: Biblioteca de osu! (Stable)" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" />
-                    </StackPanel>
-                    <TextBlock Text="Lee directamente osu!.db y reproduce tus beatmaps sin abrir osu! y sin alterar tu biblioteca musical principal."
-                               FontSize="12" Foreground="{DynamicResource TextTertiaryBrush}" Margin="30,0,0,16" TextWrapping="Wrap" />
 
                     <!-- Interruptor Activar Modo Osu -->
                     <Border CornerRadius="8" Background="{DynamicResource SurfaceCardSubtleBrush}" Padding="16,14" Margin="0,0,0,12">
@@ -465,17 +629,27 @@
                         </Border>
                     </StackPanel>
                 </StackPanel>
-            </Border>
+            </Expander>
 
             <!-- ============================================== -->
             <!-- SECTION 3.B: SERVICIOS EN LÍNEA (LAST.FM)     -->
             <!-- ============================================== -->
-            <Border CornerRadius="12" Background="{DynamicResource SurfaceCardBrush}" BorderBrush="{DynamicResource SurfaceCardBorderBrush}" BorderThickness="1" Padding="20" Margin="0,0,0,20">
+            <Expander Style="{StaticResource Win11SettingsExpanderStyle}" IsExpanded="False">
+                <Expander.Header>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <ui:SymbolIcon Grid.Column="0" Symbol="Globe24" FontSize="22" Foreground="{Binding Theme.CurrentAccentBrush}" Margin="0,0,16,0" VerticalAlignment="Center" />
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                            <TextBlock Text="Servicios en Línea (Last.fm &amp; Fanart.tv)" FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" />
+                            <TextBlock Text="Claves API y sincronización de biografías y fotos de artistas en alta resolución"
+                                       FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,2,0,0" TextWrapping="Wrap" />
+                        </StackPanel>
+                    </Grid>
+                </Expander.Header>
                 <StackPanel>
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
-                        <ui:SymbolIcon Symbol="Globe24" FontSize="20" Foreground="{Binding Theme.CurrentAccentBrush}" Margin="0,0,10,0" />
-                        <TextBlock Text="Servicios en Línea (Last.fm)" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" />
-                    </StackPanel>
 
                     <!-- Interruptor Maestro: Funciones en línea: Obtener metadatos con Last.fm -->
                     <Grid Margin="0,0,0,16">
@@ -618,19 +792,27 @@
                         <Run Text=". Las APIs públicas de Deezer y MusicBrainz están integradas de forma nativa y no requieren clave." />
                     </TextBlock>
                 </StackPanel>
-            </Border>
+            </Expander>
 
             <!-- ============================================== -->
             <!-- SECTION 3.B: ENRIQUECIMIENTO MASIVO ARTISTAS   -->
             <!-- ============================================== -->
-            <Border CornerRadius="12" Background="{DynamicResource SurfaceCardBrush}" BorderBrush="{DynamicResource SurfaceCardBorderBrush}" BorderThickness="1" Padding="20" Margin="0,0,0,20">
+            <Expander Style="{StaticResource Win11SettingsExpanderStyle}" IsExpanded="False">
+                <Expander.Header>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <ui:SymbolIcon Grid.Column="0" Symbol="ArrowDownload24" FontSize="22" Foreground="{Binding Theme.CurrentAccentBrush}" Margin="0,0,16,0" VerticalAlignment="Center" />
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                            <TextBlock Text="Enriquecimiento de Artistas en Segundo Plano" FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" />
+                            <TextBlock Text="Obtiene biografías oficiales y fotos en alta definición para todos los artistas de tu colección"
+                                       FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,2,0,0" TextWrapping="Wrap" />
+                        </StackPanel>
+                    </Grid>
+                </Expander.Header>
                 <StackPanel>
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
-                        <ui:SymbolIcon Symbol="ArrowDownload24" FontSize="20" Foreground="{Binding Theme.CurrentAccentBrush}" Margin="0,0,10,0" />
-                        <TextBlock Text="Enriquecimiento de Artistas en Segundo Plano" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" />
-                    </StackPanel>
-                    <TextBlock Text="Obtiene biografías oficiales mediante la API de Last.fm y fotos en alta definición (Fanart.tv y Deezer) para todos los artistas de tu colección sin ralentizar la app."
-                               FontSize="12" Foreground="{DynamicResource TextTertiaryBrush}" Margin="30,0,0,16" TextWrapping="Wrap" />
 
                     <!-- Status & Controls -->
                     <Grid Margin="0,0,0,12">
@@ -715,17 +897,27 @@
                         </Grid>
                     </StackPanel>
                 </StackPanel>
-            </Border>
+            </Expander>
 
             <!-- ============================================== -->
             <!-- SECTION 4: REPRODUCCIÓN Y AUDIO                -->
             <!-- ============================================== -->
-            <Border CornerRadius="12" Background="{DynamicResource SurfaceCardBrush}" BorderBrush="{DynamicResource SurfaceCardBorderBrush}" BorderThickness="1" Padding="20" Margin="0,0,0,20">
+            <Expander Style="{StaticResource Win11SettingsExpanderStyle}" IsExpanded="False">
+                <Expander.Header>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <ui:SymbolIcon Grid.Column="0" Symbol="Speaker224" FontSize="22" Foreground="{Binding Theme.CurrentAccentBrush}" Margin="0,0,16,0" VerticalAlignment="Center" />
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                            <TextBlock Text="Reproducción y Audio" FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" />
+                            <TextBlock Text="Reproducción automática al iniciar y comportamiento del motor de audio"
+                                       FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,2,0,0" TextWrapping="Wrap" />
+                        </StackPanel>
+                    </Grid>
+                </Expander.Header>
                 <StackPanel>
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
-                        <ui:SymbolIcon Symbol="Speaker224" FontSize="20" Foreground="{Binding Theme.CurrentAccentBrush}" Margin="0,0,10,0" />
-                        <TextBlock Text="Reproducción y Audio" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" />
-                    </StackPanel>
 
                     <!-- Autoplay Switch -->
                     <Grid Margin="0,0,0,4">
@@ -758,26 +950,34 @@
                         </StackPanel>
                     </Grid>
                 </StackPanel>
-            </Border>
+            </Expander>
 
             <!-- ============================================== -->
             <!-- SECTION 5: INDEXADOR INTELIGENTE DE ARTISTAS   -->
             <!-- ============================================== -->
-            <Border CornerRadius="12" Background="{DynamicResource SurfaceCardBrush}" BorderBrush="{DynamicResource SurfaceCardBorderBrush}" BorderThickness="1" Padding="20" Margin="0,0,0,20">
+            <Expander Style="{StaticResource Win11SettingsExpanderStyle}" IsExpanded="False">
+                <Expander.Header>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <ui:SymbolIcon Grid.Column="0" Symbol="People24" FontSize="22" Foreground="{Binding Theme.CurrentAccentBrush}" Margin="0,0,16,0" VerticalAlignment="Center" />
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                            <TextBlock Text="Indexador Inteligente de Artistas" FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" />
+                            <TextBlock Text="Separadores activos y lista blanca de excepciones para dividir colaboraciones sin romper nombres de bandas"
+                                       FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,2,0,0" TextWrapping="Wrap" />
+                        </StackPanel>
+                    </Grid>
+                </Expander.Header>
                 <StackPanel>
                     <Grid Margin="0,0,0,14">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
-                        <StackPanel Grid.Column="0">
-                            <StackPanel Orientation="Horizontal">
-                                <ui:SymbolIcon Symbol="People24" FontSize="20" Foreground="{Binding Theme.CurrentAccentBrush}" Margin="0,0,10,0" />
-                                <TextBlock Text="Indexador Inteligente de Artistas" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" />
-                            </StackPanel>
-                            <TextBlock Text="Configura los separadores activos y la lista blanca de excepciones para dividir colaboraciones sin romper nombres de bandas."
-                                       FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" Margin="30,2,0,0" />
-                        </StackPanel>
+                        <TextBlock Grid.Column="0" Text="Guarda los cambios en separadores o excepciones y vuelve a indexar tu biblioteca."
+                                   FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
 
                         <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                             <ui:Button Appearance="Secondary" Padding="12,6" Margin="0,0,8,0"
@@ -923,27 +1123,27 @@
                         </ItemsControl>
                     </Border>
                 </StackPanel>
-            </Border>
+            </Expander>
 
             <!-- ============================================== -->
             <!-- SECTION 6: MANTENIMIENTO Y DIAGNÓSTICO         -->
             <!-- ============================================== -->
-            <Border CornerRadius="12" Background="{DynamicResource SurfaceCardBrush}" BorderBrush="{DynamicResource SurfaceCardBorderBrush}" BorderThickness="1" Padding="20" Margin="0,0,0,20">
-                <StackPanel>
-                    <Grid Margin="0,0,0,14">
+            <Expander Style="{StaticResource Win11SettingsExpanderStyle}" IsExpanded="False">
+                <Expander.Header>
+                    <Grid>
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
-                        <StackPanel Grid.Column="0">
-                            <StackPanel Orientation="Horizontal">
-                                <ui:SymbolIcon Symbol="Wrench24" FontSize="20" Foreground="{Binding Theme.CurrentAccentBrush}" Margin="0,0,10,0" />
-                                <TextBlock Text="Mantenimiento y Diagnóstico" FontSize="18" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" />
-                            </StackPanel>
-                            <TextBlock Text="Herramientas de diagnóstico de memoria, registro detallado y captura de errores del sistema."
-                                       FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,4,0,0" />
+                        <ui:SymbolIcon Grid.Column="0" Symbol="Wrench24" FontSize="22" Foreground="{Binding Theme.CurrentAccentBrush}" Margin="0,0,16,0" VerticalAlignment="Center" />
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                            <TextBlock Text="Mantenimiento y Diagnóstico" FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" />
+                            <TextBlock Text="Herramientas de diagnóstico de memoria, registro detallado y restablecimiento de fábrica"
+                                       FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,2,0,0" TextWrapping="Wrap" />
                         </StackPanel>
                     </Grid>
+                </Expander.Header>
+                <StackPanel>
 
                     <!-- Debug Mode Switch -->
                     <Grid Margin="0,0,0,16">
@@ -1028,12 +1228,26 @@
                         </Grid>
                     </Border>
                 </StackPanel>
-            </Border>
+            </Expander>
 
             <!-- ============================================== -->
             <!-- SECTION 7: ACERCA DE BENNYCOMES, ACTUALIZACIONES Y LICENCIAS -->
             <!-- ============================================== -->
-            <Border CornerRadius="12" Background="{DynamicResource SurfaceCardBrush}" BorderBrush="{DynamicResource SurfaceCardBorderBrush}" BorderThickness="1" Padding="20">
+            <Expander Style="{StaticResource Win11SettingsExpanderStyle}" IsExpanded="False">
+                <Expander.Header>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <ui:SymbolIcon Grid.Column="0" Symbol="Info24" FontSize="22" Foreground="{Binding Theme.CurrentAccentBrush}" Margin="0,0,16,0" VerticalAlignment="Center" />
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                            <TextBlock Text="Acerca de BennyComes y Actualizaciones" FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" />
+                            <TextBlock Text="Información de versión, búsqueda de actualizaciones en GitHub Releases y licencias de código abierto"
+                                       FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,2,0,0" TextWrapping="Wrap" />
+                        </StackPanel>
+                    </Grid>
+                </Expander.Header>
                 <StackPanel>
                     <!-- App Brand & Version Info -->
                     <Grid Margin="0,0,0,18">
@@ -1131,7 +1345,7 @@
                         </ui:Button>
                     </Grid>
                 </StackPanel>
-            </Border>
+            </Expander>
         </StackPanel>
     </ScrollViewer>
 </UserControl>

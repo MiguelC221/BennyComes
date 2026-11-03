@@ -913,13 +913,31 @@ public class AudioPlayerService
             }
             else
             {
-                Stop();
+                FinishQueue();
             }
         }
         else
         {
             PlayTrackAt(nextIndex);
         }
+    }
+
+    /// <summary>
+    /// Se terminó la cola con el modo repetir desactivado: detiene la reproducción y libera la pista actual
+    /// (limpia minireproductor y reproductor en curso) pero conserva la cola intacta.
+    /// Al volver a presionar play, <see cref="Play"/> reinicia la cola desde el principio.
+    /// </summary>
+    private void FinishQueue()
+    {
+        Stop();
+
+        _suppressStopEvent = true;
+        CleanupAudioEngine();
+        _suppressStopEvent = false;
+
+        CurrentQueueIndex = -1;
+        TrackChanged?.Invoke(this, null);
+        RaisePlaybackStateChanged(null, false);
     }
 
     public void Previous()

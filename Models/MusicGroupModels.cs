@@ -49,13 +49,28 @@ public partial class AlbumModel : ObservableObject
     [ObservableProperty]
     private System.Windows.Media.Brush? _dominantHeaderBrush;
 
+    partial void OnCoverImageChanged(BitmapImage? value)
+    {
+        if (value != null && DominantHeaderBrush == null)
+        {
+            DominantHeaderBrush = ExtractHeaderBrush(value);
+        }
+    }
+
     private bool _isLoadingCover;
 
     public BitmapImage? CoverImageSource
     {
         get
         {
-            if (CoverImage != null) return CoverImage;
+            if (CoverImage != null)
+            {
+                if (DominantHeaderBrush == null)
+                {
+                    DominantHeaderBrush = ExtractHeaderBrush(CoverImage);
+                }
+                return CoverImage;
+            }
             if (!_isLoadingCover)
             {
                 _isLoadingCover = true;
@@ -97,6 +112,49 @@ public partial class AlbumModel : ObservableObject
 
     public string Subtitle => Year > 0 ? $"{Artist} • {Year}" : Artist;
 
+    public string YearDisplay => Year > 0 ? Year.ToString() : "Año desconocido";
+
+    public string TotalDurationFormatted
+    {
+        get
+        {
+            if (Tracks == null || Tracks.Count == 0) return "0:00";
+            long totalTicks = 0;
+            for (int i = 0; i < Tracks.Count; i++)
+            {
+                totalTicks += Tracks[i].Duration.Ticks;
+            }
+            var total = TimeSpan.FromTicks(totalTicks);
+            return total.TotalHours >= 1
+                ? $"{(int)total.TotalHours}:{total.Minutes:D2}:{total.Seconds:D2}"
+                : $"{total.Minutes}:{total.Seconds:D2}";
+        }
+    }
+
+    public string StatsSummary
+    {
+        get
+        {
+            int count = TrackCount;
+            string songsText = count == 1 ? "1 canción" : $"{count} canciones";
+            return $"{songsText} • Duración {TotalDurationFormatted}";
+        }
+    }
+
+    public void RefreshStats()
+    {
+        if (Tracks != null)
+        {
+            for (int i = 0; i < Tracks.Count; i++)
+            {
+                Tracks[i].FallbackTrackIndex = i + 1;
+            }
+        }
+        OnPropertyChanged(nameof(TrackCount));
+        OnPropertyChanged(nameof(TotalDurationFormatted));
+        OnPropertyChanged(nameof(StatsSummary));
+    }
+
     public string AlphaGroup => !string.IsNullOrWhiteSpace(AlphaGroupKey)
         ? AlphaGroupKey
         : Helpers.AlphaGroupHelper.GetAlphaGroupKey(Name);
@@ -123,7 +181,7 @@ public partial class AlbumModel : ObservableObject
                 bi.BeginInit();
                 bi.UriSource = new Uri(path, UriKind.Absolute);
                 bi.CacheOption = BitmapCacheOption.OnLoad;
-                bi.DecodePixelWidth = 160;
+                bi.DecodePixelWidth = 220;
                 bi.EndInit();
                 bi.Freeze();
                 return bi;
@@ -131,28 +189,13 @@ public partial class AlbumModel : ObservableObject
             catch { }
         }
 
-        return Services.Metadata.MetadataService.Instance.GetAlbumArtImage(fallbackTrack, decodeWidth: 160);
+        return Services.Metadata.MetadataService.Instance.GetAlbumArtImage(fallbackTrack, decodeWidth: 220);
     }
 
     private static System.Windows.Media.Brush? ExtractHeaderBrush(BitmapSource? image)
     {
         if (image == null) return null;
-        try
-        {
-            var rawColor = Services.Metadata.MetadataService.ExtractDominantAccentColor(image);
-            // Creamos un tono rico y oscuro para el fondo del banner superior (como en Groove Music / screenshot)
-            byte r = (byte)(rawColor.R * 0.40);
-            byte g = (byte)(rawColor.G * 0.40);
-            byte b = (byte)(rawColor.B * 0.40);
-            var color = System.Windows.Media.Color.FromRgb(r, g, b);
-            var brush = new System.Windows.Media.SolidColorBrush(color);
-            brush.Freeze();
-            return brush;
-        }
-        catch
-        {
-            return null;
-        }
+        return Services.ThemeService.CreateAccentedBoxBrush(image);
     }
 }
 
@@ -161,6 +204,9 @@ public partial class ArtistModel : ObservableObject
     public static bool IsLastFmArtistSyncActive { get; set; } = false;
 
     public string Name { get; set; } = "Unknown Artist";
+    public List<string> AltNames { get; set; } = new();
+    public bool HasAltNames => AltNames.Count > 0;
+    public string AltNamesDisplay => AltNames.Count > 0 ? string.Join(" / ", AltNames) : string.Empty;
     public string? AvatarPath { get; set; }
     public List<Track> Tracks { get; set; } = new();
     public List<AlbumModel> Albums { get; set; } = new();
@@ -178,12 +224,35 @@ public partial class ArtistModel : ObservableObject
     private string? _searchText;
     public string SearchText
     {
-        get => _searchText ??= Helpers.AlphaGroupHelper.NormalizeForSearch(Name);
+        get => _searchText ??= Helpers.AlphaGroupHelper.NormalizeForSearch(
+            AltNames.Count > 0 ? $"{Name} {string.Join(' ', AltNames)}" : Name);
         set => _searchText = value;
+    }
+
+    public bool MatchesQuery(string query)
+    {
+        if (string.IsNullOrWhiteSpace(query)) return true;
+        if (Name.Contains(query, StringComparison.OrdinalIgnoreCase)) return true;
+        for (int i = 0; i < AltNames.Count; i++)
+        {
+            if (AltNames[i].Contains(query, StringComparison.OrdinalIgnoreCase)) return true;
+        }
+        return false;
     }
 
     [ObservableProperty]
     private BitmapImage? _avatarImage;
+
+    [ObservableProperty]
+    private System.Windows.Media.Brush? _dominantHeaderBrush;
+
+    partial void OnAvatarImageChanged(BitmapImage? value)
+    {
+        if (value != null)
+        {
+            DominantHeaderBrush = Services.ThemeService.CreateAccentedBoxBrush(value);
+        }
+    }
 
     private bool _isLoadingAvatar;
 
@@ -232,6 +301,10 @@ public partial class ArtistModel : ObservableObject
                             HasCustomAvatar = isCustom;
                             HasValidImage = hasImg;
                             AvatarImage = img;
+                            if (img != null)
+                            {
+                                DominantHeaderBrush = Services.ThemeService.CreateAccentedBoxBrush(img);
+                            }
                             OnPropertyChanged(nameof(AvatarImageSource));
                         }, System.Windows.Threading.DispatcherPriority.Background);
                     }
@@ -247,6 +320,131 @@ public partial class ArtistModel : ObservableObject
     }
 
     public string Subtitle => AlbumCount > 0 ? $"{AlbumCount} álbumes • {TrackCount} canciones" : $"{TrackCount} canciones";
+
+    public string PrimaryStatsText
+    {
+        get
+        {
+            int albums = AlbumCount;
+            int tracks = TrackCount;
+            string albumsWord = albums == 1 ? "1 álbum" : $"{albums} álbumes";
+            string tracksWord = tracks == 1 ? "1 canción" : $"{tracks} canciones";
+            return albums > 0 ? $"{albumsWord} • {tracksWord}" : tracksWord;
+        }
+    }
+
+    public string DurationStatsText
+    {
+        get
+        {
+            if (Tracks == null || Tracks.Count == 0) return string.Empty;
+            long totalTicks = 0;
+            for (int i = 0; i < Tracks.Count; i++)
+            {
+                totalTicks += Tracks[i].Duration.Ticks;
+            }
+            var total = TimeSpan.FromTicks(totalTicks);
+            if (total.TotalHours >= 1)
+            {
+                int hrs = (int)total.TotalHours;
+                string hrWord = hrs == 1 ? "1 hora" : $"{hrs} horas";
+                return total.Minutes > 0
+                    ? $" • {hrWord} {total.Minutes} min"
+                    : $" • {hrWord}";
+            }
+            if (total.Minutes >= 1)
+            {
+                return $" • {total.Minutes} min";
+            }
+            return $" • {Math.Max(1, total.Seconds)} s";
+        }
+    }
+
+    public string MainGenreDisplay
+    {
+        get
+        {
+            if (Tracks != null && Tracks.Count > 0)
+            {
+                var topGenre = Tracks
+                    .Select(t => t.Genre?.Trim())
+                    .Where(g => !string.IsNullOrWhiteSpace(g) &&
+                                !g.Equals("Unknown", StringComparison.OrdinalIgnoreCase) &&
+                                !g.Equals("Desconocido", StringComparison.OrdinalIgnoreCase) &&
+                                !g.Equals("Género desconocido", StringComparison.OrdinalIgnoreCase))
+                    .GroupBy(g => g!, StringComparer.OrdinalIgnoreCase)
+                    .OrderByDescending(grp => grp.Count())
+                    .Select(grp => grp.First())
+                    .FirstOrDefault();
+
+                if (!string.IsNullOrWhiteSpace(topGenre))
+                {
+                    return $"Artista • {topGenre}";
+                }
+            }
+            return "Artista • Género desconocido";
+        }
+    }
+
+    public void EnsureAlbumsAndStats()
+    {
+        if (Tracks.Count == 0)
+        {
+            Tracks = Services.Library.LibraryCacheService.Instance.CachedTracks
+                .Where(t => !string.IsNullOrWhiteSpace(t.Artist) &&
+                            t.Artist.Contains(Name, StringComparison.OrdinalIgnoreCase))
+                .OrderBy(t => t.Album, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(t => t.TrackNumber == 0 ? uint.MaxValue : t.TrackNumber)
+                .ThenBy(t => t.Title, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+
+        var albumGroups = Tracks
+            .GroupBy(t => string.IsNullOrWhiteSpace(t.Album) || t.Album.Equals("Unknown Album", StringComparison.OrdinalIgnoreCase)
+                ? (string.IsNullOrWhiteSpace(t.Title) ? "Single" : t.Title.Trim())
+                : t.Album.Trim(), StringComparer.OrdinalIgnoreCase)
+            .Select(g =>
+            {
+                var orderedTracks = g
+                    .OrderBy(t => t.TrackNumber == 0 ? uint.MaxValue : t.TrackNumber)
+                    .ThenBy(t => t.Title, StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+
+                for (int i = 0; i < orderedTracks.Count; i++)
+                {
+                    orderedTracks[i].FallbackTrackIndex = i + 1;
+                }
+
+                var first = orderedTracks[0];
+                var existingAlbum = Services.Library.LibraryCacheService.Instance.CachedAlbums.FirstOrDefault(a =>
+                    string.Equals(a.Name, g.Key, StringComparison.OrdinalIgnoreCase) &&
+                    (string.Equals(a.Artist, Name, StringComparison.OrdinalIgnoreCase) || a.Artist.Contains(Name, StringComparison.OrdinalIgnoreCase)));
+
+                return new AlbumModel
+                {
+                    Name = g.Key,
+                    Artist = !string.IsNullOrWhiteSpace(first.AlbumArtist) ? first.AlbumArtist : Name,
+                    Year = orderedTracks.Max(t => t.Year),
+                    Genre = first.Genre,
+                    ArtworkPath = existingAlbum?.ArtworkPath ?? first.ArtworkPath,
+                    Tracks = orderedTracks,
+                    PersistedTrackCount = orderedTracks.Count
+                };
+            })
+            .OrderBy(a => a.Year > 0 ? 0 : 1)
+            .ThenByDescending(a => a.Year)
+            .ThenBy(a => a.Name, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        Albums = albumGroups;
+        OnPropertyChanged(nameof(Albums));
+        OnPropertyChanged(nameof(AlbumCount));
+        OnPropertyChanged(nameof(TrackCount));
+        OnPropertyChanged(nameof(Subtitle));
+        OnPropertyChanged(nameof(PrimaryStatsText));
+        OnPropertyChanged(nameof(DurationStatsText));
+        OnPropertyChanged(nameof(MainGenreDisplay));
+    }
 
     public string AlphaGroup => !string.IsNullOrWhiteSpace(AlphaGroupKey)
         ? AlphaGroupKey
@@ -393,6 +591,16 @@ public class ArtistLetterSection
 
         return sections;
     }
+}
+
+public class DoubtfulArtistPair
+{
+    public string UnicodeName { get; set; } = string.Empty;
+    public string RomajiName { get; set; } = string.Empty;
+    public int TrackCount { get; set; }
+    public string Reason { get; set; } = string.Empty;
+    public string DisplayPair => $"{RomajiName}  ↔  {UnicodeName}";
+    public string Subtitle => $"{TrackCount} canciones • {Reason}";
 }
 
 

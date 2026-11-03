@@ -1,0 +1,420 @@
+<UserControl x:Class="BenyComes.Views.UserPlaylists"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2002/xaml"
+             xmlns:ui2="http://schemas.lepo.co/wpfui/2022/xaml"
+             xmlns:models="clr-namespace:BenyComes.Models"
+             xmlns:vm="clr-namespace:BenyComes.ViewModels"
+             mc:Ignorable="d"
+             d:DesignHeight="850" d:DesignWidth="1050">
+
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="pack://application:,,,/Views/ArtistSectionTemplates.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+
+            <!-- ContextMenu compartido para las tarjetas cuadradas de listas de reproducción -->
+            <ContextMenu x:Key="PlaylistAlbumCardContextMenu">
+                <MenuItem Header="Reproducir ahora"
+                          Command="{Binding PlayPlaylistDirectCommand, Source={x:Static vm:MainViewModel.Instance}}"
+                          CommandParameter="{Binding}">
+                    <MenuItem.Icon>
+                        <ui2:SymbolIcon Symbol="Play24" />
+                    </MenuItem.Icon>
+                </MenuItem>
+                <MenuItem Header="Abrir lista de reproducción"
+                          Command="{Binding OpenPlaylistDetailCommand, Source={x:Static vm:MainViewModel.Instance}}"
+                          CommandParameter="{Binding}">
+                    <MenuItem.Icon>
+                        <ui2:SymbolIcon Symbol="FolderOpen24" />
+                    </MenuItem.Icon>
+                </MenuItem>
+                <MenuItem Header="Editar lista"
+                          Command="{Binding OpenEditPlaylistDialogCommand, Source={x:Static vm:MainViewModel.Instance}}"
+                          CommandParameter="{Binding}">
+                    <MenuItem.Icon>
+                        <ui2:SymbolIcon Symbol="Edit24" />
+                    </MenuItem.Icon>
+                </MenuItem>
+                <Separator />
+                <MenuItem Header="Eliminar lista"
+                          Command="{Binding DeletePlaylistWithNavigationCommand, Source={x:Static vm:MainViewModel.Instance}}"
+                          CommandParameter="{Binding}">
+                    <MenuItem.Icon>
+                        <ui2:SymbolIcon Symbol="Delete24" Foreground="#E81123" />
+                    </MenuItem.Icon>
+                </MenuItem>
+            </ContextMenu>
+        </ResourceDictionary>
+    </UserControl.Resources>
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Margin="28,20,28,40">
+
+            <!-- ============================================================== -->
+            <!-- 1. CABECERA PRINCIPAL Y ACCIONES RÁPIDAS                       -->
+            <!-- ============================================================== -->
+            <Grid Margin="0,0,0,22">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBlock Text="Listas de reproducción"
+                                   FontFamily="Segoe UI Variable Display, Segoe UI"
+                                   FontSize="28" FontWeight="Bold"
+                                   Foreground="{DynamicResource TextPrimaryBrush}" />
+                        <Border CornerRadius="10" Background="{DynamicResource SurfaceCardBrush}"
+                                BorderBrush="{DynamicResource SurfaceCardBorderBrush}" BorderThickness="1"
+                                Padding="10,3" Margin="12,0,0,0" VerticalAlignment="Center">
+                            <TextBlock Text="{Binding Playlists.Playlists.Count, StringFormat='{}{0} listas'}"
+                                       FontSize="12" FontWeight="SemiBold"
+                                       Foreground="{Binding Theme.CurrentAccentBrush}" />
+                        </Border>
+                    </StackPanel>
+                    <TextBlock Text="Organiza tu música en colecciones personalizadas o genera listas automáticas."
+                               FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,4,0,0" />
+                </StackPanel>
+
+                <!-- Botones de creación en cabecera -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <ui2:Button Appearance="Secondary" Padding="14,9" Margin="0,0,10,0"
+                                Command="{Binding CreatePlaylistWithCurrentTrackCommand}"
+                                ToolTip="Crear una lista empezando con la canción cargada en el reproductor">
+                        <StackPanel Orientation="Horizontal">
+                            <ui2:SymbolIcon Symbol="MusicNote224" FontSize="15" Foreground="{Binding Theme.CurrentAccentBrush}" Margin="0,0,7,0" />
+                            <TextBlock Text="Crear con canción actual" FontSize="12" FontWeight="SemiBold" />
+                        </StackPanel>
+                    </ui2:Button>
+
+                    <ui2:Button Appearance="Secondary" Padding="14,9" Margin="0,0,10,0"
+                                Command="{Binding CreateSuggestedPlaylistCommand}"
+                                CommandParameter="Recommended"
+                                ToolTip="Generar automáticamente una lista recomendada de 20 pistas">
+                        <StackPanel Orientation="Horizontal">
+                            <ui2:SymbolIcon Symbol="Sparkle24" FontSize="15" Foreground="{Binding Theme.CurrentAccentBrush}" Margin="0,0,7,0" />
+                            <TextBlock Text="Crear con recomendaciones" FontSize="12" FontWeight="SemiBold" />
+                        </StackPanel>
+                    </ui2:Button>
+
+                    <ui2:Button Appearance="Primary" Padding="16,9"
+                                Background="{Binding Theme.CurrentAccentBrush}"
+                                Command="{Binding CreatePlaylistQuickCommand}"
+                                ToolTip="Crear una lista de reproducción vacía">
+                        <StackPanel Orientation="Horizontal">
+                            <ui2:SymbolIcon Symbol="Add24" FontSize="15" Foreground="{Binding Theme.AccentForegroundBrush}" Margin="0,0,7,0" />
+                            <TextBlock Text="Nueva lista" FontSize="12" FontWeight="Bold" Foreground="{Binding Theme.AccentForegroundBrush}" />
+                        </StackPanel>
+                    </ui2:Button>
+                </StackPanel>
+            </Grid>
+
+            <!-- ============================================================== -->
+            <!-- 2. PANEL DE CREACIÓN CON CANCIÓN ACTUAL Y RECOMENDACIONES      -->
+            <!-- ============================================================== -->
+            <Grid Margin="0,0,0,26">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="1.25*" />
+                    <ColumnDefinition Width="16" />
+                    <ColumnDefinition Width="1*" />
+                    <ColumnDefinition Width="16" />
+                    <ColumnDefinition Width="1*" />
+                </Grid.ColumnDefinitions>
+
+                <!-- Tarjeta 1: Crear con la canción sonando actualmente -->
+                <Border Grid.Column="0" CornerRadius="12" Padding="14"
+                        Background="{DynamicResource SurfaceCardBrush}"
+                        BorderBrush="{DynamicResource SurfaceCardBorderBrush}" BorderThickness="1">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="68" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Carátula de la canción actual -->
+                        <Border Grid.Column="0" Width="68" Height="68" CornerRadius="8" ClipToBounds="True"
+                                Background="#1F1F28" BorderBrush="{DynamicResource SurfaceCardBorderBrush}" BorderThickness="1"
+                                VerticalAlignment="Center">
+                            <Grid>
+                                <ui2:SymbolIcon Symbol="MusicNote224" FontSize="26"
+                                                Foreground="{Binding Theme.CurrentAccentBrush}"
+                                                HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                <Image Source="{Binding NowPlaying.AlbumArt}" Stretch="UniformToFill"
+                                       RenderOptions.BitmapScalingMode="HighQuality" />
+                            </Grid>
+                        </Border>
+
+                        <StackPanel Grid.Column="1" Margin="14,0,0,0" VerticalAlignment="Center">
+                            <TextBlock Text="SONANDO ACTUALMENTE" FontSize="10" FontWeight="Bold"
+                                       Foreground="{Binding Theme.CurrentAccentBrush}" />
+                            <TextBlock Text="{Binding NowPlaying.Title}" FontSize="14" FontWeight="Bold"
+                                       Foreground="{DynamicResource TextPrimaryBrush}"
+                                       TextTrimming="CharacterEllipsis" Margin="0,2,0,1" />
+                            <TextBlock Text="{Binding NowPlaying.Artist}" FontSize="12"
+                                       Foreground="{DynamicResource TextSecondaryBrush}"
+                                       TextTrimming="CharacterEllipsis" Margin="0,0,0,8" />
+
+                            <StackPanel Orientation="Horizontal">
+                                <ui2:Button Appearance="Primary" Padding="10,4" Margin="0,0,8,0"
+                                            Background="{Binding Theme.CurrentAccentBrush}"
+                                            Command="{Binding CreatePlaylistWithCurrentTrackCommand}"
+                                            ToolTip="Abrir diálogo para crear lista con esta canción">
+                                    <StackPanel Orientation="Horizontal">
+                                        <ui2:SymbolIcon Symbol="Add24" FontSize="12" Foreground="{Binding Theme.AccentForegroundBrush}" Margin="0,0,5,0" />
+                                        <TextBlock Text="Crear con esta pista" FontSize="11" FontWeight="Bold" Foreground="{Binding Theme.AccentForegroundBrush}" />
+                                    </StackPanel>
+                                </ui2:Button>
+
+                                <ui2:Button Appearance="Secondary" Padding="10,4"
+                                            Command="{Binding CreateSuggestedPlaylistCommand}"
+                                            CommandParameter="CurrentTrackMix"
+                                            ToolTip="Generar una lista con esta canción y recomendaciones del mismo artista o género">
+                                    <StackPanel Orientation="Horizontal">
+                                        <ui2:SymbolIcon Symbol="Sparkle24" FontSize="12" Margin="0,0,5,0" />
+                                        <TextBlock Text="Radio de esta pista" FontSize="11" FontWeight="SemiBold" />
+                                    </StackPanel>
+                                </ui2:Button>
+                            </StackPanel>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <!-- Tarjeta 2: Mix Recomendado Inteligente -->
+                <Border Grid.Column="2" CornerRadius="12" Padding="14"
+                        Background="{DynamicResource SurfaceCardBrush}"
+                        BorderBrush="{DynamicResource SurfaceCardBorderBrush}" BorderThickness="1">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <Border Grid.Column="0" Width="56" Height="56" CornerRadius="12"
+                                Background="#220078D4" VerticalAlignment="Center">
+                            <ui2:SymbolIcon Symbol="Sparkle24" FontSize="26"
+                                            Foreground="{Binding Theme.CurrentAccentBrush}"
+                                            HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+
+                        <StackPanel Grid.Column="1" Margin="14,0,0,0" VerticalAlignment="Center">
+                            <TextBlock Text="Mix Recomendado" FontSize="14" FontWeight="Bold"
+                                       Foreground="{DynamicResource TextPrimaryBrush}" />
+                            <TextBlock Text="20 canciones seleccionadas según tus artistas y favoritas."
+                                       FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"
+                                       TextWrapping="Wrap" Margin="0,2,0,8" />
+                            <ui2:Button Appearance="Secondary" Padding="10,4" HorizontalAlignment="Left"
+                                        Command="{Binding CreateSuggestedPlaylistCommand}"
+                                        CommandParameter="Recommended">
+                                <StackPanel Orientation="Horizontal">
+                                    <ui2:SymbolIcon Symbol="Add24" FontSize="12" Foreground="{Binding Theme.CurrentAccentBrush}" Margin="0,0,5,0" />
+                                    <TextBlock Text="Generar Mix" FontSize="11" FontWeight="SemiBold" />
+                                </StackPanel>
+                            </ui2:Button>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <!-- Tarjeta 3: Lista desde Favoritos -->
+                <Border Grid.Column="4" CornerRadius="12" Padding="14"
+                        Background="{DynamicResource SurfaceCardBrush}"
+                        BorderBrush="{DynamicResource SurfaceCardBorderBrush}" BorderThickness="1">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <Border Grid.Column="0" Width="56" Height="56" CornerRadius="12"
+                                Background="#22E81123" VerticalAlignment="Center">
+                            <ui2:SymbolIcon Symbol="Heart24" Filled="True" FontSize="24"
+                                            Foreground="#FFE81123"
+                                            HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+
+                        <StackPanel Grid.Column="1" Margin="14,0,0,0" VerticalAlignment="Center">
+                            <TextBlock Text="Mis Favoritas ♥" FontSize="14" FontWeight="Bold"
+                                       Foreground="{DynamicResource TextPrimaryBrush}" />
+                            <TextBlock Text="Convierte tus canciones marcadas con corazón en una lista."
+                                       FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"
+                                       TextWrapping="Wrap" Margin="0,2,0,8" />
+                            <ui2:Button Appearance="Secondary" Padding="10,4" HorizontalAlignment="Left"
+                                        Command="{Binding CreateSuggestedPlaylistCommand}"
+                                        CommandParameter="Favorites">
+                                <StackPanel Orientation="Horizontal">
+                                    <ui2:SymbolIcon Symbol="Add24" FontSize="12" Foreground="#FFE81123" Margin="0,0,5,0" />
+                                    <TextBlock Text="Crear de Favoritas" FontSize="11" FontWeight="SemiBold" />
+                                </StackPanel>
+                            </ui2:Button>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+            </Grid>
+
+            <!-- ============================================================== -->
+            <!-- 3. CUADRÍCULA DE LISTAS CREADAS (FORMATO ÁLBUM CUADRADO)       -->
+            <!-- ============================================================== -->
+            <TextBlock Text="TUS LISTAS DE REPRODUCCIÓN"
+                       FontSize="12" FontWeight="Bold"
+                       Foreground="{DynamicResource TextTertiaryBrush}"
+                       Margin="0,0,0,14" />
+
+            <!-- Cuadrícula con tarjeta "+" de creación rápida + tarjetas de playlists en formato álbum cuadrado -->
+            <WrapPanel Orientation="Horizontal">
+
+                <!-- Tarjeta Cuadrada 0: "+ Crear nueva lista" estilo álbum -->
+                <Border Style="{StaticResource ScaleCardBorderStyle}" Width="176" Margin="0,0,20,24" CornerRadius="12"
+                        Background="{DynamicResource SurfaceCardBrush}" BorderBrush="{DynamicResource SurfaceCardBorderBrush}"
+                        BorderThickness="1" Padding="8" Cursor="Hand"
+                        ToolTip="Crear una nueva lista de reproducción vacía">
+                    <Border.InputBindings>
+                        <MouseBinding MouseAction="LeftClick"
+                                      Command="{Binding CreatePlaylistQuickCommand}" />
+                    </Border.InputBindings>
+                    <StackPanel>
+                        <Grid Width="160" Height="160" HorizontalAlignment="Center">
+                            <Border CornerRadius="6" Background="#16FFFFFF" BorderBrush="{DynamicResource DividerBrush}" BorderThickness="1">
+                                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                                    <Border Width="52" Height="52" CornerRadius="26" Background="#22FFFFFF" HorizontalAlignment="Center" Margin="0,0,0,8">
+                                        <ui2:SymbolIcon Symbol="Add24" FontSize="24" Foreground="{Binding Theme.CurrentAccentBrush}"
+                                                        HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                    </Border>
+                                    <TextBlock Text="Crear lista" FontSize="12" FontWeight="SemiBold"
+                                               Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center" />
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+                        <StackPanel Margin="0,8,0,0" Width="160">
+                            <TextBlock Text="+ Nueva lista vacía" FontSize="14" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis" />
+                            <TextBlock Text="Empezar desde cero" FontSize="12"
+                                       Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,2,0,0" TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- Tarjetas de Listas Creadas (Mismo diseño cuadrado 176px / 160x160 que Álbumes) -->
+                <ItemsControl ItemsSource="{Binding Playlists.Playlists}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel Orientation="Horizontal" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate DataType="{x:Type models:Playlist}">
+                            <Border Style="{StaticResource ScaleCardBorderStyle}" Width="176" Margin="0,0,20,24" CornerRadius="12"
+                                    Background="{DynamicResource SurfaceCardBrush}" BorderBrush="{DynamicResource SurfaceCardBorderBrush}"
+                                    BorderThickness="1" Padding="8" Cursor="Hand"
+                                    ContextMenu="{StaticResource PlaylistAlbumCardContextMenu}">
+                                <Border.InputBindings>
+                                    <MouseBinding MouseAction="LeftClick"
+                                                  Command="{Binding OpenPlaylistDetailCommand, Source={x:Static vm:MainViewModel.Instance}}"
+                                                  CommandParameter="{Binding}" />
+                                </Border.InputBindings>
+                                <StackPanel>
+                                    <!-- Contenedor cuadrado 160x160 idéntico a Álbumes -->
+                                    <Grid Width="160" Height="160" HorizontalAlignment="Center">
+                                        <Border CornerRadius="6" ClipToBounds="True" Background="#1F1F28">
+                                            <Grid>
+                                                <!-- Icono de respaldo cuando la lista no tiene portada -->
+                                                <ui2:SymbolIcon Symbol="MusicNote224" FontSize="54"
+                                                                Foreground="{Binding Theme.CurrentAccentBrush, Source={x:Static vm:MainViewModel.Instance}}"
+                                                                Opacity="0.65"
+                                                                HorizontalAlignment="Center" VerticalAlignment="Center" />
+
+                                                <!-- Imagen de portada personalizada o de la primera pista -->
+                                                <Image Source="{Binding CoverImage}" Stretch="UniformToFill"
+                                                       RenderOptions.BitmapScalingMode="HighQuality" />
+                                            </Grid>
+                                        </Border>
+
+                                        <!-- Hover Overlay con botones circulares Reproducir y Editar (como en Álbumes) -->
+                                        <Border x:Name="PlaylistCardHoverOverlay" CornerRadius="6" Background="#66000000" Opacity="0">
+                                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                <!-- Botón Izquierdo: Reproducir lista -->
+                                                <Button Width="44" Height="44" Cursor="Hand" ToolTip="Reproducir lista"
+                                                        Command="{Binding PlayPlaylistDirectCommand, Source={x:Static vm:MainViewModel.Instance}}"
+                                                        CommandParameter="{Binding}">
+                                                    <Button.Template>
+                                                        <ControlTemplate TargetType="Button">
+                                                            <Border x:Name="BtnBg" Width="44" Height="44" CornerRadius="22"
+                                                                    Background="#CC1E1E1E" BorderBrush="#40FFFFFF" BorderThickness="1">
+                                                                <Path Data="M 4,2 L 16,10 L 4,18 Z" Fill="White" Width="16" Height="16"
+                                                                      Margin="2,0,0,0" Stretch="Uniform" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                            </Border>
+                                                            <ControlTemplate.Triggers>
+                                                                <Trigger Property="IsMouseOver" Value="True">
+                                                                    <Setter TargetName="BtnBg" Property="Background"
+                                                                            Value="{Binding Theme.CurrentAccentBrush, Source={x:Static vm:MainViewModel.Instance}}" />
+                                                                </Trigger>
+                                                            </ControlTemplate.Triggers>
+                                                        </ControlTemplate>
+                                                    </Button.Template>
+                                                </Button>
+
+                                                <!-- Botón Derecho: Editar lista -->
+                                                <Button Width="38" Height="38" Margin="10,0,0,0" Cursor="Hand" ToolTip="Editar lista"
+                                                        Command="{Binding OpenEditPlaylistDialogCommand, Source={x:Static vm:MainViewModel.Instance}}"
+                                                        CommandParameter="{Binding}">
+                                                    <Button.Template>
+                                                        <ControlTemplate TargetType="Button">
+                                                            <Border x:Name="EditBtnBg" Width="38" Height="38" CornerRadius="19"
+                                                                    Background="#CC1E1E1E" BorderBrush="#40FFFFFF" BorderThickness="1">
+                                                                <ui2:SymbolIcon Symbol="Edit24" FontSize="15" Foreground="White"
+                                                                                HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                            </Border>
+                                                            <ControlTemplate.Triggers>
+                                                                <Trigger Property="IsMouseOver" Value="True">
+                                                                    <Setter TargetName="EditBtnBg" Property="Background"
+                                                                            Value="{Binding Theme.CurrentAccentBrush, Source={x:Static vm:MainViewModel.Instance}}" />
+                                                                </Trigger>
+                                                            </ControlTemplate.Triggers>
+                                                        </ControlTemplate>
+                                                    </Button.Template>
+                                                </Button>
+                                            </StackPanel>
+                                        </Border>
+                                    </Grid>
+
+                                    <!-- Título y subtítulo estilo Álbum -->
+                                    <StackPanel Margin="0,8,0,0" Width="160">
+                                        <TextBlock Text="{Binding Name}" FontSize="14" FontWeight="SemiBold"
+                                                   Foreground="{DynamicResource TextPrimaryBrush}"
+                                                   TextTrimming="CharacterEllipsis" ToolTip="{Binding Name}" />
+                                        <TextBlock Text="{Binding Subtitle}" FontSize="12"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                   TextTrimming="CharacterEllipsis" Margin="0,2,0,0" />
+                                    </StackPanel>
+                                </StackPanel>
+
+                                <Border.Triggers>
+                                    <EventTrigger RoutedEvent="MouseEnter">
+                                        <BeginStoryboard>
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetName="PlaylistCardHoverOverlay"
+                                                                 Storyboard.TargetProperty="Opacity" To="1.0" Duration="0:0:0.18" />
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </EventTrigger>
+                                    <EventTrigger RoutedEvent="MouseLeave">
+                                        <BeginStoryboard>
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetName="PlaylistCardHoverOverlay"
+                                                                 Storyboard.TargetProperty="Opacity" To="0.0" Duration="0:0:0.18" />
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </EventTrigger>
+                                </Border.Triggers>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </WrapPanel>
+
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

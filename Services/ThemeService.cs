@@ -127,6 +127,7 @@ public partial class ThemeService : ObservableObject
                     Application.Current.Resources["CardSurfaceBrush"] = new SolidColorBrush(Color.FromRgb(0xFF, 0xFF, 0xFF));
                     Application.Current.Resources["SurfaceCardBorderBrush"] = new SolidColorBrush(Color.FromRgb(0xDC, 0xE0, 0xE8));
                     Application.Current.Resources["SurfaceCardHoverBrush"] = new SolidColorBrush(Color.FromRgb(0xEA, 0xEC, 0xEF));
+                    Application.Current.Resources["TableRowAlternateBrush"] = new SolidColorBrush(Color.FromArgb(0x12, 0x00, 0x00, 0x00));
                     Application.Current.Resources["TextPrimaryBrush"] = new SolidColorBrush(Color.FromRgb(0x11, 0x13, 0x18));
                     Application.Current.Resources["TextSecondaryBrush"] = new SolidColorBrush(Color.FromRgb(0x4A, 0x50, 0x5C));
                     Application.Current.Resources["TextTertiaryBrush"] = new SolidColorBrush(Color.FromRgb(0x76, 0x7B, 0x87));
@@ -165,10 +166,11 @@ public partial class ThemeService : ObservableObject
                     Application.Current.Resources["CardSurfaceBrush"] = new SolidColorBrush(Color.FromRgb(0x1C, 0x1C, 0x22));
                     Application.Current.Resources["SurfaceCardBorderBrush"] = new SolidColorBrush(Color.FromArgb(0x1A, 0xFF, 0xFF, 0xFF));
                     Application.Current.Resources["SurfaceCardHoverBrush"] = new SolidColorBrush(Color.FromRgb(0x2A, 0x2A, 0x34));
+                    Application.Current.Resources["TableRowAlternateBrush"] = new SolidColorBrush(Color.FromArgb(0x14, 0xFF, 0xFF, 0xFF));
                     Application.Current.Resources["TextPrimaryBrush"] = new SolidColorBrush(Color.FromRgb(0xFF, 0xFF, 0xFF));
                     Application.Current.Resources["TextSecondaryBrush"] = new SolidColorBrush(Color.FromArgb(0xA0, 0xFF, 0xFF, 0xFF));
                     Application.Current.Resources["TextTertiaryBrush"] = new SolidColorBrush(Color.FromArgb(0x70, 0xFF, 0xFF, 0xFF));
-                    Application.Current.Resources["NavPaneBackgroundBrush"] = new SolidColorBrush(Color.FromArgb(alphaNav, 0x14, 0x14, 0x1C));
+                    Application.Current.Resources["NavPaneBackgroundBrush"] = new SolidColorBrush(Color.FromArgb(alphaNav, 0x1E, 0x1E, 0x27));
                     Application.Current.Resources["DividerBrush"] = new SolidColorBrush(Color.FromArgb(0x18, 0xFF, 0xFF, 0xFF));
                     Application.Current.Resources["ScrollBarThumbBrush"] = new SolidColorBrush(Color.FromArgb(0x66, 0xFF, 0xFF, 0xFF));
                     Application.Current.Resources["ScrollBarThumbHoverBrush"] = new SolidColorBrush(Color.FromArgb(0x99, 0xFF, 0xFF, 0xFF));
@@ -263,56 +265,71 @@ public partial class ThemeService : ObservableObject
         return Color.FromArgb(245, finalR, finalG, finalB);
     }
 
+    public static SolidColorBrush CreateAccentedBoxBrush(BitmapSource? art)
+    {
+        if (art != null)
+        {
+            try
+            {
+                var dominantColor = MetadataService.ExtractDominantAccentColor(art);
+
+                double r = dominantColor.R / 255.0;
+                double g = dominantColor.G / 255.0;
+                double b = dominantColor.B / 255.0;
+
+                double max = Math.Max(r, Math.Max(g, b));
+                double min = Math.Min(r, Math.Min(g, b));
+                double l = (max + min) / 2.0;
+                double h = 0, s = 0;
+
+                if (max != min)
+                {
+                    double d = max - min;
+                    s = l > 0.5 ? d / (2.0 - max - min) : d / (max + min);
+                    if (max == r) h = (g - b) / d + (g < b ? 6 : 0);
+                    else if (max == g) h = (b - r) / d + 2;
+                    else if (max == b) h = (r - g) / d + 4;
+                    h /= 6.0;
+                }
+
+                // Luminosidad ajustada (~32%) y saturación equilibrada igual que en el MiniPlayer
+                l = 0.32;
+                s = Math.Clamp(s, 0.28, 0.50);
+
+                static double HueToRgb(double p, double q, double t)
+                {
+                    if (t < 0) t += 1;
+                    if (t > 1) t -= 1;
+                    if (t < 1.0 / 6.0) return p + (q - p) * 6.0 * t;
+                    if (t < 1.0 / 2.0) return q;
+                    if (t < 2.0 / 3.0) return p + (q - p) * (2.0 / 3.0 - t) * 6.0;
+                    return p;
+                }
+
+                double q2 = l < 0.5 ? l * (1.0 + s) : l + s - l * s;
+                double p2 = 2.0 * l - q2;
+                byte finalR = (byte)Math.Round(HueToRgb(p2, q2, h + 1.0 / 3.0) * 255);
+                byte finalG = (byte)Math.Round(HueToRgb(p2, q2, h) * 255);
+                byte finalB = (byte)Math.Round(HueToRgb(p2, q2, h - 1.0 / 3.0) * 255);
+
+                var solidBrush = new SolidColorBrush(Color.FromRgb(finalR, finalG, finalB));
+                solidBrush.Freeze();
+                return solidBrush;
+            }
+            catch { }
+        }
+
+        var fallback = new SolidColorBrush(Color.FromRgb(0x1C, 0x1D, 0x24));
+        fallback.Freeze();
+        return fallback;
+    }
+
     public void OnTrackArtChanged(BitmapSource? art)
     {
         if (art != null)
         {
             var dominantColor = MetadataService.ExtractDominantAccentColor(art);
-            
-            // Color de fondo sólido que reacciona a la carátula:
-            // Tomamos el color dominante y lo adaptamos como fondo sólido tintado elegante y oscuro
-            double r = dominantColor.R / 255.0;
-            double g = dominantColor.G / 255.0;
-            double b = dominantColor.B / 255.0;
-
-            double max = Math.Max(r, Math.Max(g, b));
-            double min = Math.Min(r, Math.Min(g, b));
-            double l = (max + min) / 2.0;
-            double h = 0, s = 0;
-
-            if (max != min)
-            {
-                double d = max - min;
-                s = l > 0.5 ? d / (2.0 - max - min) : d / (max + min);
-                if (max == r) h = (g - b) / d + (g < b ? 6 : 0);
-                else if (max == g) h = (b - r) / d + 2;
-                else if (max == b) h = (r - g) / d + 4;
-                h /= 6.0;
-            }
-
-            // Luminosidad ajustada (~32%) y saturación equilibrada para un fondo visible, vivo y que reacciona con claridad al álbum
-            l = 0.32;
-            s = Math.Clamp(s, 0.28, 0.50);
-
-            static double HueToRgb(double p, double q, double t)
-            {
-                if (t < 0) t += 1;
-                if (t > 1) t -= 1;
-                if (t < 1.0 / 6.0) return p + (q - p) * 6.0 * t;
-                if (t < 1.0 / 2.0) return q;
-                if (t < 2.0 / 3.0) return p + (q - p) * (2.0 / 3.0 - t) * 6.0;
-                return p;
-            }
-
-            double q2 = l < 0.5 ? l * (1.0 + s) : l + s - l * s;
-            double p2 = 2.0 * l - q2;
-            byte finalR = (byte)Math.Round(HueToRgb(p2, q2, h + 1.0 / 3.0) * 255);
-            byte finalG = (byte)Math.Round(HueToRgb(p2, q2, h) * 255);
-            byte finalB = (byte)Math.Round(HueToRgb(p2, q2, h - 1.0 / 3.0) * 255);
-
-            var solidColor = Color.FromRgb(finalR, finalG, finalB);
-            var solidBrush = new SolidColorBrush(solidColor);
-            solidBrush.Freeze();
+            var solidBrush = CreateAccentedBoxBrush(art);
             MiniPlayerBackgroundBrush = solidBrush;
 
             if (Application.Current != null)
@@ -332,8 +349,7 @@ public partial class ThemeService : ObservableObject
         }
         else
         {
-            var fallbackBrush = new SolidColorBrush(Color.FromRgb(0x1C, 0x1D, 0x24));
-            fallbackBrush.Freeze();
+            var fallbackBrush = CreateAccentedBoxBrush(null);
             MiniPlayerBackgroundBrush = fallbackBrush;
 
             if (Application.Current != null)

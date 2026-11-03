@@ -30,6 +30,9 @@ public partial class NowPlayingViewModel : ObservableObject
     private bool _isFetchingAlbum;
 
     [ObservableProperty]
+    private bool _isAlbumNotFound;
+
+    [ObservableProperty]
     private string _artistAndAlbum = "Bienvenido a BenyComes";
 
     [ObservableProperty]
@@ -113,12 +116,12 @@ public partial class NowPlayingViewModel : ObservableObject
     private bool _playOsuBackgroundVideo = true;
 
     [ObservableProperty]
-    private string _osuVideoStretchMode = "Rellenar pantalla"; // "Rellenar pantalla" (UniformToFill) o "Ajustar (proporción original)" (Uniform)
+    private string _osuVideoStretchMode = "Ajustar (proporción original)"; // "Ajustar (proporción original)" (Uniform) por default o "Rellenar pantalla" (UniformToFill)
 
     public System.Windows.Media.Stretch OsuVideoStretch =>
-        string.Equals(OsuVideoStretchMode, "Ajustar (proporción original)", StringComparison.OrdinalIgnoreCase)
-            ? System.Windows.Media.Stretch.Uniform
-            : System.Windows.Media.Stretch.UniformToFill;
+        string.Equals(OsuVideoStretchMode, "Rellenar pantalla", StringComparison.OrdinalIgnoreCase)
+            ? System.Windows.Media.Stretch.UniformToFill
+            : System.Windows.Media.Stretch.Uniform;
 
     partial void OnOsuVideoStretchModeChanged(string value)
     {
@@ -128,8 +131,8 @@ public partial class NowPlayingViewModel : ObservableObject
 
     public System.Collections.ObjectModel.ObservableCollection<string> OsuVideoStretchOptions { get; } = new()
     {
-        "Rellenar pantalla",
-        "Ajustar (proporción original)"
+        "Ajustar (proporción original)",
+        "Rellenar pantalla"
     };
 
     public bool HasOsuVideo => CurrentTrack != null && CurrentTrack.HasVideo && (MainViewModel.Instance?.Settings.IsOsuModeEnabled == true || CurrentTrack.Genre == "osu!");
@@ -317,7 +320,7 @@ public partial class NowPlayingViewModel : ObservableObject
             string placementVal = await Data.LibraryDao.Instance.GetSettingAsync("visualizer_placement", "InfoCancion");
             SelectedVisualizerPlacement = placementVal;
 
-            string videoStretchVal = await Data.LibraryDao.Instance.GetSettingAsync("osu_video_stretch", "Rellenar pantalla");
+            string videoStretchVal = await Data.LibraryDao.Instance.GetSettingAsync("osu_video_stretch", "Ajustar (proporción original)");
             OsuVideoStretchMode = videoStretchVal;
         }
         catch { }
@@ -431,10 +434,24 @@ public partial class NowPlayingViewModel : ObservableObject
         Album = track.Album;
         ArtistAndAlbum = track.ArtistAndAlbum;
 
+        // Detener inmediatamente el ciclo de fotos de artistas y desmarcar foto de artista activa
+        // para que las imágenes del artista anterior se remuevan al instante y no queden flotando
+        _artistImageCycleTimer.Stop();
+        AvailableArtistImages.Clear();
+        _currentArtistImageIndex = 0;
+        IsArtistPhotoActive = false;
+        OnPropertyChanged(nameof(HasAvailableArtistImage));
+
         var art = MetadataService.Instance.GetHighResAlbumArt(track);
         AlbumArt = art;
         BackgroundImage = art;
         ThemeService.Instance.OnTrackArtChanged(art);
+
+        // Solicitar transición suave de crossfade hacia la carátula o fondo del nuevo mapa/canción
+        if (art != null)
+        {
+            OnBackgroundTransitionRequested?.Invoke(art, false);
+        }
 
         TotalDurationSeconds = Math.Max(1, track.Duration.TotalSeconds);
         TotalTimeText = track.DurationFormatted;

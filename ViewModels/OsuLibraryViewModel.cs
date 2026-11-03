@@ -19,7 +19,7 @@ public partial class OsuLibraryViewModel : ObservableObject
     private readonly AudioPlayerService _audio = AudioPlayerService.Instance;
 
     [ObservableProperty]
-    private int _selectedTabIndex = 0; // 0 = Canciones, 1 = Artistas
+    private int _selectedTabIndex = 0; // 0 = Canciones, 1 = Artistas, 2 = Con vídeo
 
     [ObservableProperty]
     private string _searchFilter = string.Empty;
@@ -56,6 +56,7 @@ public partial class OsuLibraryViewModel : ObservableObject
     public SymbolRegular SortDirectionIcon => IsSortDescending ? SymbolRegular.ArrowDown24 : SymbolRegular.ArrowUp24;
 
     public BulkObservableCollection<Track> Songs { get; } = new();
+    public BulkObservableCollection<Track> VideoSongs { get; } = new();
     public BulkObservableCollection<ArtistModel> Artists { get; } = new();
 
     [ObservableProperty]
@@ -69,6 +70,55 @@ public partial class OsuLibraryViewModel : ObservableObject
 
     public ObservableCollection<JumpListLetterItem> JumpListLetters { get; } = new();
     public event Action<string>? RequestScrollToLetter;
+
+    // Doubtful / Ambiguous Artist Pairs State
+    public ObservableCollection<DoubtfulArtistPair> DoubtfulArtistPairs { get; } = new();
+
+    public bool HasDoubtfulArtists => DoubtfulArtistPairs.Count > 0;
+
+    public string DoubtfulBannerText => DoubtfulArtistPairs.Count == 1
+        ? "Se detectó 1 artista similar pendiente de revisión"
+        : $"Se detectaron {DoubtfulArtistPairs.Count} artistas similares";
+
+    [ObservableProperty]
+    private bool _isDoubtfulDialogOpen;
+
+    [RelayCommand]
+    public void OpenDoubtfulDialog()
+    {
+        if (DoubtfulArtistPairs.Count > 0)
+            IsDoubtfulDialogOpen = true;
+    }
+
+    [RelayCommand]
+    public void CloseDoubtfulDialog()
+    {
+        IsDoubtfulDialogOpen = false;
+    }
+
+    [RelayCommand]
+    public void CombineDoubtfulPair(DoubtfulArtistPair? pair)
+    {
+        if (pair == null) return;
+        OsuArtistAliasService.Instance.SetAlias(pair.UnicodeName, pair.RomajiName, saveImmediately: true);
+        DoubtfulArtistPairs.Remove(pair);
+        OnPropertyChanged(nameof(HasDoubtfulArtists));
+        OnPropertyChanged(nameof(DoubtfulBannerText));
+        if (DoubtfulArtistPairs.Count == 0) IsDoubtfulDialogOpen = false;
+        _osuService.ReindexOsuArtists();
+    }
+
+    [RelayCommand]
+    public void RejectDoubtfulPair(DoubtfulArtistPair? pair)
+    {
+        if (pair == null) return;
+        OsuArtistAliasService.Instance.RejectPair(pair.UnicodeName, pair.RomajiName, saveImmediately: true);
+        DoubtfulArtistPairs.Remove(pair);
+        OnPropertyChanged(nameof(HasDoubtfulArtists));
+        OnPropertyChanged(nameof(DoubtfulBannerText));
+        if (DoubtfulArtistPairs.Count == 0) IsDoubtfulDialogOpen = false;
+        _osuService.ReindexOsuArtists();
+    }
 
     public OsuLibraryViewModel()
     {
@@ -114,6 +164,7 @@ public partial class OsuLibraryViewModel : ObservableObject
         }
 
         UpdateList(Songs);
+        UpdateList(VideoSongs);
         if (SelectedArtistDetail?.Tracks != null) UpdateList(SelectedArtistDetail.Tracks);
         if (SelectedAlbumDetail?.Tracks != null) UpdateList(SelectedAlbumDetail.Tracks);
     }
@@ -156,7 +207,7 @@ public partial class OsuLibraryViewModel : ObservableObject
             SelectedAlbumDetail = null;
             SyncPlayingState(_audio.CurrentTrack, _audio.IsPlaying);
 
-            // Fetch artist bio if missing
+            // Fetch artist bio if missing (Romaji first, then Unicode AltNames fallback)
             if (string.IsNullOrEmpty(value.BiographySummary) && Services.Online.LastFmService.Instance.IsEnabled)
             {
                 _ = Task.Run(async () =>
@@ -164,6 +215,14 @@ public partial class OsuLibraryViewModel : ObservableObject
                     try
                     {
                         var bio = await Services.Online.LastFmService.Instance.FetchArtistBioViaApiAsync(value.Name);
+                        if (string.IsNullOrEmpty(bio.BioSummary) && value.AltNames.Count > 0)
+                        {
+                            foreach (var alt in value.AltNames)
+                            {
+                                bio = await Services.Online.LastFmService.Instance.FetchArtistBioViaApiAsync(alt);
+                                if (!string.IsNullOrEmpty(bio.BioSummary)) break;
+                            }
+                        }
                         if (!string.IsNullOrEmpty(bio.BioSummary))
                         {
                             App.Current?.Dispatcher?.InvokeAsync(() =>
@@ -193,6 +252,19 @@ public partial class OsuLibraryViewModel : ObservableObject
     {
         TotalTracksCount = _osuService.Tracks.Count;
         TotalArtistsCount = _osuService.Artists.Count;
+
+        DoubtfulArtistPairs.Clear();
+        foreach (var pair in _osuService.DoubtfulArtists)
+        {
+            DoubtfulArtistPairs.Add(pair);
+        }
+        OnPropertyChanged(nameof(HasDoubtfulArtists));
+        OnPropertyChanged(nameof(DoubtfulBannerText));
+        if (DoubtfulArtistPairs.Count == 0)
+        {
+            IsDoubtfulDialogOpen = false;
+        }
+
         ApplyFilter();
     }
 
@@ -201,22 +273,26 @@ public partial class OsuLibraryViewModel : ObservableObject
         var swTotal = System.Diagnostics.Stopwatch.StartNew();
         string query = SearchFilter?.Trim() ?? string.Empty;
 
-        // 1. Filtrar canciones
+        // 1. Filtrar canciones (por título, Artist, OsuArtistRoumaji o OsuArtistUnicode)
         var swStep = System.Diagnostics.Stopwatch.StartNew();
         IEnumerable<Track> trackQuery = _osuService.Tracks;
         if (!string.IsNullOrEmpty(query))
         {
             trackQuery = trackQuery.Where(t =>
                 t.Title.Contains(query, StringComparison.OrdinalIgnoreCase) ||
-                t.Artist.Contains(query, StringComparison.OrdinalIgnoreCase));
+                t.Artist.Contains(query, StringComparison.OrdinalIgnoreCase) ||
+                (!string.IsNullOrEmpty(t.OsuArtistRoumaji) && t.OsuArtistRoumaji.Contains(query, StringComparison.OrdinalIgnoreCase)) ||
+                (!string.IsNullOrEmpty(t.OsuArtistUnicode) && t.OsuArtistUnicode.Contains(query, StringComparison.OrdinalIgnoreCase)));
         }
 
         var trackList = trackQuery.ToList();
         Songs.ReplaceRange(trackList);
-        System.Diagnostics.Debug.WriteLine($"[PERF] OsuLibrary.ApplyFilter Songs.ReplaceRange(count={trackList.Count}): {swStep.Elapsed.TotalMilliseconds:F1} ms");
+        VideoSongs.ReplaceRange(trackList.Where(t => t.HasVideo).ToList());
+        System.Diagnostics.Debug.WriteLine($"[PERF] OsuLibrary.ApplyFilter Songs.ReplaceRange(count={trackList.Count}, video={VideoSongs.Count}): {swStep.Elapsed.TotalMilliseconds:F1} ms");
 
         swStep.Restart();
         UpdateSongsGrouping();
+        UpdateVideoSongsGrouping();
         System.Diagnostics.Debug.WriteLine($"[PERF] OsuLibrary.ApplyFilter UpdateSongsGrouping: {swStep.Elapsed.TotalMilliseconds:F1} ms");
 
         swStep.Restart();
@@ -235,7 +311,7 @@ public partial class OsuLibraryViewModel : ObservableObject
             IEnumerable<ArtistModel> artistQuery = sourceArtists;
             if (!string.IsNullOrEmpty(query))
             {
-                artistQuery = artistQuery.Where(a => a.Name.Contains(query, StringComparison.OrdinalIgnoreCase));
+                artistQuery = artistQuery.Where(a => a.MatchesQuery(query));
             }
 
             bool isSortByName = string.Equals(sortOption, "Nombre (A-Z)", StringComparison.OrdinalIgnoreCase);
@@ -291,18 +367,34 @@ public partial class OsuLibraryViewModel : ObservableObject
         }
     }
 
+    public void UpdateVideoSongsGrouping()
+    {
+        var view = System.Windows.Data.CollectionViewSource.GetDefaultView(VideoSongs);
+        if (view == null) return;
+
+        if (view.GroupDescriptions.Count == 0)
+        {
+            using (view.DeferRefresh())
+            {
+                view.GroupDescriptions.Clear();
+                view.GroupDescriptions.Add(new System.Windows.Data.PropertyGroupDescription("AlphaGroup"));
+            }
+        }
+    }
+
     [RelayCommand]
     public void PlayTrack(Track? track)
     {
         if (track == null) return;
-        var currentList = Songs.ToList();
+        var currentList = SelectedTabIndex == 2 ? VideoSongs.ToList() : Songs.ToList();
+        if (currentList.Count == 0) currentList = Songs.ToList();
         _audio.ReplaceQueueAndPlay(currentList, track, _audio.IsShuffle);
     }
 
     [RelayCommand]
     public void PlayAllShuffled()
     {
-        var pool = Songs.ToList();
+        var pool = SelectedTabIndex == 2 ? VideoSongs.ToList() : Songs.ToList();
         if (pool.Count == 0) return;
 
         // Fisher-Yates shuffle
@@ -340,8 +432,12 @@ public partial class OsuLibraryViewModel : ObservableObject
     public void OpenArtistByName(string? artistName)
     {
         if (string.IsNullOrWhiteSpace(artistName)) return;
-        var artist = Artists.FirstOrDefault(a => string.Equals(a.Name, artistName, StringComparison.OrdinalIgnoreCase))
-                  ?? _osuService.Artists.FirstOrDefault(a => string.Equals(a.Name, artistName, StringComparison.OrdinalIgnoreCase));
+        bool MatchesArtist(ArtistModel a) =>
+            string.Equals(a.Name, artistName, StringComparison.OrdinalIgnoreCase) ||
+            a.AltNames.Any(alt => string.Equals(alt, artistName, StringComparison.OrdinalIgnoreCase));
+
+        var artist = Artists.FirstOrDefault(MatchesArtist)
+                  ?? _osuService.Artists.FirstOrDefault(MatchesArtist);
         if (artist != null)
         {
             SelectedAlbumDetail = null;
@@ -359,13 +455,19 @@ public partial class OsuLibraryViewModel : ObservableObject
         IsFetchingAlbumInfo = true;
         try
         {
-            // If the track already has a fetched album name other than "osu! Beatmaps"
+            // Primero usar la miniatura / arte local del mapa como base inmediata
+            string localArt = !string.IsNullOrEmpty(track.ArtworkPath) ? track.ArtworkPath : string.Empty;
             string albumName = track.Album;
             string? coverUrl = null;
 
             if (string.Equals(albumName, "osu! Beatmaps", StringComparison.OrdinalIgnoreCase) || string.IsNullOrWhiteSpace(albumName))
             {
-                var info = await Services.Online.LastFmService.Instance.FetchTrackAlbumInfoAsync(track.Artist, track.Title);
+                string primaryArt = !string.IsNullOrWhiteSpace(track.OsuArtistRoumaji) ? track.OsuArtistRoumaji : track.Artist;
+                string primaryTit = !string.IsNullOrWhiteSpace(track.OsuTitleRoumaji) ? track.OsuTitleRoumaji : track.Title;
+                string? altArt = !string.IsNullOrWhiteSpace(track.OsuArtistUnicode) ? track.OsuArtistUnicode : null;
+                string? altTit = !string.IsNullOrWhiteSpace(track.OsuTitleUnicode) ? track.OsuTitleUnicode : null;
+
+                var info = await Services.Online.LastFmService.Instance.FetchTrackAlbumInfoAsync(primaryArt, primaryTit, altArt, altTit);
                 if (!string.IsNullOrWhiteSpace(info.AlbumTitle))
                 {
                     albumName = info.AlbumTitle;
@@ -378,11 +480,27 @@ public partial class OsuLibraryViewModel : ObservableObject
                 }
             }
 
+            // Si se obtuvo una carátula online de Last.fm, descargarla y guardarla en AppData para no descargarla de nuevo
+            string finalCoverPath = localArt;
+            if (!string.IsNullOrWhiteSpace(coverUrl))
+            {
+                string? cachedCover = await Services.Online.LastFmService.Instance.DownloadAndCacheAlbumCoverAsync(track.Artist, albumName, coverUrl);
+                if (!string.IsNullOrEmpty(cachedCover))
+                {
+                    finalCoverPath = cachedCover;
+                    track.ArtworkPath = cachedCover;
+                }
+                else
+                {
+                    finalCoverPath = coverUrl;
+                }
+            }
+
             var album = new AlbumModel
             {
                 Name = albumName,
                 Artist = track.Artist,
-                ArtworkPath = !string.IsNullOrEmpty(track.ArtworkPath) ? track.ArtworkPath : coverUrl,
+                ArtworkPath = finalCoverPath,
                 Tracks = new List<Track> { track },
                 PersistedTrackCount = 1
             };
@@ -415,6 +533,14 @@ public partial class OsuLibraryViewModel : ObservableObject
             {
                 if (!string.IsNullOrEmpty(sec.Letter))
                     activeLetters.Add(sec.Letter);
+            }
+        }
+        else if (SelectedTabIndex == 2)
+        {
+            foreach (var s in VideoSongs)
+            {
+                if (!string.IsNullOrEmpty(s.AlphaGroup))
+                    activeLetters.Add(s.AlphaGroup);
             }
         }
 

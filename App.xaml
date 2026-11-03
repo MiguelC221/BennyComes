@@ -29,10 +29,11 @@
             <SolidColorBrush x:Key="CardSurfaceBrush" Color="#1C1C22" />
             <SolidColorBrush x:Key="SurfaceCardBorderBrush" Color="#1AFFFFFF" />
             <SolidColorBrush x:Key="SurfaceCardHoverBrush" Color="#2A2A34" />
+            <SolidColorBrush x:Key="TableRowAlternateBrush" Color="#12FFFFFF" />
             <SolidColorBrush x:Key="TextPrimaryBrush" Color="#FFFFFF" />
             <SolidColorBrush x:Key="TextSecondaryBrush" Color="#A0FFFFFF" />
             <SolidColorBrush x:Key="TextTertiaryBrush" Color="#70FFFFFF" />
-            <SolidColorBrush x:Key="NavPaneBackgroundBrush" Color="#14141C" />
+            <SolidColorBrush x:Key="NavPaneBackgroundBrush" Color="#1E1E27" />
             <SolidColorBrush x:Key="DividerBrush" Color="#18FFFFFF" />
             <SolidColorBrush x:Key="ScrollBarThumbBrush" Color="#66FFFFFF" />
             <SolidColorBrush x:Key="ScrollBarThumbHoverBrush" Color="#99FFFFFF" />

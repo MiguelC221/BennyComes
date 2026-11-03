@@ -143,22 +143,28 @@ public class DatabaseContext
 
         command.ExecuteNonQuery();
 
-        // Migrate columns if database already existed
-        string[] migrations = new[]
+        // Migrate columns if database already existed (check PRAGMA table_info first to avoid first-chance SqliteException)
+        var existingTrackCols = GetExistingColumns(connection, "tracks");
+        var existingPlaylistCols = GetExistingColumns(connection, "playlists");
+
+        (string Table, string Column, string Sql)[] migrations = new[]
         {
-            "ALTER TABLE tracks ADD COLUMN date_modified TEXT NOT NULL DEFAULT '';",
-            "ALTER TABLE tracks ADD COLUMN is_favorite INTEGER NOT NULL DEFAULT 0;",
-            "ALTER TABLE tracks ADD COLUMN album_artist TEXT NOT NULL DEFAULT '';",
-            "ALTER TABLE tracks ADD COLUMN comments TEXT NOT NULL DEFAULT '';",
-            "ALTER TABLE tracks ADD COLUMN file_size INTEGER NOT NULL DEFAULT 0;",
-            "ALTER TABLE tracks ADD COLUMN artwork_path TEXT NOT NULL DEFAULT '';",
-            "ALTER TABLE tracks ADD COLUMN first_letter_group TEXT NOT NULL DEFAULT '';",
-            "ALTER TABLE playlists ADD COLUMN description TEXT NOT NULL DEFAULT '';",
-            "ALTER TABLE playlists ADD COLUMN custom_cover_path TEXT NOT NULL DEFAULT '';"
+            ("tracks", "date_modified", "ALTER TABLE tracks ADD COLUMN date_modified TEXT NOT NULL DEFAULT '';"),
+            ("tracks", "is_favorite", "ALTER TABLE tracks ADD COLUMN is_favorite INTEGER NOT NULL DEFAULT 0;"),
+            ("tracks", "album_artist", "ALTER TABLE tracks ADD COLUMN album_artist TEXT NOT NULL DEFAULT '';"),
+            ("tracks", "comments", "ALTER TABLE tracks ADD COLUMN comments TEXT NOT NULL DEFAULT '';"),
+            ("tracks", "file_size", "ALTER TABLE tracks ADD COLUMN file_size INTEGER NOT NULL DEFAULT 0;"),
+            ("tracks", "artwork_path", "ALTER TABLE tracks ADD COLUMN artwork_path TEXT NOT NULL DEFAULT '';"),
+            ("tracks", "first_letter_group", "ALTER TABLE tracks ADD COLUMN first_letter_group TEXT NOT NULL DEFAULT '';"),
+            ("playlists", "description", "ALTER TABLE playlists ADD COLUMN description TEXT NOT NULL DEFAULT '';"),
+            ("playlists", "custom_cover_path", "ALTER TABLE playlists ADD COLUMN custom_cover_path TEXT NOT NULL DEFAULT '';")
         };
 
-        foreach (var sql in migrations)
+        foreach (var (table, col, sql) in migrations)
         {
+            var set = table == "tracks" ? existingTrackCols : existingPlaylistCols;
+            if (set.Contains(col)) continue;
+
             try
             {
                 using var alterCmd = connection.CreateCommand();
@@ -170,5 +176,25 @@ public class DatabaseContext
                 // Column already exists, ignore
             }
         }
+    }
+
+    private static System.Collections.Generic.HashSet<string> GetExistingColumns(SqliteConnection connection, string tableName)
+    {
+        var cols = new System.Collections.Generic.HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        try
+        {
+            using var cmd = connection.CreateCommand();
+            cmd.CommandText = $"PRAGMA table_info({tableName});";
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
+            {
+                if (reader.FieldCount > 1 && !reader.IsDBNull(1))
+                {
+                    cols.Add(reader.GetString(1));
+                }
+            }
+        }
+        catch { }
+        return cols;
     }
 }
