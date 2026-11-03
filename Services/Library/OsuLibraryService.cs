@@ -505,6 +505,170 @@ public class OsuLibraryService
         return names.Count > 0 ? names : new List<string> { "Desconocido" };
     }
 
+    /// <summary>
+    /// Extrae la carátula o fondo oficial de beatmap buscando en los archivos .osu de la carpeta
+    /// leyendo la sección [Events] (evento tipo 0 / Background).
+    /// </summary>
+    public static string? ExtractBackgroundFromOsuFolder(string folderPath)
+    {
+        if (string.IsNullOrWhiteSpace(folderPath) || !Directory.Exists(folderPath))
+            return null;
+
+        try
+        {
+            // 1. Buscar en todos los archivos .osu de la carpeta
+            var osuFiles = Directory.EnumerateFiles(folderPath, "*.osu");
+            foreach (var osuFile in osuFiles)
+            {
+                var bg = ExtractBackgroundFromSingleOsuFile(osuFile, folderPath);
+                if (!string.IsNullOrEmpty(bg) && File.Exists(bg))
+                {
+                    return bg;
+                }
+            }
+
+            // 2. Fallback seguro: Nombres estándar de background (evitando archivos de skin/storyboard como comboburst, hitcircle, etc.)
+            string[] standardNames = { "bg.jpg", "bg.png", "bg.jpeg", "background.jpg", "background.png", "background.jpeg" };
+            foreach (var std in standardNames)
+            {
+                var p = Path.Combine(folderPath, std);
+                if (File.Exists(p)) return p;
+            }
+        }
+        catch { }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Analiza un archivo .osu específico para extraer el nombre del fondo declarado en [Events].
+    /// Sintaxis común: 0,0,"BG.jpg",0,0 o 0,0,"BG.jpg" o 0,0,BG.jpg
+    /// </summary>
+    public static string? ExtractBackgroundFromSingleOsuFile(string osuFilePath, string folderPath)
+    {
+        try
+        {
+            if (!File.Exists(osuFilePath)) return null;
+
+            using var sr = new StreamReader(osuFilePath, Encoding.UTF8);
+            string? line;
+            bool inEvents = false;
+
+            while ((line = sr.ReadLine()) != null)
+            {
+                line = line.Trim();
+                if (string.IsNullOrEmpty(line) || line.StartsWith("//"))
+                    continue;
+
+                if (line.StartsWith("[Events]", StringComparison.OrdinalIgnoreCase))
+                {
+                    inEvents = true;
+                    continue;
+                }
+
+                if (inEvents)
+                {
+                    if (line.StartsWith("[") && line.EndsWith("]"))
+                        break; // Salida de la sección [Events]
+
+                    // Evento 0 es Background: 0,0,"bg.jpg" o 0, 0, "bg.jpg" o Background,0,"bg.jpg"
+                    bool isBgLine = line.StartsWith("0,") || line.StartsWith("0 ,") ||
+                                    line.StartsWith("Background,", StringComparison.OrdinalIgnoreCase);
+
+                    if (isBgLine)
+                    {
+                        string filename = string.Empty;
+                        int firstQuote = line.IndexOf('"');
+                        int lastQuote = line.LastIndexOf('"');
+
+                        if (firstQuote >= 0 && lastQuote > firstQuote)
+                        {
+                            filename = line.Substring(firstQuote + 1, lastQuote - firstQuote - 1).Trim();
+                        }
+                        else
+                        {
+                            var parts = line.Split(',');
+                            if (parts.Length >= 3)
+                            {
+                                filename = parts[2].Trim().Trim('"', '\'');
+                            }
+                        }
+
+                        if (!string.IsNullOrWhiteSpace(filename))
+                        {
+                            string rel = filename.Replace('/', Path.DirectorySeparatorChar)
+                                                 .Replace('\\', Path.DirectorySeparatorChar);
+                            string full = Path.Combine(folderPath, rel);
+                            if (File.Exists(full) && IsImageFile(full))
+                            {
+                                return full;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        catch { }
+
+        return null;
+    }
+
+    private static (string? VideoPath, int VideoOffsetMs) ExtractVideoFromSingleOsuFile(string osuFilePath, string folderPath)
+    {
+        try
+        {
+            if (!File.Exists(osuFilePath)) return (null, 0);
+
+            using var sr = new StreamReader(osuFilePath, Encoding.UTF8);
+            string? line;
+            bool inEvents = false;
+
+            while ((line = sr.ReadLine()) != null)
+            {
+                line = line.Trim();
+                if (string.IsNullOrEmpty(line) || line.StartsWith("//"))
+                    continue;
+
+                if (line.StartsWith("[Events]", StringComparison.OrdinalIgnoreCase))
+                {
+                    inEvents = true;
+                    continue;
+                }
+
+                if (inEvents)
+                {
+                    if (line.StartsWith("[") && line.EndsWith("]"))
+                        break;
+
+                    if (line.StartsWith("Video,", StringComparison.OrdinalIgnoreCase) || line.StartsWith("1,") || line.StartsWith("1 ,"))
+                    {
+                        int firstQuote = line.IndexOf('"');
+                        int lastQuote = line.LastIndexOf('"');
+                        if (firstQuote >= 0 && lastQuote > firstQuote)
+                        {
+                            string vidRel = line.Substring(firstQuote + 1, lastQuote - firstQuote - 1).Trim();
+                            string vidNorm = vidRel.Replace('/', Path.DirectorySeparatorChar).Replace('\\', Path.DirectorySeparatorChar);
+                            string vidFull = Path.Combine(folderPath, vidNorm);
+                            if (File.Exists(vidFull) && IsVideoFile(vidFull))
+                            {
+                                int offset = 0;
+                                string[] parts = line.Substring(0, firstQuote).Split(',');
+                                if (parts.Length > 1 && int.TryParse(parts[1].Trim(), out int parsedOffset))
+                                {
+                                    offset = parsedOffset;
+                                }
+                                return (vidFull, offset);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        catch { }
+
+        return (null, 0);
+    }
+
     private static (string ArtworkPath, string VideoPath, int VideoOffsetMs) FindMediaAssets(string folderPath, string osuFilename)
     {
         string artwork = string.Empty;
@@ -513,75 +677,67 @@ public class OsuLibraryService
 
         try
         {
-            // 1. Try reading .osu file [Events] section
+            // 1. Extraer fondo y vídeo del archivo .osu del beatmap
             if (!string.IsNullOrWhiteSpace(osuFilename))
             {
                 string osuFilePath = Path.Combine(folderPath, osuFilename);
                 if (File.Exists(osuFilePath))
                 {
-                    using var sr = new StreamReader(osuFilePath, Encoding.UTF8);
-                    string? line;
-                    bool inEvents = false;
-                    while ((line = sr.ReadLine()) != null)
+                    artwork = ExtractBackgroundFromSingleOsuFile(osuFilePath, folderPath) ?? string.Empty;
+                    var (foundVid, foundOffset) = ExtractVideoFromSingleOsuFile(osuFilePath, folderPath);
+                    if (!string.IsNullOrEmpty(foundVid))
                     {
-                        line = line.Trim();
-                        if (line.StartsWith("[Events]", StringComparison.OrdinalIgnoreCase))
-                        {
-                            inEvents = true;
-                            continue;
-                        }
-
-                        if (inEvents)
-                        {
-                            if (line.StartsWith("[") && line.EndsWith("]"))
-                                break; // left Events section
-
-                            // Video line syntax: Video,-200,"video.mp4" or 1,-200,"video.mp4"
-                            if (line.StartsWith("Video,", StringComparison.OrdinalIgnoreCase) || line.StartsWith("1,"))
-                            {
-                                int firstQuote = line.IndexOf('"');
-                                int lastQuote = line.LastIndexOf('"');
-                                if (firstQuote >= 0 && lastQuote > firstQuote)
-                                {
-                                    string vidRel = line.Substring(firstQuote + 1, lastQuote - firstQuote - 1);
-                                    string vidFull = Path.Combine(folderPath, vidRel);
-                                    if (File.Exists(vidFull) && IsVideoFile(vidFull))
-                                    {
-                                        video = vidFull;
-                                        // Parse offset if present
-                                        string[] parts = line.Substring(0, firstQuote).Split(',');
-                                        if (parts.Length > 1 && int.TryParse(parts[1], out int parsedOffset))
-                                        {
-                                            videoOffset = parsedOffset;
-                                        }
-                                    }
-                                }
-                            }
-                            // Background line syntax: 0,0,"bg.jpg",0,0
-                            else if (line.StartsWith("0,0,") || line.StartsWith("0,"))
-                            {
-                                int firstQuote = line.IndexOf('"');
-                                int lastQuote = line.LastIndexOf('"');
-                                if (firstQuote >= 0 && lastQuote > firstQuote)
-                                {
-                                    string bgRel = line.Substring(firstQuote + 1, lastQuote - firstQuote - 1);
-                                    string bgFull = Path.Combine(folderPath, bgRel);
-                                    if (File.Exists(bgFull) && IsImageFile(bgFull))
-                                    {
-                                        artwork = bgFull;
-                                    }
-                                }
-                            }
-                        }
+                        video = foundVid;
+                        videoOffset = foundOffset;
                     }
                 }
             }
 
-            // 2. Fallbacks: Search files in the folder if not found in .osu
-            var dir = new DirectoryInfo(folderPath);
-            if (dir.Exists)
+            // 2. Si no se encontró en ese .osu particular, buscar en cualquier otro archivo .osu de la carpeta
+            if (string.IsNullOrEmpty(artwork) || string.IsNullOrEmpty(video))
             {
-                if (string.IsNullOrEmpty(video))
+                var dir = new DirectoryInfo(folderPath);
+                if (dir.Exists)
+                {
+                    foreach (var osuFile in dir.EnumerateFiles("*.osu"))
+                    {
+                        if (string.IsNullOrEmpty(artwork))
+                        {
+                            var bg = ExtractBackgroundFromSingleOsuFile(osuFile.FullName, folderPath);
+                            if (!string.IsNullOrEmpty(bg)) artwork = bg;
+                        }
+
+                        if (string.IsNullOrEmpty(video))
+                        {
+                            var (v, off) = ExtractVideoFromSingleOsuFile(osuFile.FullName, folderPath);
+                            if (!string.IsNullOrEmpty(v))
+                            {
+                                video = v;
+                                videoOffset = off;
+                            }
+                        }
+
+                        if (!string.IsNullOrEmpty(artwork) && !string.IsNullOrEmpty(video))
+                            break;
+                    }
+                }
+            }
+
+            // 3. Fallbacks seguros si no se encontró en ningún archivo .osu
+            if (string.IsNullOrEmpty(artwork))
+            {
+                string[] standardNames = { "bg.jpg", "bg.png", "bg.jpeg", "background.jpg", "background.png", "background.jpeg" };
+                foreach (var std in standardNames)
+                {
+                    var p = Path.Combine(folderPath, std);
+                    if (File.Exists(p)) { artwork = p; break; }
+                }
+            }
+
+            if (string.IsNullOrEmpty(video))
+            {
+                var dir = new DirectoryInfo(folderPath);
+                if (dir.Exists)
                 {
                     foreach (var file in dir.EnumerateFiles())
                     {
@@ -590,25 +746,6 @@ public class OsuLibraryService
                             video = file.FullName;
                             break;
                         }
-                    }
-                }
-
-                if (string.IsNullOrEmpty(artwork))
-                {
-                    FileInfo? largestImg = null;
-                    long maxLen = -1;
-                    foreach (var file in dir.EnumerateFiles())
-                    {
-                        if (IsImageFile(file.FullName) && file.Length > maxLen)
-                        {
-                            maxLen = file.Length;
-                            largestImg = file;
-                        }
-                    }
-
-                    if (largestImg != null)
-                    {
-                        artwork = largestImg.FullName;
                     }
                 }
             }
@@ -621,13 +758,13 @@ public class OsuLibraryService
         return (artwork, video, videoOffset);
     }
 
-    private static bool IsVideoFile(string path)
+    internal static bool IsVideoFile(string path)
     {
         string ext = Path.GetExtension(path).ToLowerInvariant();
         return ext is ".mp4" or ".avi" or ".flv" or ".mkv" or ".wmv" or ".mov";
     }
 
-    private static bool IsImageFile(string path)
+    internal static bool IsImageFile(string path)
     {
         string ext = Path.GetExtension(path).ToLowerInvariant();
         return ext is ".jpg" or ".jpeg" or ".png" or ".webp";

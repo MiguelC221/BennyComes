@@ -497,31 +497,47 @@ public partial class MainViewModel : ObservableObject
         try
         {
             var osu = Services.Library.OsuLibraryService.Instance;
-            if (!osu.IsLoaded || string.IsNullOrEmpty(target.FilePath)) return;
+            if (string.IsNullOrEmpty(target.FilePath)) return;
 
             var src = osu.Tracks.FirstOrDefault(o => string.Equals(o.FilePath, target.FilePath, StringComparison.OrdinalIgnoreCase));
-            if (src == null || ReferenceEquals(src, target)) return;
-
-            target.Title = src.Title;
-            target.Artist = src.Artist;
-            target.AlbumArtist = src.AlbumArtist;
-            target.Genre = src.Genre;
-            if (string.IsNullOrWhiteSpace(target.Album) || string.Equals(target.Album, "Unknown Album", StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(target.Album, "osu! Beatmaps", StringComparison.OrdinalIgnoreCase))
+            if (src != null && !ReferenceEquals(src, target))
             {
-                target.Album = src.Album;
+                target.Title = src.Title;
+                target.Artist = src.Artist;
+                target.AlbumArtist = src.AlbumArtist;
+                target.Genre = src.Genre;
+                if (string.IsNullOrWhiteSpace(target.Album) || string.Equals(target.Album, "Unknown Album", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(target.Album, "osu! Beatmaps", StringComparison.OrdinalIgnoreCase))
+                {
+                    target.Album = src.Album;
+                }
+                if (src.Duration > TimeSpan.Zero) target.Duration = src.Duration;
+                target.ArtworkPath = src.ArtworkPath;
+                target.VideoPath = src.VideoPath;
+                target.VideoOffsetMs = src.VideoOffsetMs;
+                target.OsuSource = src.OsuSource;
+                target.OsuArtistRoumaji = src.OsuArtistRoumaji;
+                target.OsuTitleRoumaji = src.OsuTitleRoumaji;
+                target.OsuArtistUnicode = src.OsuArtistUnicode;
+                target.OsuTitleUnicode = src.OsuTitleUnicode;
+                target.FirstLetterGroup = src.FirstLetterGroup;
+                if (target.AlbumArtData == null && src.AlbumArtData != null) target.AlbumArtData = src.AlbumArtData;
             }
-            if (src.Duration > TimeSpan.Zero) target.Duration = src.Duration;
-            target.ArtworkPath = src.ArtworkPath;
-            target.VideoPath = src.VideoPath;
-            target.VideoOffsetMs = src.VideoOffsetMs;
-            target.OsuSource = src.OsuSource;
-            target.OsuArtistRoumaji = src.OsuArtistRoumaji;
-            target.OsuTitleRoumaji = src.OsuTitleRoumaji;
-            target.OsuArtistUnicode = src.OsuArtistUnicode;
-            target.OsuTitleUnicode = src.OsuTitleUnicode;
-            target.FirstLetterGroup = src.FirstLetterGroup;
-            if (target.AlbumArtData == null && src.AlbumArtData != null) target.AlbumArtData = src.AlbumArtData;
+
+            // Si la carátula está vacía o apunta a un archivo que ya no existe, extraerla del .osu de la carpeta
+            if (string.IsNullOrEmpty(target.ArtworkPath) || !File.Exists(target.ArtworkPath))
+            {
+                string? folder = Path.GetDirectoryName(target.FilePath);
+                if (!string.IsNullOrEmpty(folder) && Directory.Exists(folder))
+                {
+                    string? bg = Services.Library.OsuLibraryService.ExtractBackgroundFromOsuFolder(folder);
+                    if (!string.IsNullOrEmpty(bg) && File.Exists(bg))
+                    {
+                        target.ArtworkPath = bg;
+                        if (src != null) src.ArtworkPath = bg;
+                    }
+                }
+            }
         }
         catch { }
     }

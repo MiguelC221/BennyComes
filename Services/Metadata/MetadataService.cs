@@ -28,7 +28,7 @@ public class MetadataService
     {
         image = null;
         if (track == null) return false;
-        string hash = GetAlbumArtHash(track.Artist, track.Album);
+        string hash = GetAlbumArtHash(track);
         string memKey = $"{hash}_{decodeWidth}";
         return _artCache.TryGetValue(memKey, out image);
     }
@@ -80,12 +80,47 @@ public class MetadataService
         catch { }
     }
 
+    public static string GetAlbumArtHash(Track? track)
+    {
+        if (track == null) return "null_track";
+        if (track.Genre == "osu!" || (!string.IsNullOrEmpty(track.FilePath) && track.FilePath.IndexOf("Songs", StringComparison.OrdinalIgnoreCase) >= 0))
+        {
+            // Para beatmaps de osu!, cada pista tiene su propio fondo en la carpeta de su beatmap.
+            // Hashear el FilePath único evita colisiones entre canciones del mismo artista.
+            using var md5 = System.Security.Cryptography.MD5.Create();
+            byte[] hash = md5.ComputeHash(System.Text.Encoding.UTF8.GetBytes(track.FilePath.ToLowerInvariant()));
+            return "osu_" + Convert.ToHexString(hash);
+        }
+        return GetAlbumArtHash(track.Artist, track.Album);
+    }
+
     public static string GetAlbumArtHash(string? artist, string? album)
     {
         string raw = $"{artist?.Trim().ToLowerInvariant()}__{album?.Trim().ToLowerInvariant()}";
         using var md5 = System.Security.Cryptography.MD5.Create();
         byte[] hash = md5.ComputeHash(System.Text.Encoding.UTF8.GetBytes(raw));
         return Convert.ToHexString(hash);
+    }
+
+    public static void SaveArtToDiskCache(Track track, byte[] data)
+    {
+        try
+        {
+            if (data == null || data.Length < 100) return;
+            Directory.CreateDirectory(ArtworkCacheDir);
+            string hash = GetAlbumArtHash(track);
+            string file = Path.Combine(ArtworkCacheDir, $"{hash}.jpg");
+            if (!Data.LibraryIndexDatabase.Instance.IsArtworkCached(file))
+            {
+                byte[] dataToWrite = CompressToThumbnailBytes(data, decodeWidth: 160, jpegQuality: 72);
+
+                string temp = Path.Combine(ArtworkCacheDir, $"{hash}_{Guid.NewGuid():N}.tmp");
+                File.WriteAllBytes(temp, dataToWrite);
+                File.Move(temp, file, overwrite: true);
+                Data.LibraryIndexDatabase.Instance.MarkArtworkCached(file);
+            }
+        }
+        catch { }
     }
 
     public static void SaveArtToDiskCache(string? artist, string? album, byte[] data)
@@ -306,6 +341,15 @@ public class MetadataService
         try
         {
             if (!Directory.Exists(dir)) return null;
+
+            // 1. Si es una carpeta de beatmap de osu!, extraer el fondo exacto declarado en [Events] del .osu
+            string? osuBg = Library.OsuLibraryService.ExtractBackgroundFromOsuFolder(dir);
+            if (!string.IsNullOrEmpty(osuBg) && File.Exists(osuBg))
+            {
+                return osuBg;
+            }
+
+            // 2. Archivos estándar de carátula
             string[] candidates = { "cover.jpg", "folder.jpg", "front.jpg", "albumart.jpg", "cover.png", "folder.png", "front.png" };
             foreach (var name in candidates)
             {
@@ -404,7 +448,7 @@ public class MetadataService
         if (track == null) return null;
         try
         {
-            string hash = GetAlbumArtHash(track.Artist, track.Album);
+            string hash = GetAlbumArtHash(track);
             string diskPath = Path.Combine(ArtworkCacheDir, $"{hash}.jpg");
 
             if (File.Exists(diskPath))
@@ -414,8 +458,19 @@ public class MetadataService
 
             if (track.AlbumArtData != null && track.AlbumArtData.Length > 0)
             {
-                SaveArtToDiskCache(track.Artist, track.Album, track.AlbumArtData);
+                SaveArtToDiskCache(track, track.AlbumArtData);
                 if (File.Exists(diskPath)) return diskPath;
+            }
+
+            if (!string.IsNullOrEmpty(track.ArtworkPath) && File.Exists(track.ArtworkPath))
+            {
+                try
+                {
+                    byte[] bytes = File.ReadAllBytes(track.ArtworkPath);
+                    SaveArtToDiskCache(track, bytes);
+                    if (File.Exists(diskPath)) return diskPath;
+                }
+                catch { }
             }
 
             if (!string.IsNullOrEmpty(track.FilePath) && File.Exists(track.FilePath))
@@ -424,7 +479,7 @@ public class MetadataService
                 if (onDemand != null && onDemand.Length > 0)
                 {
                     track.AlbumArtData = onDemand;
-                    SaveArtToDiskCache(track.Artist, track.Album, onDemand);
+                    SaveArtToDiskCache(track, onDemand);
                     if (File.Exists(diskPath)) return diskPath;
                 }
             }
@@ -441,7 +496,7 @@ public class MetadataService
     {
         if (track == null) return GetFallbackArt();
 
-        string hash = GetAlbumArtHash(track.Artist, track.Album);
+        string hash = GetAlbumArtHash(track);
         string memKey = $"{hash}_{decodeWidth}";
 
         if (_artCache.TryGetValue(memKey, out var cached))
@@ -456,15 +511,24 @@ public class MetadataService
         {
             if (track.AlbumArtData != null && track.AlbumArtData.Length > 0)
             {
-                SaveArtToDiskCache(track.Artist, track.Album, track.AlbumArtData);
+                SaveArtToDiskCache(track, track.AlbumArtData);
                 track.AlbumArtData = null;
+            }
+            else if (!string.IsNullOrEmpty(track.ArtworkPath) && File.Exists(track.ArtworkPath))
+            {
+                try
+                {
+                    byte[] bytes = File.ReadAllBytes(track.ArtworkPath);
+                    SaveArtToDiskCache(track, bytes);
+                }
+                catch { }
             }
             else if (!string.IsNullOrEmpty(track.FilePath) && File.Exists(track.FilePath))
             {
                 var onDemand = ExtractArtFromFileOrFolder(track.FilePath);
                 if (onDemand != null && onDemand.Length > 0)
                 {
-                    SaveArtToDiskCache(track.Artist, track.Album, onDemand);
+                    SaveArtToDiskCache(track, onDemand);
                 }
             }
         }
@@ -521,6 +585,21 @@ public class MetadataService
         }
         catch { }
 
+        // Si la pista pertenece a un beatmap de osu!, extraer el fondo del .osu
+        try
+        {
+            var dir = Path.GetDirectoryName(filePath);
+            if (!string.IsNullOrEmpty(dir) && Directory.Exists(dir))
+            {
+                string? osuBg = Library.OsuLibraryService.ExtractBackgroundFromOsuFolder(dir);
+                if (!string.IsNullOrEmpty(osuBg) && File.Exists(osuBg))
+                {
+                    return File.ReadAllBytes(osuBg);
+                }
+            }
+        }
+        catch { }
+
         return TryFindLocalFolderArt(filePath);
     }
 
@@ -534,20 +613,66 @@ public class MetadataService
 
         try
         {
-            if (!string.IsNullOrEmpty(track.FilePath) && File.Exists(track.FilePath))
+            // 1. Si la pista ya tiene un ArtworkPath válido (ej. fondo verificado de osu! o cover online)
+            if (!string.IsNullOrEmpty(track.ArtworkPath) && File.Exists(track.ArtworkPath))
             {
-                byte[]? rawBytes = ExtractArtFromFileOrFolder(track.FilePath);
+                byte[] rawBytes = File.ReadAllBytes(track.ArtworkPath);
                 if (rawBytes != null && rawBytes.Length > 100)
                 {
-                    // Ensure compressed thumbnail also exists on disk for library views
-                    SaveArtToDiskCache(track.Artist, track.Album, rawBytes);
+                    SaveArtToDiskCache(track, rawBytes);
 
                     using var ms = new MemoryStream(rawBytes);
                     var hiRes = new BitmapImage();
                     hiRes.BeginInit();
                     hiRes.StreamSource = ms;
                     hiRes.CacheOption = BitmapCacheOption.OnLoad;
-                    hiRes.DecodePixelWidth = 640; // High quality for NowPlaying without wasting 4K uncompressed buffers
+                    hiRes.DecodePixelWidth = 640;
+                    hiRes.EndInit();
+                    hiRes.Freeze();
+                    return hiRes;
+                }
+            }
+
+            // 2. Si es pista de osu! o su carpeta contiene archivos .osu, extraer del .osu
+            if (!string.IsNullOrEmpty(track.FilePath) && File.Exists(track.FilePath))
+            {
+                string? dir = Path.GetDirectoryName(track.FilePath);
+                if (!string.IsNullOrEmpty(dir) && Directory.Exists(dir))
+                {
+                    string? osuBg = Library.OsuLibraryService.ExtractBackgroundFromOsuFolder(dir);
+                    if (!string.IsNullOrEmpty(osuBg) && File.Exists(osuBg))
+                    {
+                        track.ArtworkPath = osuBg;
+                        byte[] rawBytes = File.ReadAllBytes(osuBg);
+                        if (rawBytes != null && rawBytes.Length > 100)
+                        {
+                            SaveArtToDiskCache(track, rawBytes);
+
+                            using var ms = new MemoryStream(rawBytes);
+                            var hiRes = new BitmapImage();
+                            hiRes.BeginInit();
+                            hiRes.StreamSource = ms;
+                            hiRes.CacheOption = BitmapCacheOption.OnLoad;
+                            hiRes.DecodePixelWidth = 640;
+                            hiRes.EndInit();
+                            hiRes.Freeze();
+                            return hiRes;
+                        }
+                    }
+                }
+
+                // 3. Extraer de etiquetas de audio o carpeta local
+                byte[]? rawBytes2 = ExtractArtFromFileOrFolder(track.FilePath);
+                if (rawBytes2 != null && rawBytes2.Length > 100)
+                {
+                    SaveArtToDiskCache(track, rawBytes2);
+
+                    using var ms = new MemoryStream(rawBytes2);
+                    var hiRes = new BitmapImage();
+                    hiRes.BeginInit();
+                    hiRes.StreamSource = ms;
+                    hiRes.CacheOption = BitmapCacheOption.OnLoad;
+                    hiRes.DecodePixelWidth = 640;
                     hiRes.EndInit();
                     hiRes.Freeze();
                     return hiRes;

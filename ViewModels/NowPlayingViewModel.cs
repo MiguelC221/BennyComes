@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Windows.Media.Imaging;
 using BenyComes.Models;
 using BenyComes.Services;
@@ -433,6 +434,30 @@ public partial class NowPlayingViewModel : ObservableObject
         Artist = track.Artist;
         Album = track.Album;
         ArtistAndAlbum = track.ArtistAndAlbum;
+
+        // Si la pista pertenece a osu!, extraer y guardar el fondo exacto desde cualquier .osu de la carpeta
+        if (track.Genre == "osu!" || (!string.IsNullOrEmpty(track.FilePath) && track.FilePath.IndexOf("Songs", StringComparison.OrdinalIgnoreCase) >= 0))
+        {
+            try
+            {
+                string? folder = Path.GetDirectoryName(track.FilePath);
+                if (!string.IsNullOrEmpty(folder) && Directory.Exists(folder))
+                {
+                    string? osuBg = Services.Library.OsuLibraryService.ExtractBackgroundFromOsuFolder(folder);
+                    if (!string.IsNullOrEmpty(osuBg) && File.Exists(osuBg))
+                    {
+                        track.ArtworkPath = osuBg;
+                        var libTrack = Services.Library.OsuLibraryService.Instance.Tracks
+                            .FirstOrDefault(t => string.Equals(t.FilePath, track.FilePath, StringComparison.OrdinalIgnoreCase));
+                        if (libTrack != null)
+                        {
+                            libTrack.ArtworkPath = osuBg;
+                        }
+                    }
+                }
+            }
+            catch { }
+        }
 
         // Detener inmediatamente el ciclo de fotos de artistas y desmarcar foto de artista activa
         // para que las imágenes del artista anterior se remuevan al instante y no queden flotando
