@@ -44,6 +44,7 @@ public class LastFmService
 
     private readonly FanartTvImageProvider _fanartProvider;
     private readonly DeezerImageProvider _deezerProvider;
+    private readonly LastFmImageProvider _lastFmImageProvider;
 
     private LastFmService()
     {
@@ -54,6 +55,7 @@ public class LastFmService
         _http.DefaultRequestHeaders.Add("User-Agent", "BenyComesMusicPlayer/1.1 (Windows NT; HiFi Player)");
         _fanartProvider = new FanartTvImageProvider(_http);
         _deezerProvider = new DeezerImageProvider(_http);
+        _lastFmImageProvider = new LastFmImageProvider(_http);
 
         try
         {
@@ -68,11 +70,6 @@ public class LastFmService
         IsEnabled = bool.TryParse(enabledVal, out var b) ? b : true;
 
         string storedKey = await _libraryDao.GetSettingAsync("lastfm_api_key", "");
-        if (string.Equals(storedKey?.Trim(), LEGACY_DEV_TEST_KEY, StringComparison.OrdinalIgnoreCase))
-        {
-            storedKey = string.Empty;
-            await _libraryDao.SetSettingAsync("lastfm_api_key", string.Empty);
-        }
         ApiKey = string.IsNullOrWhiteSpace(storedKey) ? string.Empty : storedKey.Trim();
 
         string storedFanartKey = await _libraryDao.GetSettingAsync("fanarttv_api_key", "");
@@ -178,9 +175,9 @@ public class LastFmService
     }
 
     /// <summary>
-    /// Fetches artist image URLs strictly from ONE source if it succeeds without error,
-    /// or falls back to an alternative source in Automático mode.
-    /// Sources: "Automático", "Fanart.tv", "Deezer".
+    /// Fetches artist image URLs strictly from ONE source if specified,
+    /// or falls back sequentially in Automático mode: Fanart.tv -> Deezer -> Last.fm (+images).
+    /// Sources: "Automático", "Fanart.tv", "Deezer", "Last.fm".
     /// </summary>
     public async Task<List<string>> FetchImageUrlsBySourceAsync(string artistName, string source = "Automático", System.Threading.CancellationToken ct = default)
     {
@@ -188,6 +185,20 @@ public class LastFmService
         if (string.IsNullOrWhiteSpace(artistName)) return urls;
 
         string normalized = source?.Trim().ToLowerInvariant() ?? "automático";
+
+        if (normalized.Contains("last.fm") || normalized.Contains("lastfm"))
+        {
+            // Strictly Last.fm gallery
+            try
+            {
+                urls = await _lastFmImageProvider.GetArtistImageUrlsAsync(artistName, ct).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[LastFmService] Error fetching from Last.fm: {ex.Message}");
+            }
+            return urls;
+        }
 
         if (normalized.Contains("fanart"))
         {
@@ -217,7 +228,7 @@ public class LastFmService
             return urls;
         }
 
-        // Modo "Automático": extrae solo de UNA fuente si no da error; de lo contrario intentar con otra fuente
+        // Modo "Automático": extrae de las fuentes disponibles con fallback inteligente
         // 1. Intentar con Fanart.tv primero si hay clave configurada
         if (!string.IsNullOrWhiteSpace(FanartTvApiKey))
         {
@@ -226,7 +237,6 @@ public class LastFmService
                 var fanartUrls = await _fanartProvider.GetArtistImageUrlsAsync(artistName, ct).ConfigureAwait(false);
                 if (fanartUrls != null && fanartUrls.Count > 0)
                 {
-                    // Éxito: Fanart.tv devolvió imágenes sin error. No se consulta Deezer.
                     return fanartUrls;
                 }
             }
@@ -236,7 +246,7 @@ public class LastFmService
             }
         }
 
-        // 2. Si Fanart.tv no devolvió imágenes, no tiene clave, o falló: intentar con Deezer
+        // 2. Si Fanart.tv no devolvió imágenes o falló: intentar con Deezer
         try
         {
             var deezerUrls = await _deezerProvider.GetArtistImageUrlsAsync(artistName, ct).ConfigureAwait(false);
@@ -248,6 +258,21 @@ public class LastFmService
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"[LastFmService] Error en Deezer: {ex.Message}");
+        }
+
+        // 3. Si Deezer tampoco devolvió imágenes (muy común en artistas japoneses, anime, Vocaloid o doujin como Camellia):
+        // Consultar la galería de imágenes de Last.fm directamente
+        try
+        {
+            var lastFmUrls = await _lastFmImageProvider.GetArtistImageUrlsAsync(artistName, ct).ConfigureAwait(false);
+            if (lastFmUrls != null && lastFmUrls.Count > 0)
+            {
+                return lastFmUrls;
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[LastFmService] Error en Last.fm: {ex.Message}");
         }
 
         return urls;
@@ -633,5 +658,163 @@ public class LastFmService
             cleaned = cleaned.Substring(0, readMoreIdx).Trim();
         }
         return cleaned;
+    }
+
+    /// <summary>
+    /// Fetches track metadata (specifically Album name and Cover Art) from Last.fm API track.getInfo.
+    /// Supports multiple candidate pairs (e.g. Roumaji vs Native Unicode / Japanese / Cyrillic) and split artists.
+    /// </summary>
+    public async Task<(string? AlbumTitle, string? AlbumCoverUrl)> FetchTrackAlbumInfoAsync(
+        string artist,
+        string trackTitle,
+        string? alternateArtist = null,
+        string? alternateTitle = null,
+        System.Threading.CancellationToken ct = default)
+    {
+        if (!IsEnabled || string.IsNullOrWhiteSpace(ApiKey))
+            return (null, null);
+
+        // Build list of query pairs (Artist, Title) to query in priority order:
+        var pairsToTry = new List<(string Artist, string Title)>();
+
+        void AddArtistPairs(string? art, string? tit)
+        {
+            if (string.IsNullOrWhiteSpace(art) || string.IsNullOrWhiteSpace(tit)) return;
+
+            // Generate clean title candidates: original, stripped parenthesis/brackets (e.g. "#1f1e33 (#00102g ver)" -> "#1f1e33")
+            var titleVariants = new List<string>();
+            string cleanTit = tit.Trim();
+            titleVariants.Add(cleanTit);
+
+            // If title contains "(...)", "[...]" or " - ", extract base title
+            int parenIdx = cleanTit.IndexOf('(');
+            int bracketIdx = cleanTit.IndexOf('[');
+            int dashIdx = cleanTit.IndexOf(" - ", StringComparison.Ordinal);
+            int cutIdx = -1;
+            if (parenIdx > 0) cutIdx = parenIdx;
+            if (bracketIdx > 0 && (cutIdx == -1 || bracketIdx < cutIdx)) cutIdx = bracketIdx;
+            if (dashIdx > 0 && (cutIdx == -1 || dashIdx < cutIdx)) cutIdx = dashIdx;
+
+            if (cutIdx > 0)
+            {
+                string baseTit = cleanTit.Substring(0, cutIdx).Trim();
+                if (!string.IsNullOrWhiteSpace(baseTit) && !titleVariants.Contains(baseTit, StringComparer.OrdinalIgnoreCase))
+                {
+                    titleVariants.Add(baseTit);
+                }
+            }
+
+            // Also check for trailing " TV Size", " (TV Size)", " (Cut Ver.)", " (Short Ver.)", " Short Ver."
+            string cutVersion = Regex.Replace(cleanTit, @"\s*[\(\[]?(TV[\s\-]?Size|Short\s*Ver\.?|Cut\s*Ver\.?|Game\s*Ver\.?)[\)\]]?", "", RegexOptions.IgnoreCase).Trim();
+            if (!string.IsNullOrWhiteSpace(cutVersion) && !titleVariants.Contains(cutVersion, StringComparer.OrdinalIgnoreCase))
+            {
+                titleVariants.Add(cutVersion);
+            }
+
+            // Primary split artist candidate (e.g. "Camellia" from "Camellia feat. Nanahira")
+            string? primaryArtist = null;
+            try
+            {
+                var split = Services.Library.ArtistSplitterService.Instance.SplitArtists(art);
+                if (split.Count > 0 && !string.IsNullOrWhiteSpace(split[0]))
+                {
+                    primaryArtist = split[0].Trim();
+                }
+            }
+            catch { }
+
+            string fullArt = art.Trim();
+
+            foreach (var tVariant in titleVariants)
+            {
+                if (!string.IsNullOrWhiteSpace(primaryArtist))
+                {
+                    if (!pairsToTry.Any(p => string.Equals(p.Artist, primaryArtist, StringComparison.OrdinalIgnoreCase) &&
+                                             string.Equals(p.Title, tVariant, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        pairsToTry.Add((primaryArtist, tVariant));
+                    }
+                }
+
+                if (!pairsToTry.Any(p => string.Equals(p.Artist, fullArt, StringComparison.OrdinalIgnoreCase) &&
+                                         string.Equals(p.Title, tVariant, StringComparison.OrdinalIgnoreCase)))
+                {
+                    pairsToTry.Add((fullArt, tVariant));
+                }
+            }
+        }
+
+        // 1. Primary candidate pair (usually Roumaji or default metadata)
+        AddArtistPairs(artist, trackTitle);
+
+        // 2. Alternate candidate pair if different (e.g. Native Unicode Kanji/Kana/Cyrillic, or vice versa)
+        if (!string.IsNullOrWhiteSpace(alternateArtist) || !string.IsNullOrWhiteSpace(alternateTitle))
+        {
+            string altArt = !string.IsNullOrWhiteSpace(alternateArtist) ? alternateArtist : artist;
+            string altTit = !string.IsNullOrWhiteSpace(alternateTitle) ? alternateTitle : trackTitle;
+            AddArtistPairs(altArt, altTit);
+        }
+
+        // 3. Cross candidates if one was Unicode and the other was Roumaji
+        if (!string.IsNullOrWhiteSpace(alternateArtist) && !string.IsNullOrWhiteSpace(trackTitle))
+        {
+            AddArtistPairs(alternateArtist, trackTitle);
+        }
+        if (!string.IsNullOrWhiteSpace(artist) && !string.IsNullOrWhiteSpace(alternateTitle))
+        {
+            AddArtistPairs(artist, alternateTitle);
+        }
+
+        foreach (var (artCandidate, titCandidate) in pairsToTry)
+        {
+            try
+            {
+                string url = $"https://ws.audioscrobbler.com/2.0/?method=track.getinfo&artist={Uri.EscapeDataString(artCandidate)}&track={Uri.EscapeDataString(titCandidate)}&api_key={Uri.EscapeDataString(ApiKey.Trim())}&autocorrect=1&format=json";
+
+                using var response = await _http.GetAsync(url, ct).ConfigureAwait(false);
+                if (!response.IsSuccessStatusCode)
+                    continue;
+
+                string json = await response.Content.ReadAsStringAsync(ct).ConfigureAwait(false);
+                using var doc = JsonDocument.Parse(json);
+
+                if (doc.RootElement.TryGetProperty("track", out var trackElem) &&
+                    trackElem.TryGetProperty("album", out var albumElem))
+                {
+                    string? albumTitle = albumElem.TryGetProperty("title", out var titleProp) ? titleProp.GetString() : null;
+                    string? coverUrl = null;
+
+                    if (albumElem.TryGetProperty("image", out var imagesElem) && imagesElem.ValueKind == JsonValueKind.Array)
+                    {
+                        foreach (var img in imagesElem.EnumerateArray())
+                        {
+                            string size = img.TryGetProperty("size", out var sp) ? (sp.GetString() ?? "") : "";
+                            string text = img.TryGetProperty("#text", out var tp) ? (tp.GetString() ?? "") : "";
+                            if (!string.IsNullOrEmpty(text))
+                            {
+                                coverUrl = text;
+                                if (size is "extralarge" or "large")
+                                    break;
+                            }
+                        }
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(albumTitle))
+                    {
+                        return (albumTitle, coverUrl);
+                    }
+                }
+            }
+            catch (OperationCanceledException)
+            {
+                return (null, null);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[LastFmService] FetchTrackAlbumInfoAsync error: {ex.Message}");
+            }
+        }
+
+        return (null, null);
     }
 }

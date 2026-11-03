@@ -93,6 +93,22 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     private bool _isFanartTvStatusSuccess;
 
+    // osu! Integration
+    [ObservableProperty]
+    private bool _isOsuModeEnabled;
+
+    [ObservableProperty]
+    private string _osuFolderPath = string.Empty;
+
+    [ObservableProperty]
+    private string _osuStatusMessage = string.Empty;
+
+    [ObservableProperty]
+    private bool _isLoadingOsu;
+
+    [ObservableProperty]
+    private bool _preferOsuUnicodeMetadata;
+
     // Maintenance & Diagnostics (Debug Mode & Logs)
     [ObservableProperty]
     private bool _isDebugModeEnabled;
@@ -191,7 +207,86 @@ public partial class SettingsViewModel : ObservableObject
         if (int.TryParse(intVal, out var it))
             ArtistImageIntervalSeconds = Math.Clamp(it, 15, 90);
 
+        string osuEnabledVal = await _libraryDao.GetSettingAsync("osu_mode_enabled", "false");
+        IsOsuModeEnabled = bool.TryParse(osuEnabledVal, out var osuEn) && osuEn;
+
+        string osuUnicodeVal = await _libraryDao.GetSettingAsync("osu_prefer_unicode", "false");
+        PreferOsuUnicodeMetadata = bool.TryParse(osuUnicodeVal, out var osuUni) && osuUni;
+        OsuLibraryService.Instance.PreferUnicodeMetadata = PreferOsuUnicodeMetadata;
+
+        string osuFolder = await _libraryDao.GetSettingAsync("osu_folder_path", string.Empty);
+        if (string.IsNullOrWhiteSpace(osuFolder))
+        {
+            osuFolder = OsuLibraryService.DetectOsuDirectory();
+        }
+        OsuFolderPath = osuFolder;
+
+        if (IsOsuModeEnabled && !string.IsNullOrWhiteSpace(OsuFolderPath))
+        {
+            _ = ReloadOsuLibraryAsync();
+        }
+
         IsDebugModeEnabled = Services.Diagnostics.DiagnosticLoggerService.Instance.IsDebugModeEnabled;
+    }
+
+    partial void OnPreferOsuUnicodeMetadataChanged(bool value)
+    {
+        _ = _libraryDao.SetSettingAsync("osu_prefer_unicode", value.ToString());
+        OsuLibraryService.Instance.PreferUnicodeMetadata = value;
+        if (IsOsuModeEnabled && !string.IsNullOrWhiteSpace(OsuFolderPath))
+        {
+            _ = ReloadOsuLibraryAsync();
+        }
+    }
+
+    partial void OnIsOsuModeEnabledChanged(bool value)
+    {
+        _ = _libraryDao.SetSettingAsync("osu_mode_enabled", value.ToString());
+        if (value && !string.IsNullOrWhiteSpace(OsuFolderPath))
+        {
+            _ = ReloadOsuLibraryAsync();
+        }
+    }
+
+    [RelayCommand]
+    private async Task BrowseOsuFolderAsync()
+    {
+        var dialog = new OpenFolderDialog
+        {
+            Title = "Seleccionar carpeta de instalación de osu!"
+        };
+
+        if (dialog.ShowDialog() == true && Directory.Exists(dialog.FolderName))
+        {
+            OsuFolderPath = dialog.FolderName;
+            await _libraryDao.SetSettingAsync("osu_folder_path", OsuFolderPath);
+            if (IsOsuModeEnabled)
+            {
+                await ReloadOsuLibraryAsync();
+            }
+        }
+    }
+
+    [RelayCommand]
+    public async Task ReloadOsuLibraryAsync()
+    {
+        if (string.IsNullOrWhiteSpace(OsuFolderPath) || !Directory.Exists(OsuFolderPath))
+        {
+            OsuStatusMessage = "Ruta de osu! no válida o carpeta no encontrada.";
+            return;
+        }
+
+        IsLoadingOsu = true;
+        OsuStatusMessage = "Cargando osu!.db...";
+
+        var progress = new Progress<string>(msg => OsuStatusMessage = msg);
+        bool success = await OsuLibraryService.Instance.LoadFromOsuAsync(OsuFolderPath, progress);
+
+        IsLoadingOsu = false;
+        if (!success)
+        {
+            OsuStatusMessage = "No se pudo leer osu!.db. Verifica que osu! esté instalado en esa carpeta.";
+        }
     }
 
     [ObservableProperty]
@@ -236,14 +331,22 @@ public partial class SettingsViewModel : ObservableObject
 
     partial void OnLastFmApiKeyChanged(string value)
     {
-        Services.Online.LastFmService.Instance.ApiKey = value.Trim();
-        _ = _libraryDao.SetSettingAsync("lastfm_api_key", value.Trim());
+        string trimmed = value?.Trim() ?? string.Empty;
+        Services.Online.LastFmService.Instance.ApiKey = trimmed;
+        _ = Task.Run(async () =>
+        {
+            await _libraryDao.SetSettingAsync("lastfm_api_key", trimmed);
+        });
     }
 
     partial void OnFanartTvApiKeyChanged(string value)
     {
-        Services.Online.LastFmService.Instance.FanartTvApiKey = value.Trim();
-        _ = _libraryDao.SetSettingAsync("fanarttv_api_key", value.Trim());
+        string trimmed = value?.Trim() ?? string.Empty;
+        Services.Online.LastFmService.Instance.FanartTvApiKey = trimmed;
+        _ = Task.Run(async () =>
+        {
+            await _libraryDao.SetSettingAsync("fanarttv_api_key", trimmed);
+        });
     }
 
     partial void OnUseArtistBackgroundChanged(bool value)
@@ -664,6 +767,17 @@ public partial class SettingsViewModel : ObservableObject
             await Task.Run(async () =>
             {
                 await LibraryCacheService.Instance.ReloadFromDatabaseAsync();
+                if (IsOsuModeEnabled)
+                {
+                    if (OsuLibraryService.Instance.IsLoaded && OsuLibraryService.Instance.Tracks.Count > 0)
+                    {
+                        OsuLibraryService.Instance.ReindexOsuArtists();
+                    }
+                    else if (!string.IsNullOrWhiteSpace(OsuFolderPath) && Directory.Exists(OsuFolderPath))
+                    {
+                        await ReloadOsuLibraryAsync();
+                    }
+                }
             });
             OnLibraryUpdated?.Invoke();
             ReindexStatusText = $"¡Biblioteca re-indexada con éxito! ({LibraryCacheService.Instance.CachedArtists.Count} artistas detectados)";

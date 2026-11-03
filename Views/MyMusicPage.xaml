@@ -143,7 +143,18 @@
         </Style>
     </UserControl.Resources>
 
-    <Grid Margin="0,16,0,10">
+    <Grid>
+        <Grid.Style>
+            <Style TargetType="Grid">
+                <Setter Property="Margin" Value="0,16,0,10" />
+                <Style.Triggers>
+                    <!-- When viewing artist or album detail, remove the top spacing so it sits directly under the titlebar -->
+                    <DataTrigger Binding="{Binding MyMusic.IsInDetailView}" Value="True">
+                        <Setter Property="Margin" Value="0,0,0,10" />
+                    </DataTrigger>
+                </Style.Triggers>
+            </Style>
+        </Grid.Style>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" /> <!-- 0. Page Title -->
             <RowDefinition Height="Auto" /> <!-- 1. Sub-tabs Selector -->
@@ -159,8 +170,14 @@
                 <Style TargetType="Grid">
                     <Setter Property="Visibility" Value="Visible" />
                     <Style.Triggers>
-                        <!-- In Artist Detail, Row 0 is hidden (Artist detail has its own hero header) -->
+                        <!-- In Detail Views (Artist or Album), Row 0 is hidden (They have their own hero banners without duplicate title) -->
+                        <DataTrigger Binding="{Binding MyMusic.IsInDetailView}" Value="True">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                        </DataTrigger>
                         <DataTrigger Binding="{Binding MyMusic.SelectedArtistDetail, Converter={StaticResource NullToVisibilityConverter}}" Value="Visible">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding MyMusic.SelectedAlbumDetail, Converter={StaticResource NullToVisibilityConverter}}" Value="Visible">
                             <Setter Property="Visibility" Value="Collapsed" />
                         </DataTrigger>
                     </Style.Triggers>
@@ -168,18 +185,8 @@
             </Grid.Style>
 
             <TextBlock FontFamily="Segoe UI Variable Display, Segoe UI"
-                       FontSize="28" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}">
-                <TextBlock.Style>
-                    <Style TargetType="TextBlock">
-                        <Setter Property="Text" Value="Mi música" />
-                        <Style.Triggers>
-                            <DataTrigger Binding="{Binding MyMusic.SelectedAlbumDetail, Converter={StaticResource NullToVisibilityConverter}}" Value="Visible">
-                                <Setter Property="Text" Value="{Binding MyMusic.SelectedAlbumDetail.Name}" />
-                            </DataTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </TextBlock.Style>
-            </TextBlock>
+                       FontSize="28" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}"
+                       Text="Mi música" />
         </Grid>
 
         <!-- ============================================================== -->
@@ -1095,15 +1102,6 @@
                                 </Style>
                             </StackPanel.Style>
 
-                            <!-- Back Button -->
-                            <ui:Button Appearance="Transparent" Padding="8,4" HorizontalAlignment="Left" Margin="0,0,0,12"
-                                       Command="{Binding MyMusic.CloseArtistDetailCommand}">
-                                <StackPanel Orientation="Horizontal">
-                                    <ui:SymbolIcon Symbol="ArrowLeft24" FontSize="16" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,6,0" />
-                                    <TextBlock Text="Volver a Artistas" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" />
-                                </StackPanel>
-                            </ui:Button>
-
                             <!-- Ambient Hero Banner Container for Artist -->
                             <Border CornerRadius="16" Margin="0,0,0,10" MinHeight="165" ClipToBounds="True" Background="#161620" BorderBrush="{DynamicResource SurfaceCardBorderBrush}" BorderThickness="1">
                                 <Grid x:Name="ArtistHeroGrid">
@@ -1140,14 +1138,18 @@
                                         </Grid.ColumnDefinitions>
 
                                         <!-- Big Artist Avatar (110x110) with Silhouette Fallback -->
-                                        <Grid Grid.Column="0" Width="110" Height="110" Margin="0,0,22,0" VerticalAlignment="Top">
-                                            <Ellipse Width="110" Height="110" Fill="#1F1F28" />
-                                            <ui:SymbolIcon Symbol="Person24" FontSize="48" Foreground="{DynamicResource TextTertiaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                            <Image Source="{Binding MyMusic.SelectedArtistDetail.AvatarImageSource}" Width="110" Height="110" Stretch="UniformToFill" RenderOptions.BitmapScalingMode="HighQuality">
-                                                <Image.Clip>
-                                                    <EllipseGeometry Center="55,55" RadiusX="55" RadiusY="55" />
-                                                </Image.Clip>
-                                            </Image>
+                                        <Grid Grid.Column="0" Margin="0,0,22,0" VerticalAlignment="Top">
+                                            <StackPanel Orientation="Horizontal" VerticalAlignment="Top">
+                                                <Grid Width="110" Height="110">
+                                                    <Ellipse Width="110" Height="110" Fill="#1F1F28" />
+                                                    <ui:SymbolIcon Symbol="Person24" FontSize="48" Foreground="{DynamicResource TextTertiaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                    <Image Source="{Binding MyMusic.SelectedArtistDetail.AvatarImageSource}" Width="110" Height="110" Stretch="UniformToFill" RenderOptions.BitmapScalingMode="HighQuality">
+                                                        <Image.Clip>
+                                                            <EllipseGeometry Center="55,55" RadiusX="55" RadiusY="55" />
+                                                        </Image.Clip>
+                                                    </Image>
+                                                </Grid>
+                                            </StackPanel>
                                         </Grid>
 
                                         <StackPanel Grid.Column="1" VerticalAlignment="Center">
@@ -1321,21 +1323,13 @@
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="Auto" />
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="Auto" />
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
 
-                                <!-- Back Button (Compact) -->
-                                <ui:Button Grid.Column="0" Appearance="Transparent" Padding="6,4" VerticalAlignment="Center" Margin="0,0,10,0"
-                                           Command="{Binding MyMusic.CloseArtistDetailCommand}"
-                                           ToolTip="Volver a Artistas">
-                                    <ui:SymbolIcon Symbol="ArrowLeft24" FontSize="16" Foreground="{DynamicResource TextPrimaryBrush}" />
-                                </ui:Button>
-
                                 <!-- Small Circle Avatar (38x38) -->
-                                <Grid Grid.Column="1" Width="38" Height="38" Margin="0,0,12,0" VerticalAlignment="Center">
+                                <Grid Grid.Column="0" Width="38" Height="38" Margin="0,0,12,0" VerticalAlignment="Center">
                                     <Ellipse Width="38" Height="38" Fill="#1F1F28" />
                                     <ui:SymbolIcon Symbol="Person24" FontSize="20" Foreground="{DynamicResource TextTertiaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
                                     <Image Source="{Binding MyMusic.SelectedArtistDetail.AvatarImageSource}" Width="38" Height="38" Stretch="UniformToFill" RenderOptions.BitmapScalingMode="HighQuality">
@@ -1346,12 +1340,12 @@
                                 </Grid>
 
                                 <!-- Artist Name -->
-                                <TextBlock Grid.Column="2" Text="{Binding MyMusic.SelectedArtistDetail.Name}"
+                                <TextBlock Grid.Column="1" Text="{Binding MyMusic.SelectedArtistDetail.Name}"
                                            FontSize="16" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}"
                                            VerticalAlignment="Center" TextTrimming="CharacterEllipsis" Margin="0,0,16,0" />
 
                                 <!-- Play Button (Compact) -->
-                                <ui:Button Grid.Column="3" Appearance="Primary" Padding="14,6" Margin="0,0,12,0" VerticalAlignment="Center"
+                                <ui:Button Grid.Column="2" Appearance="Primary" Padding="14,6" Margin="0,0,12,0" VerticalAlignment="Center"
                                            Background="{Binding Theme.CurrentAccentBrush}"
                                            Command="{Binding DataContext.PlayArtistCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                            CommandParameter="{Binding MyMusic.SelectedArtistDetail}">
@@ -2034,19 +2028,11 @@
                 </Grid.RowDefinitions>
 
                     <StackPanel Grid.Row="0" Margin="0,0,0,16">
-                        <!-- Back Button -->
-                        <ui:Button Appearance="Transparent" Padding="8,4" HorizontalAlignment="Left" Margin="0,0,0,12"
-                                   Command="{Binding MyMusic.CloseAlbumDetailCommand}">
-                            <StackPanel Orientation="Horizontal">
-                                <ui:SymbolIcon Symbol="ArrowLeft24" FontSize="16" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,6,0" />
-                                <TextBlock Text="Volver a Álbumes" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" />
-                            </StackPanel>
-                        </ui:Button>
-
-                        <!-- Ambient Hero Banner Container for Album (Dominant Accent Tint Background) -->
-                        <Border CornerRadius="16" Margin="0,0,0,10" MinHeight="172" ClipToBounds="True"
+                        <!-- Ambient Hero Banner Container for Album (Dominant Accent Tint Background)
+                             Top has a gradient fade, bottom has subtle rounded corners (0,0,10,10) -->
+                        <Border CornerRadius="0,0,10,10" Margin="0,0,0,10" MinHeight="172" ClipToBounds="True"
                                 Background="{Binding MyMusic.SelectedAlbumDetail.DominantHeaderBrush, FallbackValue='#161620'}"
-                                BorderBrush="{DynamicResource SurfaceCardBorderBrush}" BorderThickness="1">
+                                BorderBrush="{DynamicResource SurfaceCardBorderBrush}" BorderThickness="0,0,0,1">
                             <Grid x:Name="AlbumHeroGrid">
                                 <!-- Background Layer 0: Subtle Ambient Glow from Cover Image -->
                                 <Canvas ClipToBounds="True">
@@ -2061,13 +2047,24 @@
                                     </Image>
                                 </Canvas>
 
-                                <!-- Background Layer 1: High-Contrast Dark Bottom Vignette -->
+                                <!-- Background Layer 1: Top Gradient Fade into Dark Bottom Vignette -->
                                 <Border>
                                     <Border.Background>
                                         <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                                            <GradientStop Color="#22000000" Offset="0.0" />
-                                            <GradientStop Color="#44000000" Offset="0.65" />
-                                            <GradientStop Color="#AA000000" Offset="1.0" />
+                                            <GradientStop Color="#55000000" Offset="0.0" />
+                                            <GradientStop Color="#15000000" Offset="0.25" />
+                                            <GradientStop Color="#35000000" Offset="0.70" />
+                                            <GradientStop Color="#99000000" Offset="1.0" />
+                                        </LinearGradientBrush>
+                                    </Border.Background>
+                                </Border>
+
+                                <!-- Background Layer 1b: Seamless Top Edge Gradient scrim -->
+                                <Border VerticalAlignment="Top" Height="48">
+                                    <Border.Background>
+                                        <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                            <GradientStop Color="#880A0A0E" Offset="0.0" />
+                                            <GradientStop Color="#000A0A0E" Offset="1.0" />
                                         </LinearGradientBrush>
                                     </Border.Background>
                                 </Border>
@@ -2078,13 +2075,16 @@
                                         <ColumnDefinition Width="Auto" />
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
+
                                     <!-- Big Album Cover -->
-                                    <Border Grid.Column="0" Width="140" Height="140" CornerRadius="10" ClipToBounds="True" Background="#1C1C24" Margin="0,0,22,0">
-                                        <Border.Effect>
-                                            <DropShadowEffect BlurRadius="25" Color="#000000" Opacity="0.6" ShadowDepth="4" />
-                                        </Border.Effect>
-                                        <Image Source="{Binding MyMusic.SelectedAlbumDetail.CoverImageSource}" Stretch="UniformToFill" RenderOptions.BitmapScalingMode="HighQuality" />
-                                    </Border>
+                                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,22,0">
+                                        <Border Width="140" Height="140" CornerRadius="10" ClipToBounds="True" Background="#1C1C24">
+                                            <Border.Effect>
+                                                <DropShadowEffect BlurRadius="25" Color="#000000" Opacity="0.6" ShadowDepth="4" />
+                                            </Border.Effect>
+                                            <Image Source="{Binding MyMusic.SelectedAlbumDetail.CoverImageSource}" Stretch="UniformToFill" RenderOptions.BitmapScalingMode="HighQuality" />
+                                        </Border>
+                                    </StackPanel>
 
                                     <StackPanel Grid.Column="1" VerticalAlignment="Center">
                                         <TextBlock Text="{Binding MyMusic.SelectedAlbumDetail.Name}" FontSize="24" FontWeight="Bold" Foreground="#FFFFFF" />

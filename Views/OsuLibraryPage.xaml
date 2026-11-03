@@ -1,0 +1,918 @@
+<UserControl x:Class="BenyComes.Views.OsuLibraryPage"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             xmlns:models="clr-namespace:BenyComes.Models"
+             xmlns:vm="clr-namespace:BenyComes.ViewModels"
+             xmlns:wpftk="clr-namespace:WpfToolkit.Controls;assembly=VirtualizingWrapPanel"
+             mc:Ignorable="d" 
+             d:DesignHeight="750" d:DesignWidth="980">
+
+    <UserControl.Resources>
+        <!-- Alpha Group Header Button Style (JumpList Trigger) -->
+        <Style x:Key="AlphaGroupHeaderButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="8,4" />
+            <Setter Property="Margin" Value="4,4,0,6" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="HorizontalAlignment" Value="Left" />
+            <Setter Property="ToolTip" Value="Abrir selector alfabético (JumpList)" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" CornerRadius="6" Padding="{TemplateBinding Padding}">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="{TemplateBinding Content}" FontSize="20" FontWeight="SemiBold"
+                                           Foreground="{Binding DataContext.Theme.CurrentAccentBrush, RelativeSource={RelativeSource AncestorType=UserControl}}" Margin="0,0,8,0" />
+                                <ui:SymbolIcon Symbol="ChevronDown24" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" Value="{DynamicResource SurfaceCardHoverBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Shared ContextMenu for Osu Songs -->
+        <ContextMenu x:Key="SharedOsuTrackContextMenu">
+            <MenuItem Header="Reproducir"
+                      Command="{Binding Source={x:Static vm:MainViewModel.Instance}, Path=OsuLibrary.PlayTrackCommand}"
+                      CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                <MenuItem.Icon>
+                    <ui:SymbolIcon Symbol="Play24" />
+                </MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Header="Reproducir siguiente"
+                      Command="{Binding Source={x:Static vm:MainViewModel.Instance}, Path=OsuLibrary.PlayTrackNextCommand}"
+                      CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                <MenuItem.Icon>
+                    <ui:SymbolIcon Symbol="Next24" />
+                </MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Header="Agregar a la cola"
+                      Command="{Binding Source={x:Static vm:MainViewModel.Instance}, Path=OsuLibrary.AddTrackToQueueCommand}"
+                      CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                <MenuItem.Icon>
+                    <ui:SymbolIcon Symbol="Add24" />
+                </MenuItem.Icon>
+            </MenuItem>
+            <Separator />
+            <MenuItem Header="Ir al artista"
+                      Command="{Binding Source={x:Static vm:MainViewModel.Instance}, Path=OsuLibrary.OpenArtistByNameCommand}"
+                      CommandParameter="{Binding PlacementTarget.DataContext.Artist, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                <MenuItem.Icon>
+                    <ui:SymbolIcon Symbol="Person24" />
+                </MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Header="Ver información de álbum (Last.fm)"
+                      Command="{Binding Source={x:Static vm:MainViewModel.Instance}, Path=OsuLibrary.OpenTrackAlbumCommand}"
+                      CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                <MenuItem.Icon>
+                    <ui:SymbolIcon Symbol="Album24" />
+                </MenuItem.Icon>
+            </MenuItem>
+        </ContextMenu>
+
+        <!-- Shared ContextMenu for Osu Artists -->
+        <ContextMenu x:Key="SharedOsuArtistContextMenu">
+            <MenuItem Header="Reproducir discografía"
+                      Command="{Binding Source={x:Static vm:MainViewModel.Instance}, Path=OsuLibrary.PlayArtistCommand}"
+                      CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                <MenuItem.Icon>
+                    <ui:SymbolIcon Symbol="Play24" />
+                </MenuItem.Icon>
+            </MenuItem>
+            <MenuItem Header="Agregar discografía a la cola"
+                      Command="{Binding Source={x:Static vm:MainViewModel.Instance}, Path=OsuLibrary.AddArtistToQueueCommand}"
+                      CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                <MenuItem.Icon>
+                    <ui:SymbolIcon Symbol="Add24" />
+                </MenuItem.Icon>
+            </MenuItem>
+            <Separator />
+            <MenuItem Header="Ver canciones del artista"
+                      Command="{Binding Source={x:Static vm:MainViewModel.Instance}, Path=OsuLibrary.OpenArtistDetailCommand}"
+                      CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+                <MenuItem.Icon>
+                    <ui:SymbolIcon Symbol="Person24" />
+                </MenuItem.Icon>
+            </MenuItem>
+        </ContextMenu>
+    </UserControl.Resources>
+
+    <Grid Margin="24,20,24,0">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- Header / Navigation Tabs -->
+        <Grid Grid.Row="0" Margin="0,0,0,16"
+              Visibility="{Binding OsuLibrary.IsInDetailView, Converter={StaticResource InverseBoolToVisConverter}}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <!-- Tabs: Canciones, Artistas -->
+            <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                <Button Background="Transparent" BorderThickness="0" FocusVisualStyle="{x:Null}" Margin="0,0,16,0" Padding="0" Cursor="Hand"
+                        Command="{Binding OsuLibrary.SelectTabCommand}" CommandParameter="0">
+                    <Button.Template>
+                        <ControlTemplate TargetType="Button">
+                            <StackPanel Orientation="Vertical">
+                                <TextBlock Text="Canciones" FontSize="20" FontWeight="Bold">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding DataContext.OsuLibrary.SelectedTabIndex, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="0">
+                                                    <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                                <Rectangle Height="3" Margin="0,6,0,0" RadiusX="1.5" RadiusY="1.5">
+                                    <Rectangle.Style>
+                                        <Style TargetType="Rectangle">
+                                            <Setter Property="Fill" Value="Transparent" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding DataContext.OsuLibrary.SelectedTabIndex, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="0">
+                                                    <Setter Property="Fill" Value="{Binding DataContext.Theme.CurrentAccentBrush, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Rectangle.Style>
+                                </Rectangle>
+                            </StackPanel>
+                        </ControlTemplate>
+                    </Button.Template>
+                </Button>
+
+                <Button Background="Transparent" BorderThickness="0" FocusVisualStyle="{x:Null}" Margin="0,0,16,0" Padding="0" Cursor="Hand"
+                        Command="{Binding OsuLibrary.SelectTabCommand}" CommandParameter="1">
+                    <Button.Template>
+                        <ControlTemplate TargetType="Button">
+                            <StackPanel Orientation="Vertical">
+                                <TextBlock Text="Artistas" FontSize="20" FontWeight="Bold">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding DataContext.OsuLibrary.SelectedTabIndex, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="1">
+                                                    <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                                <Rectangle Height="3" Margin="0,6,0,0" RadiusX="1.5" RadiusY="1.5">
+                                    <Rectangle.Style>
+                                        <Style TargetType="Rectangle">
+                                            <Setter Property="Fill" Value="Transparent" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding DataContext.OsuLibrary.SelectedTabIndex, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="1">
+                                                    <Setter Property="Fill" Value="{Binding DataContext.Theme.CurrentAccentBrush, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Rectangle.Style>
+                                </Rectangle>
+                            </StackPanel>
+                        </ControlTemplate>
+                    </Button.Template>
+                </Button>
+            </StackPanel>
+
+            <!-- Search box in header -->
+            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                <ui:TextBox Width="240" PlaceholderText="Buscar en osu!..."
+                            Text="{Binding OsuLibrary.SearchFilter, UpdateSourceTrigger=PropertyChanged, Mode=TwoWay}">
+                    <ui:TextBox.Icon>
+                        <ui:SymbolIcon Symbol="Search24" FontSize="16" Foreground="{DynamicResource TextTertiaryBrush}" />
+                    </ui:TextBox.Icon>
+                </ui:TextBox>
+            </StackPanel>
+        </Grid>
+
+        <!-- Action Bar: Shuffle All, Filter/Sort & Counters -->
+        <Grid Grid.Row="1" Margin="0,0,0,16"
+              Visibility="{Binding OsuLibrary.IsInDetailView, Converter={StaticResource InverseBoolToVisConverter}}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <!-- Left: Play All Shuffled (Songs Tab) OR Sort Options (Artists Tab) -->
+            <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                <!-- Shuffle button for Songs -->
+                <ui:Button Appearance="Primary" Padding="14,8"
+                           Background="{Binding Theme.CurrentAccentBrush}"
+                           Command="{Binding OsuLibrary.PlayAllShuffledCommand}"
+                           ToolTip="Reproducir canciones de osu! en orden aleatorio">
+                    <ui:Button.Style>
+                        <Style TargetType="ui:Button">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding OsuLibrary.SelectedTabIndex}" Value="0">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </ui:Button.Style>
+                    <StackPanel Orientation="Horizontal">
+                        <ui:SymbolIcon Symbol="ArrowShuffle24" FontSize="16" Foreground="{Binding Theme.AccentForegroundBrush}" Margin="0,0,8,0" />
+                        <TextBlock Text="Reproducción aleatoria" FontWeight="Bold" Foreground="{Binding Theme.AccentForegroundBrush}" FontSize="13" />
+                    </StackPanel>
+                </ui:Button>
+
+                <!-- Filter & Sort controls for Artists tab -->
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <StackPanel.Style>
+                        <Style TargetType="StackPanel">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding OsuLibrary.SelectedTabIndex}" Value="1">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </StackPanel.Style>
+
+                    <TextBlock Text="Ordenar por:" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,8,0" />
+                    <ComboBox Width="180" ItemsSource="{Binding OsuLibrary.ArtistSortOptions}"
+                              SelectedItem="{Binding OsuLibrary.SelectedArtistSort, Mode=TwoWay}"
+                              Margin="0,0,8,0" />
+
+                    <!-- Sort direction toggle button -->
+                    <ui:Button Appearance="Transparent" Width="32" Height="32" Padding="0" Margin="0,0,4,0"
+                               Command="{Binding OsuLibrary.ToggleSortDirectionCommand}"
+                               ToolTip="{Binding OsuLibrary.SortDirectionTooltip}">
+                        <ui:SymbolIcon Symbol="{Binding OsuLibrary.SortDirectionIcon}" FontSize="16" Foreground="{DynamicResource TextPrimaryBrush}" />
+                    </ui:Button>
+                </StackPanel>
+            </StackPanel>
+
+            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                <TextBlock FontSize="12" Foreground="{DynamicResource TextTertiaryBrush}">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Text" Value="{Binding OsuLibrary.Songs.Count, StringFormat='{}{0} canciones de osu!'}" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding OsuLibrary.SelectedTabIndex}" Value="1">
+                                    <Setter Property="Text" Value="{Binding OsuLibrary.Artists.Count, StringFormat='{}{0} artistas'}" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
+            </StackPanel>
+        </Grid>
+
+        <!-- Main Content Area -->
+        <Grid Grid.Row="2">
+            <!-- TAB 0: Canciones (Agrupadas por Letra A-Z / #) -->
+            <ListView x:Name="SongsListView"
+                      ItemsSource="{Binding OsuLibrary.Songs}"
+                      Background="Transparent" BorderThickness="0"
+                      ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                      VirtualizingPanel.IsVirtualizing="True"
+                      VirtualizingPanel.IsVirtualizingWhenGrouping="True"
+                      VirtualizingPanel.VirtualizationMode="Recycling"
+                      ScrollViewer.CanContentScroll="True"
+                      AlternationCount="2"
+                      Cursor="Hand">
+                <ListView.GroupStyle>
+                    <GroupStyle>
+                        <GroupStyle.ContainerStyle>
+                            <Style TargetType="{x:Type GroupItem}">
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="{x:Type GroupItem}">
+                                            <StackPanel Margin="0,10,0,6">
+                                                <!-- Clickable Group Alphabet Header (Opens JumpList) -->
+                                                <Button Style="{StaticResource AlphaGroupHeaderButtonStyle}"
+                                                        Content="{Binding Name}"
+                                                        Click="OnAlphaHeaderClick" />
+                                                <ItemsPresenter />
+                                            </StackPanel>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </GroupStyle.ContainerStyle>
+                    </GroupStyle>
+                </ListView.GroupStyle>
+
+                <ListView.Style>
+                    <Style TargetType="ListView">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                        <Style.Triggers>
+                            <MultiDataTrigger>
+                                <MultiDataTrigger.Conditions>
+                                    <Condition Binding="{Binding OsuLibrary.SelectedTabIndex}" Value="0" />
+                                    <Condition Binding="{Binding OsuLibrary.IsInDetailView}" Value="False" />
+                                </MultiDataTrigger.Conditions>
+                                <Setter Property="Visibility" Value="Visible" />
+                            </MultiDataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </ListView.Style>
+
+                <ListView.ItemContainerStyle>
+                    <Style TargetType="ListViewItem">
+                        <Setter Property="Background" Value="Transparent" />
+                        <Setter Property="Padding" Value="8,6" />
+                        <Setter Property="Margin" Value="0,2" />
+                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                        <Setter Property="ContextMenu" Value="{StaticResource SharedOsuTrackContextMenu}" />
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="ListViewItem">
+                                    <Border x:Name="ItemBorder" Background="{TemplateBinding Background}" CornerRadius="8" Padding="{TemplateBinding Padding}">
+                                        <ContentPresenter />
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="ItemBorder" Property="Background" Value="{DynamicResource SurfaceCardHoverBrush}" />
+                                        </Trigger>
+                                        <Trigger Property="IsSelected" Value="True">
+                                            <Setter TargetName="ItemBorder" Property="Background" Value="{DynamicResource SurfaceCardHoverBrush}" />
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                        <Style.Triggers>
+                            <!-- Zebra Striping -->
+                            <Trigger Property="ItemsControl.AlternationIndex" Value="1">
+                                <Setter Property="Background" Value="#0DFFFFFF" />
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </ListView.ItemContainerStyle>
+
+                <ListView.ItemTemplate>
+                    <DataTemplate DataType="{x:Type models:Track}">
+                        <Grid>
+                            <Grid.InputBindings>
+                                <MouseBinding Gesture="LeftClick"
+                                              Command="{Binding Source={x:Static vm:MainViewModel.Instance}, Path=OsuLibrary.PlayTrackCommand}"
+                                              CommandParameter="{Binding}" />
+                            </Grid.InputBindings>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="3*" />
+                                <ColumnDefinition Width="2*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Artwork / Thumbnail -->
+                            <Border Grid.Column="0" Width="44" Height="44" CornerRadius="6" Margin="0,0,14,0" ClipToBounds="True" Background="{DynamicResource SurfaceCardBrush}">
+                                <Image Source="{Binding CoverImageSource}" Stretch="UniformToFill" RenderOptions.BitmapScalingMode="LowQuality" />
+                            </Border>
+
+                            <!-- Title & Artist -->
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,14,0">
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <TextBlock Text="{Binding Title}" FontSize="14" FontWeight="SemiBold" TextTrimming="CharacterEllipsis">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsPlaying}" Value="True">
+                                                        <Setter Property="Foreground" Value="{Binding DataContext.Theme.CurrentAccentBrush, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                                                        <Setter Property="FontWeight" Value="Bold" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+
+                                    <!-- Video Badge Icon -->
+                                    <Border Margin="8,0,0,0" Padding="4,1" CornerRadius="4"
+                                            Background="{DynamicResource SurfaceCardSubtleBrush}"
+                                            BorderBrush="{DynamicResource SurfaceCardBorderBrush}" BorderThickness="1"
+                                            ToolTip="Contiene video musical (osu!)"
+                                            Visibility="{Binding HasVideo, Converter={StaticResource BoolToVisConverter}}">
+                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                            <ui:SymbolIcon Symbol="Video24" FontSize="11" Foreground="{Binding DataContext.Theme.CurrentAccentBrush, RelativeSource={RelativeSource AncestorType=UserControl}}" Margin="0,0,3,0" />
+                                            <TextBlock Text="VIDEO" FontSize="9" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}" />
+                                        </StackPanel>
+                                    </Border>
+                                </StackPanel>
+                                <TextBlock Text="{Binding Artist}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,2,0,0" TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
+
+                            <!-- Middle Column: Source (Anime/Game/Series/Genre) -->
+                            <Grid Grid.Column="2" VerticalAlignment="Center" Margin="0,0,14,0">
+                                <Border Padding="6,2" CornerRadius="6" HorizontalAlignment="Left"
+                                        Background="{DynamicResource SurfaceCardSubtleBrush}"
+                                        BorderBrush="{DynamicResource SurfaceCardBorderBrush}" BorderThickness="1"
+                                        Visibility="{Binding HasOsuSource, Converter={StaticResource BoolToVisConverter}}"
+                                        ToolTip="{Binding OsuSource, StringFormat='Fuente / Origen: {0}'}">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <ui:SymbolIcon Symbol="Tag24" FontSize="11" Foreground="{DynamicResource TextTertiaryBrush}" Margin="0,0,4,0" />
+                                        <TextBlock Text="{Binding OsuSource}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" TextTrimming="CharacterEllipsis" MaxWidth="220" />
+                                    </StackPanel>
+                                </Border>
+                            </Grid>
+
+                            <!-- Duration & Status -->
+                            <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center" Margin="10,0,10,0">
+                                <ui:SymbolIcon Symbol="Speaker224" FontSize="14" Foreground="{Binding DataContext.Theme.CurrentAccentBrush, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                               Margin="0,0,10,0"
+                                               Visibility="{Binding IsPlaying, Converter={StaticResource BoolToVisConverter}}" />
+                                <TextBlock Text="{Binding DurationFormatted}" FontSize="12" Foreground="{DynamicResource TextTertiaryBrush}" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Grid>
+                    </DataTemplate>
+                </ListView.ItemTemplate>
+            </ListView>
+
+            <!-- TAB 1: Artistas -->
+            <ListView x:Name="ArtistsListView"
+                      ItemsSource="{Binding OsuLibrary.Artists}"
+                      Background="Transparent" BorderThickness="0"
+                      VirtualizingPanel.IsVirtualizing="True"
+                      VirtualizingPanel.IsVirtualizingWhenGrouping="True"
+                      VirtualizingPanel.VirtualizationMode="Recycling"
+                      ScrollViewer.CanContentScroll="True"
+                      ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                      ScrollViewer.VerticalScrollBarVisibility="Auto"
+                      PreviewMouseWheel="OnArtistsListViewPreviewMouseWheel"
+                      Cursor="Hand">
+                <ListView.Style>
+                    <Style TargetType="ListView">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                        <Style.Triggers>
+                            <MultiDataTrigger>
+                                <MultiDataTrigger.Conditions>
+                                    <Condition Binding="{Binding OsuLibrary.SelectedTabIndex}" Value="1" />
+                                    <Condition Binding="{Binding OsuLibrary.IsInDetailView}" Value="False" />
+                                </MultiDataTrigger.Conditions>
+                                <Setter Property="Visibility" Value="Visible" />
+                            </MultiDataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </ListView.Style>
+
+                <ListView.GroupStyle>
+                    <GroupStyle>
+                        <GroupStyle.Panel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel Orientation="Horizontal" />
+                            </ItemsPanelTemplate>
+                        </GroupStyle.Panel>
+                        <GroupStyle.ContainerStyle>
+                            <Style TargetType="{x:Type GroupItem}">
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="{x:Type GroupItem}">
+                                            <StackPanel Margin="0,10,0,16">
+                                                <Button Style="{StaticResource AlphaGroupHeaderButtonStyle}"
+                                                        Content="{Binding Name}"
+                                                        Click="OnAlphaHeaderClick" />
+                                                <ItemsPresenter />
+                                            </StackPanel>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </GroupStyle.ContainerStyle>
+                    </GroupStyle>
+                </ListView.GroupStyle>
+
+                <ListView.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <wpftk:VirtualizingWrapPanel Orientation="Horizontal" SpacingMode="None" />
+                    </ItemsPanelTemplate>
+                </ListView.ItemsPanel>
+
+                <ListView.ItemContainerStyle>
+                    <Style TargetType="ListViewItem">
+                        <Setter Property="Background" Value="Transparent" />
+                        <Setter Property="Padding" Value="0" />
+                        <Setter Property="Margin" Value="6" />
+                        <Setter Property="ContextMenu" Value="{StaticResource SharedOsuArtistContextMenu}" />
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="ListViewItem">
+                                    <Border x:Name="CardBorder" Background="{DynamicResource SurfaceCardBrush}"
+                                            BorderBrush="{DynamicResource SurfaceCardBorderBrush}" BorderThickness="1"
+                                            CornerRadius="12" Padding="12">
+                                        <ContentPresenter />
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="CardBorder" Property="Background" Value="{DynamicResource SurfaceCardHoverBrush}" />
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+                </ListView.ItemContainerStyle>
+
+                <ListView.ItemTemplate>
+                    <DataTemplate DataType="{x:Type models:ArtistModel}">
+                        <Grid>
+                            <Grid.InputBindings>
+                                <MouseBinding Gesture="LeftClick"
+                                              Command="{Binding Source={x:Static vm:MainViewModel.Instance}, Path=OsuLibrary.OpenArtistDetailCommand}"
+                                              CommandParameter="{Binding}" />
+                            </Grid.InputBindings>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+
+                            <!-- Circular Avatar or Image -->
+                            <Ellipse Grid.Row="0" Width="140" Height="140" HorizontalAlignment="Center" Margin="0,0,0,10">
+                                <Ellipse.Fill>
+                                    <ImageBrush ImageSource="{Binding AvatarImageSource}" Stretch="UniformToFill" />
+                                </Ellipse.Fill>
+                            </Ellipse>
+
+                            <!-- Name -->
+                            <TextBlock Grid.Row="1" Text="{Binding Name}" FontSize="14" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource TextPrimaryBrush}" TextAlignment="Center"
+                                       TextTrimming="CharacterEllipsis" Margin="0,0,0,4" />
+
+                            <!-- Songs count -->
+                            <TextBlock Grid.Row="2" Text="{Binding TrackCount, StringFormat='{}{0} canciones'}"
+                                       FontSize="11" Foreground="{DynamicResource TextTertiaryBrush}" TextAlignment="Center" />
+                        </Grid>
+                    </DataTemplate>
+                </ListView.ItemTemplate>
+            </ListView>
+
+            <!-- DETAIL VIEW 1: Selected Artist Songs -->
+            <Grid Background="{DynamicResource AppBackgroundBrush}"
+                  Visibility="{Binding OsuLibrary.SelectedArtistDetail, Converter={StaticResource NullToVisibilityConverter}}">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <!-- Detail Header -->
+                <Border Grid.Row="0" Background="{DynamicResource SurfaceCardBrush}" Padding="20" Margin="0,0,0,16" CornerRadius="12">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                            <TextBlock Text="{Binding OsuLibrary.SelectedArtistDetail.Name}" FontSize="24" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" />
+                            <TextBlock Text="{Binding OsuLibrary.SelectedArtistDetail.Tracks.Count, StringFormat='{}{0} canciones en osu!'}"
+                                       FontSize="13" Foreground="{DynamicResource TextTertiaryBrush}" Margin="0,2,0,0" />
+                            
+                            <!-- Biography from Last.fm if available -->
+                            <TextBlock Text="{Binding OsuLibrary.SelectedArtistDetail.BiographySummary}"
+                                       FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"
+                                       TextWrapping="Wrap" MaxHeight="60" TextTrimming="CharacterEllipsis" Margin="0,6,0,0"
+                                       Visibility="{Binding OsuLibrary.SelectedArtistDetail.HasBiography, Converter={StaticResource BoolToVisConverter}}" />
+                        </StackPanel>
+
+                        <ui:Button Grid.Column="1" Appearance="Primary" Padding="14,8"
+                                   Background="{Binding Theme.CurrentAccentBrush}"
+                                   Command="{Binding OsuLibrary.PlayArtistCommand}"
+                                   CommandParameter="{Binding OsuLibrary.SelectedArtistDetail}">
+                            <StackPanel Orientation="Horizontal">
+                                <ui:SymbolIcon Symbol="Play24" FontSize="16" Foreground="{Binding Theme.AccentForegroundBrush}" Margin="0,0,6,0" />
+                                <TextBlock Text="Reproducir todo" FontWeight="Bold" Foreground="{Binding Theme.AccentForegroundBrush}" />
+                            </StackPanel>
+                        </ui:Button>
+                    </Grid>
+                </Border>
+
+                <!-- Artist Tracks List -->
+                <ListView Grid.Row="1" ItemsSource="{Binding OsuLibrary.SelectedArtistDetail.Tracks}"
+                          Background="Transparent" BorderThickness="0"
+                          ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                    <ListView.ItemContainerStyle>
+                        <Style TargetType="ListViewItem">
+                            <Setter Property="Background" Value="Transparent" />
+                            <Setter Property="Padding" Value="8,6" />
+                            <Setter Property="Margin" Value="0,2" />
+                            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                            <Setter Property="ContextMenu" Value="{StaticResource SharedOsuTrackContextMenu}" />
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="ListViewItem">
+                                        <Border x:Name="ItemBorder" Background="{TemplateBinding Background}" CornerRadius="8" Padding="{TemplateBinding Padding}">
+                                            <ContentPresenter />
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="ItemBorder" Property="Background" Value="{DynamicResource SurfaceCardHoverBrush}" />
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </ListView.ItemContainerStyle>
+                    <ListView.ItemTemplate>
+                        <DataTemplate DataType="{x:Type models:Track}">
+                            <Grid>
+                                <Grid.InputBindings>
+                                    <MouseBinding Gesture="LeftClick"
+                                                  Command="{Binding Source={x:Static vm:MainViewModel.Instance}, Path=OsuLibrary.PlayTrackCommand}"
+                                                  CommandParameter="{Binding}" />
+                                </Grid.InputBindings>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <Border Grid.Column="0" Width="44" Height="44" CornerRadius="6" Margin="0,0,14,0" ClipToBounds="True" Background="{DynamicResource SurfaceCardBrush}">
+                                    <Image Source="{Binding CoverImageSource}" Stretch="UniformToFill" />
+                                </Border>
+
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding Title}" FontSize="14" FontWeight="SemiBold" TextTrimming="CharacterEllipsis">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsPlaying}" Value="True">
+                                                            <Setter Property="Foreground" Value="{Binding DataContext.Theme.CurrentAccentBrush, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                                                            <Setter Property="FontWeight" Value="Bold" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+
+                                        <!-- Video Badge Icon -->
+                                        <Border Margin="8,0,0,0" Padding="4,1" CornerRadius="4"
+                                                Background="{DynamicResource SurfaceCardSubtleBrush}"
+                                                BorderBrush="{DynamicResource SurfaceCardBorderBrush}" BorderThickness="1"
+                                                ToolTip="Contiene video musical (osu!)"
+                                                Visibility="{Binding HasVideo, Converter={StaticResource BoolToVisConverter}}">
+                                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                <ui:SymbolIcon Symbol="Video24" FontSize="11" Foreground="{Binding DataContext.Theme.CurrentAccentBrush, RelativeSource={RelativeSource AncestorType=UserControl}}" Margin="0,0,3,0" />
+                                                <TextBlock Text="VIDEO" FontSize="9" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}" />
+                                            </StackPanel>
+                                        </Border>
+                                    </StackPanel>
+                                    <TextBlock Text="{Binding Artist}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,2,0,0" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="10,0,10,0">
+                                    <ui:SymbolIcon Symbol="Speaker224" FontSize="14" Foreground="{Binding DataContext.Theme.CurrentAccentBrush, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                   Margin="0,0,10,0"
+                                                   Visibility="{Binding IsPlaying, Converter={StaticResource BoolToVisConverter}}" />
+                                    <TextBlock Text="{Binding DurationFormatted}" FontSize="12" Foreground="{DynamicResource TextTertiaryBrush}" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Grid>
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
+            </Grid>
+
+            <!-- DETAIL VIEW 2: Selected Album (Last.fm Album Detail for osu! track) -->
+            <Grid Background="{DynamicResource AppBackgroundBrush}"
+                  Visibility="{Binding OsuLibrary.SelectedAlbumDetail, Converter={StaticResource NullToVisibilityConverter}}">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <!-- Album Header -->
+                <Border Grid.Row="0" Background="{DynamicResource SurfaceCardBrush}" Padding="20" Margin="0,0,0,16" CornerRadius="12">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Album Artwork -->
+                        <Border Grid.Column="0" Width="90" Height="90" CornerRadius="8" Margin="0,0,16,0" ClipToBounds="True" Background="{DynamicResource SurfaceCardSubtleBrush}">
+                            <Image Source="{Binding OsuLibrary.SelectedAlbumDetail.CoverImageSource}" Stretch="UniformToFill" />
+                        </Border>
+
+                        <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                            <TextBlock Text="{Binding OsuLibrary.SelectedAlbumDetail.Name}" FontSize="22" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis" />
+                            
+                            <!-- Clickable Artist link button -->
+                            <Button Background="Transparent" BorderThickness="0" Padding="0" Margin="0,3,0,0" HorizontalAlignment="Left" Cursor="Hand"
+                                    Command="{Binding OsuLibrary.OpenArtistByNameCommand}"
+                                    CommandParameter="{Binding OsuLibrary.SelectedAlbumDetail.Artist}">
+                                <StackPanel Orientation="Horizontal">
+                                    <ui:SymbolIcon Symbol="Person24" FontSize="13" Foreground="{Binding Theme.CurrentAccentBrush}" Margin="0,0,5,0" VerticalAlignment="Center" />
+                                    <TextBlock Text="{Binding OsuLibrary.SelectedAlbumDetail.Artist}" FontSize="13" FontWeight="SemiBold"
+                                               Foreground="{Binding Theme.CurrentAccentBrush}" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+
+                            <TextBlock Text="Pista vinculada desde la biblioteca de osu! (Metadata Last.fm)" FontSize="11" Foreground="{DynamicResource TextTertiaryBrush}" Margin="0,4,0,0" />
+                        </StackPanel>
+
+                        <ui:Button Grid.Column="2" Appearance="Primary" Padding="14,8"
+                                   Background="{Binding Theme.CurrentAccentBrush}"
+                                   Command="{Binding Source={x:Static vm:MainViewModel.Instance}, Path=OsuLibrary.PlayTrackCommand}"
+                                   CommandParameter="{Binding OsuLibrary.SelectedAlbumDetail.Tracks[0]}">
+                            <StackPanel Orientation="Horizontal">
+                                <ui:SymbolIcon Symbol="Play24" FontSize="16" Foreground="{Binding Theme.AccentForegroundBrush}" Margin="0,0,6,0" />
+                                <TextBlock Text="Reproducir" FontWeight="Bold" Foreground="{Binding Theme.AccentForegroundBrush}" />
+                            </StackPanel>
+                        </ui:Button>
+                    </Grid>
+                </Border>
+
+                <!-- Linked Track List -->
+                <ListView Grid.Row="1" ItemsSource="{Binding OsuLibrary.SelectedAlbumDetail.Tracks}"
+                          Background="Transparent" BorderThickness="0"
+                          ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                    <ListView.ItemContainerStyle>
+                        <Style TargetType="ListViewItem">
+                            <Setter Property="Background" Value="Transparent" />
+                            <Setter Property="Padding" Value="8,6" />
+                            <Setter Property="Margin" Value="0,2" />
+                            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                            <Setter Property="ContextMenu" Value="{StaticResource SharedOsuTrackContextMenu}" />
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="ListViewItem">
+                                        <Border x:Name="ItemBorder" Background="{TemplateBinding Background}" CornerRadius="8" Padding="{TemplateBinding Padding}">
+                                            <ContentPresenter />
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="ItemBorder" Property="Background" Value="{DynamicResource SurfaceCardHoverBrush}" />
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </ListView.ItemContainerStyle>
+                    <ListView.ItemTemplate>
+                        <DataTemplate DataType="{x:Type models:Track}">
+                            <Grid>
+                                <Grid.InputBindings>
+                                    <MouseBinding Gesture="LeftClick"
+                                                  Command="{Binding Source={x:Static vm:MainViewModel.Instance}, Path=OsuLibrary.PlayTrackCommand}"
+                                                  CommandParameter="{Binding}" />
+                                </Grid.InputBindings>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <Border Grid.Column="0" Width="44" Height="44" CornerRadius="6" Margin="0,0,14,0" ClipToBounds="True" Background="{DynamicResource SurfaceCardBrush}">
+                                    <Image Source="{Binding CoverImageSource}" Stretch="UniformToFill" />
+                                </Border>
+
+                                <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding Title}" FontSize="14" FontWeight="SemiBold" TextTrimming="CharacterEllipsis">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsPlaying}" Value="True">
+                                                            <Setter Property="Foreground" Value="{Binding DataContext.Theme.CurrentAccentBrush, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                                                            <Setter Property="FontWeight" Value="Bold" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+
+                                        <!-- Video Badge Icon -->
+                                        <Border Margin="8,0,0,0" Padding="4,1" CornerRadius="4"
+                                                Background="{DynamicResource SurfaceCardSubtleBrush}"
+                                                BorderBrush="{DynamicResource SurfaceCardBorderBrush}" BorderThickness="1"
+                                                ToolTip="Contiene video musical (osu!)"
+                                                Visibility="{Binding HasVideo, Converter={StaticResource BoolToVisConverter}}">
+                                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                <ui:SymbolIcon Symbol="Video24" FontSize="11" Foreground="{Binding DataContext.Theme.CurrentAccentBrush, RelativeSource={RelativeSource AncestorType=UserControl}}" Margin="0,0,3,0" />
+                                                <TextBlock Text="VIDEO" FontSize="9" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}" />
+                                            </StackPanel>
+                                        </Border>
+                                    </StackPanel>
+                                    <TextBlock Text="{Binding Artist}" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,2,0,0" />
+                                </StackPanel>
+
+                                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" Margin="10,0,10,0">
+                                    <ui:SymbolIcon Symbol="Speaker224" FontSize="14" Foreground="{Binding DataContext.Theme.CurrentAccentBrush, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                   Margin="0,0,10,0"
+                                                   Visibility="{Binding IsPlaying, Converter={StaticResource BoolToVisConverter}}" />
+                                    <TextBlock Text="{Binding DurationFormatted}" FontSize="12" Foreground="{DynamicResource TextTertiaryBrush}" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Grid>
+                        </DataTemplate>
+                    </ListView.ItemTemplate>
+                </ListView>
+            </Grid>
+        </Grid>
+
+        <!-- ============================================================== -->
+        <!-- JUMPLIST WINDOWS-STYLE MODAL SELECTOR (29 LETTERS)             -->
+        <!-- ============================================================== -->
+        <Grid Grid.Row="0" Grid.RowSpan="4" Margin="-28,-16,-28,-10"
+              Visibility="{Binding OsuLibrary.IsJumpListOpen, Converter={StaticResource BoolToVisConverter}}"
+              Background="#CC09090E" ClipToBounds="True">
+            <Grid.InputBindings>
+                <MouseBinding MouseAction="LeftClick" Command="{Binding OsuLibrary.CloseJumpListCommand}" />
+            </Grid.InputBindings>
+
+            <Border Width="440" MaxWidth="500" HorizontalAlignment="Center" VerticalAlignment="Center"
+                    Background="{DynamicResource SurfaceCardBrush}" BorderBrush="{DynamicResource SurfaceCardBorderBrush}"
+                    BorderThickness="1" CornerRadius="16" Padding="20">
+                <Border.Effect>
+                    <DropShadowEffect BlurRadius="32" ShadowDepth="8" Direction="270" Opacity="0.6" Color="#000000" />
+                </Border.Effect>
+                <Border.InputBindings>
+                    <!-- Stop click bubbling so clicking inside the card does not close it -->
+                    <MouseBinding MouseAction="LeftClick" Command="{x:Null}" />
+                </Border.InputBindings>
+                <StackPanel>
+                    <!-- Header -->
+                    <Grid Margin="0,0,0,16">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <ui:SymbolIcon Symbol="TextBulletListSquare24" FontSize="18" Foreground="{Binding Theme.CurrentAccentBrush}" Margin="0,0,8,0" />
+                            <TextBlock Text="Ir a letra o grupo" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" />
+                        </StackPanel>
+                        <ui:Button Appearance="Transparent" HorizontalAlignment="Right" Padding="6"
+                                   Command="{Binding OsuLibrary.CloseJumpListCommand}"
+                                   ToolTip="Cerrar">
+                            <ui:SymbolIcon Symbol="Dismiss24" FontSize="16" Foreground="{DynamicResource TextSecondaryBrush}" />
+                        </ui:Button>
+                    </Grid>
+
+                    <!-- 29 Letter Grid (6 columns) -->
+                    <ItemsControl ItemsSource="{Binding OsuLibrary.JumpListLetters}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <UniformGrid Columns="6" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate DataType="{x:Type vm:JumpListLetterItem}">
+                                <Button Margin="4" Width="48" Height="44" HorizontalAlignment="Center" VerticalAlignment="Center" Cursor="Hand"
+                                        Command="{Binding DataContext.OsuLibrary.SelectJumpLetterCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                        CommandParameter="{Binding Letter}"
+                                        IsEnabled="{Binding HasItems}">
+                                    <Button.Template>
+                                        <ControlTemplate TargetType="Button">
+                                            <Border x:Name="BtnBorder" Width="48" Height="44" CornerRadius="8" BorderThickness="1.5"
+                                                    Background="Transparent"
+                                                    BorderBrush="Transparent">
+                                                <TextBlock x:Name="BtnText" Text="{Binding Letter}" FontSize="15" FontWeight="SemiBold"
+                                                           Foreground="{DynamicResource TextPrimaryBrush}"
+                                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                            </Border>
+                                            <ControlTemplate.Triggers>
+                                                <DataTrigger Binding="{Binding HasItems}" Value="True">
+                                                    <Setter TargetName="BtnBorder" Property="Background" Value="Transparent" />
+                                                    <Setter TargetName="BtnBorder" Property="BorderBrush" Value="Transparent" />
+                                                    <Setter TargetName="BtnText" Property="FontWeight" Value="SemiBold" />
+                                                    <Setter TargetName="BtnText" Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding HasItems}" Value="False">
+                                                    <Setter TargetName="BtnBorder" Property="Opacity" Value="0.25" />
+                                                    <Setter TargetName="BtnBorder" Property="Background" Value="Transparent" />
+                                                    <Setter TargetName="BtnBorder" Property="BorderBrush" Value="Transparent" />
+                                                    <Setter TargetName="BtnText" Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+                                                </DataTrigger>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter TargetName="BtnBorder" Property="Background" Value="#25FFFFFF" />
+                                                    <Setter TargetName="BtnBorder" Property="BorderBrush" Value="{Binding DataContext.Theme.CurrentAccentBrush, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                                                    <Setter TargetName="BtnText" Property="Foreground" Value="#FFFFFF" />
+                                                    <Setter TargetName="BtnText" Property="FontWeight" Value="Bold" />
+                                                </Trigger>
+                                                <Trigger Property="IsEnabled" Value="False">
+                                                    <Setter Property="Cursor" Value="Arrow" />
+                                                </Trigger>
+                                            </ControlTemplate.Triggers>
+                                        </ControlTemplate>
+                                    </Button.Template>
+                                </Button>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Grid>
+</UserControl>

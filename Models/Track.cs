@@ -31,11 +31,25 @@ public partial class Track : ObservableObject
     public long FileSize { get; set; }
     public int Rank { get; set; }
 
+    // osu! / Video features
+    public string VideoPath { get; set; } = string.Empty;
+    public int VideoOffsetMs { get; set; }
+    public bool HasVideo => !string.IsNullOrEmpty(VideoPath);
+    public string OsuSource { get; set; } = string.Empty;
+    public bool HasOsuSource => !string.IsNullOrWhiteSpace(OsuSource);
+    public string OsuArtistRoumaji { get; set; } = string.Empty;
+    public string OsuTitleRoumaji { get; set; } = string.Empty;
+    public string OsuArtistUnicode { get; set; } = string.Empty;
+    public string OsuTitleUnicode { get; set; } = string.Empty;
+
     [ObservableProperty]
     private bool _isFavorite;
 
     [ObservableProperty]
     private bool _isPlaying;
+
+    [ObservableProperty]
+    private bool _isCurrent;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CoverImageSource))]

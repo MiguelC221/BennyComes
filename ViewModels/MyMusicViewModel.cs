@@ -957,19 +957,24 @@ public partial class MyMusicViewModel : ObservableObject
         if (_lastPlayingTrack != null && !ReferenceEquals(_lastPlayingTrack, currentTrack))
         {
             _lastPlayingTrack.IsPlaying = false;
+            _lastPlayingTrack.IsCurrent = false;
         }
 
+        string? currentPath = currentTrack?.FilePath;
         string? playingPath = (isPlaying && currentTrack != null) ? currentTrack.FilePath : null;
 
         if (currentTrack != null)
         {
+            currentTrack.IsCurrent = true;
             currentTrack.IsPlaying = isPlaying;
             _lastPlayingTrack = currentTrack;
         }
 
         foreach (var t in Songs)
         {
-            bool match = playingPath != null && string.Equals(t.FilePath, playingPath, StringComparison.OrdinalIgnoreCase);
+            bool isCur = currentPath != null && string.Equals(t.FilePath, currentPath, StringComparison.OrdinalIgnoreCase);
+            if (t.IsCurrent != isCur) t.IsCurrent = isCur;
+            bool match = playingPath != null && isCur;
             if (t.IsPlaying != match)
             {
                 t.IsPlaying = match;
@@ -980,7 +985,9 @@ public partial class MyMusicViewModel : ObservableObject
         {
             foreach (var t in SelectedAlbumDetail.Tracks)
             {
-                bool match = playingPath != null && string.Equals(t.FilePath, playingPath, StringComparison.OrdinalIgnoreCase);
+                bool isCur = currentPath != null && string.Equals(t.FilePath, currentPath, StringComparison.OrdinalIgnoreCase);
+                if (t.IsCurrent != isCur) t.IsCurrent = isCur;
+                bool match = playingPath != null && isCur;
                 if (t.IsPlaying != match)
                 {
                     t.IsPlaying = match;

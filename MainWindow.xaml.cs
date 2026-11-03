@@ -806,6 +806,22 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
             return;
         }
 
+        // 2.1 En Modo osu!, si está en detalle de artista o álbum, cerrar detalle con Esc
+        if (ViewModel.CurrentView == "OsuLibrary" && ViewModel.OsuLibrary.IsInDetailView)
+        {
+            if (ViewModel.CanGoBack)
+            {
+                ViewModel.GoBack();
+            }
+            else
+            {
+                ViewModel.OsuLibrary.SelectedArtistDetail = null;
+                ViewModel.OsuLibrary.SelectedAlbumDetail = null;
+            }
+            e.Handled = true;
+            return;
+        }
+
         // 3. Volver atrás en el historial de navegación si está disponible
         if (ViewModel.CanGoBack)
         {

@@ -512,7 +512,7 @@ public class AudioPlayerService
         _originalQueue.Add(track);
         _playbackQueue.Add(track);
         Queue.Add(track);
-        if (playImmediately || Queue.Count == 1)
+        if (playImmediately)
         {
             PlayTrackAt(Queue.Count - 1);
         }
@@ -1007,15 +1007,19 @@ public class AudioPlayerService
 
         App.Current.Dispatcher.Invoke(() =>
         {
-            // Always auto-advance to next song when current track ends normally
-            if (_currentReader != null && _currentReader.CurrentTime >= _currentReader.TotalTime - TimeSpan.FromMilliseconds(500))
+            // Determine if track ended naturally (or within 2 seconds of the end)
+            bool endedNaturally = _currentReader != null &&
+                (_currentReader.CurrentTime >= _currentReader.TotalTime - TimeSpan.FromMilliseconds(2000) ||
+                 _currentReader.Position >= _currentReader.Length - 4096);
+
+            if (endedNaturally)
             {
                 Next();
             }
             else
             {
                 PlaybackState = PlaybackState.Stopped;
-                RaisePlaybackStateChanged(null, false);
+                RaisePlaybackStateChanged(CurrentTrack, false);
             }
         });
     }

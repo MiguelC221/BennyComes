@@ -56,11 +56,63 @@ public partial class NowPlayingView : UserControl
     {
         if (track == null) return;
         StartBackgroundCinematicMotion();
+        UpdateOsuVideoState(track);
         if (DataContext is MainViewModel vm && vm.IsNowPlayingQueueExpanded)
         {
             Dispatcher.BeginInvoke(new Action(() => ScrollToCurrentTrack()),
                 System.Windows.Threading.DispatcherPriority.Loaded);
         }
+    }
+
+    private void UpdateOsuVideoState(Track? track)
+    {
+        try
+        {
+            if (OsuBackgroundVideoPlayer == null) return;
+
+            if (DataContext is MainViewModel vm && vm.NowPlaying.PlayOsuBackgroundVideo && track != null && track.HasVideo && System.IO.File.Exists(track.VideoPath))
+            {
+                OsuBackgroundVideoPlayer.Source = new Uri(track.VideoPath, UriKind.Absolute);
+                OsuBackgroundVideoPlayer.Play();
+                OsuBackgroundVideoPlayer.Opacity = 1.0;
+            }
+            else
+            {
+                OsuBackgroundVideoPlayer.Stop();
+                OsuBackgroundVideoPlayer.Source = null;
+                OsuBackgroundVideoPlayer.Opacity = 0.0;
+            }
+        }
+        catch { }
+    }
+
+    private void SyncOsuVideoPlayback()
+    {
+        try
+        {
+            if (OsuBackgroundVideoPlayer == null || OsuBackgroundVideoPlayer.Source == null) return;
+            if (DataContext is MainViewModel vm && vm.NowPlaying.CurrentTrack != null)
+            {
+                if (vm.NowPlaying.IsPlaying)
+                {
+                    double targetSec = vm.NowPlaying.CurrentPositionSeconds + (vm.NowPlaying.CurrentTrack.VideoOffsetMs / 1000.0);
+                    if (targetSec < 0) targetSec = 0;
+                    var targetTime = TimeSpan.FromSeconds(targetSec);
+
+                    // Re-sincronizar solo si hay desvío mayor a 0.5s para no causar tartamudeo en el video
+                    if (Math.Abs((OsuBackgroundVideoPlayer.Position - targetTime).TotalSeconds) > 0.5)
+                    {
+                        OsuBackgroundVideoPlayer.Position = targetTime;
+                    }
+                    OsuBackgroundVideoPlayer.Play();
+                }
+                else
+                {
+                    OsuBackgroundVideoPlayer.Pause();
+                }
+            }
+        }
+        catch { }
     }
 
     private void OnLoaded(object sender, RoutedEventArgs e)
@@ -368,6 +420,14 @@ public partial class NowPlayingView : UserControl
             if (PrimaryBlur != null) PrimaryBlur.Radius = vmBlur.NowPlaying.BackgroundBlurRadius;
             if (SecondaryBlur != null) SecondaryBlur.Radius = vmBlur.NowPlaying.BackgroundBlurRadius;
         }
+        else if (e.PropertyName == nameof(NowPlayingViewModel.PlayOsuBackgroundVideo) && DataContext is MainViewModel vmVideo)
+        {
+            UpdateOsuVideoState(vmVideo.NowPlaying.CurrentTrack);
+        }
+        else if (e.PropertyName == nameof(NowPlayingViewModel.CurrentPositionSeconds))
+        {
+            SyncOsuVideoPlayback();
+        }
     }
 
     private void OnBackgroundTransitionRequested(BitmapImage newImage, bool isArtistPhoto)
@@ -433,55 +493,56 @@ public partial class NowPlayingView : UserControl
         // Alternar entre los 4 modos cinemáticos direccionales tipo documental (Pan & Scan)
         _currentMotionMode = (_currentMotionMode + 1) % 4;
 
-        var duration = TimeSpan.FromSeconds(28);
+        // Velocidad ajustada: reducida a ~0.8 (duración extendida de 28s a 35s para un movimiento más suave y pausado)
+        var duration = TimeSpan.FromSeconds(35);
         var ease = new SineEase { EasingMode = EasingMode.EaseInOut };
 
         double fromX = 0, toX = 0;
         double fromY = 0, toY = 0;
-        double fromScale = 1.05, toScale = 1.15;
+        double fromScale = 1.04, toScale = 1.12;
 
         switch (_currentMotionMode)
         {
             case 0:
                 // Modo 1: Paneo Panorámico Horizontal (Izquierda a Derecha)
                 // Inicia encuadrando el extremo izquierdo y recorre lentamente hacia la derecha
-                fromX = -65.0;
-                toX = 65.0;
-                fromY = -12.0;
-                toY = 12.0;
-                fromScale = 1.06;
-                toScale = 1.15;
+                fromX = -52.0;
+                toX = 52.0;
+                fromY = -10.0;
+                toY = 10.0;
+                fromScale = 1.05;
+                toScale = 1.12;
                 break;
 
             case 1:
                 // Modo 2: Recorrido Vertical (De arriba -zona de rostros o arte superior- hacia abajo con Zoom)
                 // Permite apreciar los rostros al inicio y desciende para revelar toda la escena o carátula
-                fromX = 12.0;
-                toX = -12.0;
-                fromY = -52.0;
-                toY = 48.0;
-                fromScale = 1.05;
-                toScale = 1.16;
+                fromX = 10.0;
+                toX = -10.0;
+                fromY = -42.0;
+                toY = 38.0;
+                fromScale = 1.04;
+                toScale = 1.13;
                 break;
 
             case 2:
                 // Modo 3: Paneo Horizontal Inverso con Zoom Out sutil (Derecha a Izquierda)
-                fromX = 65.0;
-                toX = -65.0;
-                fromY = 14.0;
-                toY = -14.0;
-                fromScale = 1.17;
-                toScale = 1.06;
+                fromX = 52.0;
+                toX = -52.0;
+                fromY = 11.0;
+                toY = -11.0;
+                fromScale = 1.14;
+                toScale = 1.05;
                 break;
 
             case 3:
                 // Modo 4: Diagonal Cinemático de Esquina a Esquina (Superior izquierda a inferior derecha)
-                fromX = -55.0;
-                toX = 55.0;
-                fromY = -42.0;
-                toY = 38.0;
-                fromScale = 1.05;
-                toScale = 1.18;
+                fromX = -44.0;
+                toX = 44.0;
+                fromY = -34.0;
+                toY = 30.0;
+                fromScale = 1.04;
+                toScale = 1.14;
                 break;
         }
 

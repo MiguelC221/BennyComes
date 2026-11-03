@@ -27,6 +27,9 @@ public partial class NowPlayingViewModel : ObservableObject
     private string _album = "";
 
     [ObservableProperty]
+    private bool _isFetchingAlbum;
+
+    [ObservableProperty]
     private string _artistAndAlbum = "Bienvenido a BenyComes";
 
     [ObservableProperty]
@@ -104,6 +107,32 @@ public partial class NowPlayingViewModel : ObservableObject
 
     [ObservableProperty]
     private bool _isArtistPhotoActive;
+
+    // osu! Background Video playback
+    [ObservableProperty]
+    private bool _playOsuBackgroundVideo = true;
+
+    [ObservableProperty]
+    private string _osuVideoStretchMode = "Rellenar pantalla"; // "Rellenar pantalla" (UniformToFill) o "Ajustar (proporción original)" (Uniform)
+
+    public System.Windows.Media.Stretch OsuVideoStretch =>
+        string.Equals(OsuVideoStretchMode, "Ajustar (proporción original)", StringComparison.OrdinalIgnoreCase)
+            ? System.Windows.Media.Stretch.Uniform
+            : System.Windows.Media.Stretch.UniformToFill;
+
+    partial void OnOsuVideoStretchModeChanged(string value)
+    {
+        OnPropertyChanged(nameof(OsuVideoStretch));
+        _ = Data.LibraryDao.Instance.SetSettingAsync("osu_video_stretch", value);
+    }
+
+    public System.Collections.ObjectModel.ObservableCollection<string> OsuVideoStretchOptions { get; } = new()
+    {
+        "Rellenar pantalla",
+        "Ajustar (proporción original)"
+    };
+
+    public bool HasOsuVideo => CurrentTrack != null && CurrentTrack.HasVideo && (MainViewModel.Instance?.Settings.IsOsuModeEnabled == true || CurrentTrack.Genre == "osu!");
 
     public System.Collections.ObjectModel.ObservableCollection<string> AvailableArtistImages { get; } = new();
     private int _currentArtistImageIndex = 0;
@@ -287,6 +316,9 @@ public partial class NowPlayingViewModel : ObservableObject
 
             string placementVal = await Data.LibraryDao.Instance.GetSettingAsync("visualizer_placement", "InfoCancion");
             SelectedVisualizerPlacement = placementVal;
+
+            string videoStretchVal = await Data.LibraryDao.Instance.GetSettingAsync("osu_video_stretch", "Rellenar pantalla");
+            OsuVideoStretchMode = videoStretchVal;
         }
         catch { }
     }
@@ -410,6 +442,8 @@ public partial class NowPlayingViewModel : ObservableObject
         CurrentTimeText = "0:00";
 
         UpdateTechnicalBadges();
+
+        OnPropertyChanged(nameof(HasOsuVideo));
 
         // Multi-artist collaboration detection
         CollaborationArtists.Clear();

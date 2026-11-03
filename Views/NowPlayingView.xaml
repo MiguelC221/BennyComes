@@ -14,6 +14,10 @@
         <!-- BACKGROUND LAYER: DYNAMIC ARTIST GALLERY & KEN BURNS EFFECT    -->
         <!-- ============================================================== -->
         <Grid x:Name="BackgroundContainer" ClipToBounds="True">
+            <!-- Semi-transparent Acrylic Fallback Background (Visible when transparent PNG/artwork or video with margins is active) -->
+            <Border Background="#1C182B" />
+            <Border Background="#660A0A12" />
+
             <!-- Ken Burns Animated Zoom Container (with -90 overscan margin so pan/zoom out never exposes borders) -->
             <Grid x:Name="BackgroundTransformContainer" Margin="-90" RenderTransformOrigin="0.5,0.5">
                 <Grid.RenderTransform>
@@ -35,6 +39,15 @@
                     </Image.Effect>
                 </Image>
             </Grid>
+
+            <!-- osu! Video Background Player Layer (placed outside BackgroundTransformContainer so video does NOT zoom/pan) -->
+            <MediaElement x:Name="OsuBackgroundVideoPlayer"
+                          LoadedBehavior="Manual"
+                          UnloadedBehavior="Stop"
+                          Stretch="{Binding NowPlaying.OsuVideoStretch}"
+                          IsMuted="True"
+                          ScrubbingEnabled="True"
+                          Opacity="0.0" />
 
             <!-- Darkening overlay with user-adjustable opacity -->
             <Border x:Name="BackgroundDarknessOverlay" Background="#000000" Opacity="{Binding NowPlaying.BackgroundDarkness}" />
@@ -204,6 +217,33 @@
                                         <ComboBox ItemsSource="{Binding NowPlaying.CollaborationArtists}"
                                                   SelectedItem="{Binding NowPlaying.SelectedCollaborationArtist, Mode=TwoWay}"
                                                   HorizontalAlignment="Stretch" />
+                                    </StackPanel>
+
+                                    <!-- OSU! MUSIC VIDEO PLAYBACK TOGGLE & STRETCH (Visible only if current track has an osu! video) -->
+                                    <StackPanel Margin="0,0,0,14" Visibility="{Binding NowPlaying.HasOsuVideo, Converter={StaticResource BoolToVisConverter}}">
+                                        <Grid Margin="0,0,0,8">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,10,0">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <ui:SymbolIcon Symbol="Video24" FontSize="14" Foreground="{Binding Theme.CurrentAccentBrush}" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                                    <TextBlock Text="Reproducir video de fondo (osu!)" FontWeight="SemiBold" FontSize="12" Foreground="#FFFFFF" />
+                                                </StackPanel>
+                                                <TextBlock Text="Muestra el video del beatmap sincronizado en tiempo real" FontSize="11" Foreground="#99FFFFFF" TextWrapping="Wrap" />
+                                            </StackPanel>
+                                            <ui:ToggleSwitch Grid.Column="1" IsChecked="{Binding NowPlaying.PlayOsuBackgroundVideo, Mode=TwoWay}"
+                                                             OffContent="" OnContent="" VerticalAlignment="Center" />
+                                        </Grid>
+
+                                        <!-- Video Stretch Mode Selector (visible when video playback toggle is enabled) -->
+                                        <StackPanel Visibility="{Binding NowPlaying.PlayOsuBackgroundVideo, Converter={StaticResource BoolToVisConverter}}" Margin="20,0,0,0">
+                                            <TextBlock Text="Ajuste de video:" FontSize="11" Foreground="#CCCCCC" Margin="0,0,0,4" FontWeight="SemiBold" />
+                                            <ComboBox ItemsSource="{Binding NowPlaying.OsuVideoStretchOptions}"
+                                                      SelectedItem="{Binding NowPlaying.OsuVideoStretchMode, Mode=TwoWay}"
+                                                      HorizontalAlignment="Stretch" />
+                                        </StackPanel>
                                     </StackPanel>
 
                                     <!-- 2. Seleccionar imagen de artista -->
@@ -435,15 +475,33 @@
                                     </TextBlock.Effect>
                                 </TextBlock>
 
-                                <!-- Dot Separator -->
+                                <!-- Dot Separator (Visible only when Album has text or is fetching) -->
                                 <TextBlock Text=" • " FontFamily="Segoe UI Variable Text, Segoe UI"
                                            FontSize="18" Foreground="#80FFFFFF" VerticalAlignment="Center">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Visibility" Value="Collapsed" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding NowPlaying.IsFetchingAlbum}" Value="True">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                </DataTrigger>
+                                                <DataTrigger Binding="{Binding NowPlaying.Album, Converter={StaticResource StringToVisibilityConverter}}" Value="Visible">
+                                                    <Setter Property="Visibility" Value="Visible" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
                                     <TextBlock.Effect>
                                         <DropShadowEffect BlurRadius="8" Color="#000000" Opacity="0.4" ShadowDepth="2" />
                                     </TextBlock.Effect>
                                 </TextBlock>
 
-                                <!-- Album -->
+                                <!-- Album Fetching Indicator / Loading Ring (shows spinner alongside track title / album) -->
+                                <ui:ProgressRing Width="14" Height="14" IsIndeterminate="True" Margin="0,0,6,0" VerticalAlignment="Center"
+                                                 Foreground="{Binding Theme.CurrentAccentBrush}"
+                                                 Visibility="{Binding NowPlaying.IsFetchingAlbum, Converter={StaticResource BoolToVisConverter}}" />
+
+                                <!-- Album Name -->
                                 <TextBlock Text="{Binding NowPlaying.Album}"
                                            FontFamily="Segoe UI Variable Text, Segoe UI"
                                            FontSize="18" Foreground="#D0FFFFFF"
@@ -1340,6 +1398,9 @@
                                     <Style TargetType="Border">
                                         <Setter Property="Background" Value="Transparent" />
                                         <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsCurrent}" Value="True">
+                                                <Setter Property="Background" Value="{DynamicResource SurfaceCardHoverBrush}" />
+                                            </DataTrigger>
                                             <DataTrigger Binding="{Binding IsPlaying}" Value="True">
                                                 <Setter Property="Background" Value="#2A00D26A" />
                                             </DataTrigger>
@@ -1356,10 +1417,27 @@
 
                                     <!-- Col 1: Equalizer Icon + Song Title -->
                                     <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
-                                        <!-- Active Equalizer Bars Icon -->
+                                        <!-- Active Equalizer Bars or Pause indicator Icon -->
                                         <ui:SymbolIcon Symbol="Speaker224" FontSize="15" Margin="0,0,10,0"
                                                        Visibility="{Binding IsPlaying, Converter={StaticResource BoolToVisConverter}}"
                                                        Foreground="{Binding DataContext.Theme.CurrentAccentBrush, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                                        <ui:SymbolIcon Symbol="Pause24" FontSize="15" Margin="0,0,10,0"
+                                                       Foreground="{Binding DataContext.Theme.CurrentAccentBrush, RelativeSource={RelativeSource AncestorType=UserControl}}">
+                                            <ui:SymbolIcon.Style>
+                                                <Style TargetType="ui:SymbolIcon">
+                                                    <Setter Property="Visibility" Value="Collapsed" />
+                                                    <Style.Triggers>
+                                                        <MultiDataTrigger>
+                                                            <MultiDataTrigger.Conditions>
+                                                                <Condition Binding="{Binding IsCurrent}" Value="True" />
+                                                                <Condition Binding="{Binding IsPlaying}" Value="False" />
+                                                            </MultiDataTrigger.Conditions>
+                                                            <Setter Property="Visibility" Value="Visible" />
+                                                        </MultiDataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </ui:SymbolIcon.Style>
+                                        </ui:SymbolIcon>
 
                                         <TextBlock Text="{Binding Title}" FontSize="13" FontWeight="SemiBold"
                                                    TextTrimming="CharacterEllipsis" VerticalAlignment="Center">
@@ -1367,7 +1445,7 @@
                                                 <Style TargetType="TextBlock">
                                                     <Setter Property="Foreground" Value="#E0FFFFFF" />
                                                     <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding IsPlaying}" Value="True">
+                                                        <DataTrigger Binding="{Binding IsCurrent}" Value="True">
                                                             <Setter Property="Foreground" Value="{Binding DataContext.Theme.CurrentAccentBrush, RelativeSource={RelativeSource AncestorType=UserControl}}" />
                                                             <Setter Property="FontWeight" Value="Bold" />
                                                         </DataTrigger>

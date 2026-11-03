@@ -35,6 +35,7 @@ public partial class MainViewModel : ObservableObject
     public RecentPlaysViewModel RecentPlays { get; }
     public SettingsViewModel Settings { get; }
     public SearchViewModel Search { get; }
+    public OsuLibraryViewModel OsuLibrary { get; }
     public ThemeService Theme => ThemeService.Instance;
     public EqualizerService Equalizer => EqualizerService.Instance;
 
@@ -94,6 +95,22 @@ public partial class MainViewModel : ObservableObject
 
     public ObservableCollection<string> OnboardingFolders { get; } = new();
 
+    // Onboarding osu! Setup Popup State
+    [ObservableProperty]
+    private bool _isOnboardingOsuModalOpen;
+
+    [RelayCommand]
+    public void OpenOnboardingOsuModal()
+    {
+        IsOnboardingOsuModalOpen = true;
+    }
+
+    [RelayCommand]
+    public void CloseOnboardingOsuModal()
+    {
+        IsOnboardingOsuModalOpen = false;
+    }
+
     // Async Scan & Indexing Overlay State
     [ObservableProperty]
     private bool _isScanningOverlayVisible;
@@ -138,6 +155,7 @@ public partial class MainViewModel : ObservableObject
         RecentPlays = new RecentPlaysViewModel();
         Settings = new SettingsViewModel();
         Search = new SearchViewModel();
+        OsuLibrary = new OsuLibraryViewModel();
 
         _playbackTimer = new DispatcherTimer(DispatcherPriority.Render, Application.Current?.Dispatcher ?? Dispatcher.CurrentDispatcher)
         {
@@ -234,12 +252,15 @@ public partial class MainViewModel : ObservableObject
         int MyMusicTabIndex,
         ArtistModel? ArtistDetail,
         AlbumModel? AlbumDetail,
-        Playlist? PlaylistDetail
+        Playlist? PlaylistDetail,
+        ArtistModel? OsuArtistDetail,
+        AlbumModel? OsuAlbumDetail
     );
 
     private readonly Stack<NavigationStateEntry> _navigationHistory = new();
     private bool _isRestoringNavigation;
     private Track? _lastHighResArtTrack;
+    private CancellationTokenSource? _albumFetchCts;
 
     [ObservableProperty]
     private bool _canGoBack;
@@ -253,7 +274,9 @@ public partial class MainViewModel : ObservableObject
             MyMusic.SelectedTabIndex,
             MyMusic.SelectedArtistDetail,
             MyMusic.SelectedAlbumDetail,
-            SelectedPlaylistForDetail
+            SelectedPlaylistForDetail,
+            OsuLibrary.SelectedArtistDetail,
+            OsuLibrary.SelectedAlbumDetail
         );
 
         if (_navigationHistory.Count == 0 || !_navigationHistory.Peek().Equals(entry))
@@ -272,7 +295,9 @@ public partial class MainViewModel : ObservableObject
             oldTabIndex,
             MyMusic.SelectedArtistDetail,
             MyMusic.SelectedAlbumDetail,
-            SelectedPlaylistForDetail
+            SelectedPlaylistForDetail,
+            OsuLibrary.SelectedArtistDetail,
+            OsuLibrary.SelectedAlbumDetail
         );
 
         if (_navigationHistory.Count == 0 || !_navigationHistory.Peek().Equals(entry))
@@ -321,6 +346,8 @@ public partial class MainViewModel : ObservableObject
                 CurrentView = "Home";
                 MyMusic.SelectedAlbumDetail = null;
                 MyMusic.SelectedArtistDetail = null;
+                OsuLibrary.SelectedAlbumDetail = null;
+                OsuLibrary.SelectedArtistDetail = null;
                 ClearNavigationHistory();
                 _ = Home.LoadHomeDataAsync();
                 return;
@@ -334,6 +361,11 @@ public partial class MainViewModel : ObservableObject
                 MyMusic.SelectedTabIndex = prev.MyMusicTabIndex;
                 MyMusic.SelectedArtistDetail = prev.ArtistDetail;
                 MyMusic.SelectedAlbumDetail = prev.AlbumDetail;
+            }
+            else if (prev.ViewName == "OsuLibrary")
+            {
+                OsuLibrary.SelectedArtistDetail = prev.OsuArtistDetail;
+                OsuLibrary.SelectedAlbumDetail = prev.OsuAlbumDetail;
             }
             else
             {
@@ -374,8 +406,97 @@ public partial class MainViewModel : ObservableObject
                 OnPropertyChanged(nameof(CurrentTrack));
                 NowPlaying.Title = string.IsNullOrWhiteSpace(currentTrack.Title) ? "Canción desconocida" : currentTrack.Title;
                 NowPlaying.Artist = string.IsNullOrWhiteSpace(currentTrack.Artist) ? "Artista desconocido" : currentTrack.Artist;
-                NowPlaying.Album = currentTrack.Album ?? "";
-                NowPlaying.ArtistAndAlbum = currentTrack.ArtistAndAlbum;
+
+                // Cancel any pending album fetch for a previously playing track
+                _albumFetchCts?.Cancel();
+                _albumFetchCts?.Dispose();
+                _albumFetchCts = null;
+
+                bool isOsuTrack = currentTrack.Genre == "osu!";
+                bool needsAlbumFetch = isOsuTrack && (string.IsNullOrWhiteSpace(currentTrack.Album) || string.Equals(currentTrack.Album, currentTrack.Title, StringComparison.OrdinalIgnoreCase));
+
+                if (needsAlbumFetch)
+                {
+                    // By default, display the track's title as album fallback (without "- Single")
+                    string fallbackAlbum = !string.IsNullOrWhiteSpace(currentTrack.Title) ? currentTrack.Title : "Single";
+                    NowPlaying.Album = fallbackAlbum;
+                    NowPlaying.ArtistAndAlbum = $"{NowPlaying.Artist} • {fallbackAlbum}";
+                    NowPlaying.IsFetchingAlbum = true;
+
+                    var cts = new CancellationTokenSource();
+                    _albumFetchCts = cts;
+
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            // 1-second delay / throttle as requested to respect API limits
+                            await Task.Delay(1000, cts.Token);
+                            if (cts.Token.IsCancellationRequested) return;
+
+                            // Dual-query candidate: Try Roumaji (or default) and native Unicode (Kanji/Kana/Cyrillic)
+                            string primaryArt = !string.IsNullOrWhiteSpace(currentTrack.OsuArtistRoumaji) ? currentTrack.OsuArtistRoumaji : currentTrack.Artist;
+                            string primaryTit = !string.IsNullOrWhiteSpace(currentTrack.OsuTitleRoumaji) ? currentTrack.OsuTitleRoumaji : currentTrack.Title;
+                            string? altArt = !string.IsNullOrWhiteSpace(currentTrack.OsuArtistUnicode) ? currentTrack.OsuArtistUnicode : null;
+                            string? altTit = !string.IsNullOrWhiteSpace(currentTrack.OsuTitleUnicode) ? currentTrack.OsuTitleUnicode : null;
+
+                            var info = await Services.Online.LastFmService.Instance.FetchTrackAlbumInfoAsync(
+                                primaryArt,
+                                primaryTit,
+                                altArt,
+                                altTit,
+                                cts.Token);
+                            if (cts.Token.IsCancellationRequested) return;
+
+                            if (!string.IsNullOrWhiteSpace(info.AlbumTitle))
+                            {
+                                currentTrack.Album = info.AlbumTitle;
+                                var disp = App.Current?.Dispatcher;
+                                if (disp != null)
+                                {
+                                    await disp.InvokeAsync(() =>
+                                    {
+                                        if (ReferenceEquals(NowPlaying.CurrentTrack, currentTrack))
+                                        {
+                                            NowPlaying.Album = info.AlbumTitle;
+                                            NowPlaying.ArtistAndAlbum = currentTrack.ArtistAndAlbum;
+                                            NowPlaying.IsFetchingAlbum = false;
+                                        }
+                                    });
+                                }
+                                // Update SMTC metadata so Windows media controls and scrobblers get the real album
+                                await Services.Audio.SystemMediaTransportControlsService.Instance.UpdateMetadataAsync(currentTrack);
+                            }
+                            else
+                            {
+                                App.Current?.Dispatcher?.InvokeAsync(() =>
+                                {
+                                    if (ReferenceEquals(NowPlaying.CurrentTrack, currentTrack))
+                                    {
+                                        NowPlaying.IsFetchingAlbum = false;
+                                    }
+                                });
+                            }
+                        }
+                        catch (OperationCanceledException) { }
+                        catch
+                        {
+                            App.Current?.Dispatcher?.InvokeAsync(() =>
+                            {
+                                if (ReferenceEquals(NowPlaying.CurrentTrack, currentTrack))
+                                {
+                                    NowPlaying.IsFetchingAlbum = false;
+                                }
+                            });
+                        }
+                    }, cts.Token);
+                }
+                else
+                {
+                    NowPlaying.Album = currentTrack.Album ?? "";
+                    NowPlaying.ArtistAndAlbum = currentTrack.ArtistAndAlbum;
+                    NowPlaying.IsFetchingAlbum = false;
+                }
 
                 if (trackChanged || NowPlaying.AlbumArt == null)
                 {
@@ -392,15 +513,24 @@ public partial class MainViewModel : ObservableObject
             IsPlaying = isPlaying;
             NowPlaying.IsPlaying = isPlaying;
             MyMusic.SyncPlayingTrack(currentTrack, isPlaying);
+
+            // Sync IsCurrent and IsPlaying in Queue
+            foreach (var t in Queue.Queue)
+            {
+                bool isCur = currentTrack != null && (t.Id == currentTrack.Id || string.Equals(t.FilePath, currentTrack.FilePath, StringComparison.OrdinalIgnoreCase));
+                if (t.IsCurrent != isCur) t.IsCurrent = isCur;
+                bool shouldPlay = isPlaying && isCur;
+                if (t.IsPlaying != shouldPlay) t.IsPlaying = shouldPlay;
+            }
+
             if (SelectedPlaylistForDetail != null)
             {
                 foreach (var t in SelectedPlaylistForDetail.Tracks)
                 {
-                    bool shouldPlay = isPlaying && currentTrack != null && (t.Id == currentTrack.Id || t.FilePath == currentTrack.FilePath);
-                    if (t.IsPlaying != shouldPlay)
-                    {
-                        t.IsPlaying = shouldPlay;
-                    }
+                    bool isCur = currentTrack != null && (t.Id == currentTrack.Id || string.Equals(t.FilePath, currentTrack.FilePath, StringComparison.OrdinalIgnoreCase));
+                    if (t.IsCurrent != isCur) t.IsCurrent = isCur;
+                    bool shouldPlay = isPlaying && isCur;
+                    if (t.IsPlaying != shouldPlay) t.IsPlaying = shouldPlay;
                 }
             }
 
@@ -480,9 +610,11 @@ public partial class MainViewModel : ObservableObject
         }
         else if (viewName == "MyMusic")
         {
+            var swStep = System.Diagnostics.Stopwatch.StartNew();
             MyMusic.SelectedAlbumDetail = null;
             MyMusic.SelectedArtistDetail = null;
             _ = MyMusic.RefreshIfLibraryChangedAsync();
+            System.Diagnostics.Debug.WriteLine($"[PERF] NavigateTo(MyMusic) ViewModel step: {swStep.Elapsed.TotalMilliseconds:F1} ms");
         }
         else if (viewName == "RecentPlays")
         {
@@ -496,6 +628,18 @@ public partial class MainViewModel : ObservableObject
         {
             _ = Settings.LoadFoldersAsync();
             Settings.TriggerLibraryFolderHighlight();
+        }
+        else if (viewName == "OsuLibrary")
+        {
+            var swStep = System.Diagnostics.Stopwatch.StartNew();
+            OsuLibrary.SelectedArtistDetail = null;
+            OsuLibrary.SelectedAlbumDetail = null;
+            OsuLibrary.SelectedTabIndex = 0; // Mostrar siempre la pantalla inicial de canciones de osu
+            if (OsuLibrary.Songs.Count == 0 && OsuLibrary.Artists.Count == 0)
+            {
+                OsuLibrary.RefreshData();
+            }
+            System.Diagnostics.Debug.WriteLine($"[PERF] NavigateTo(OsuLibrary) ViewModel step: {swStep.Elapsed.TotalMilliseconds:F1} ms");
         }
 
         var dispatcher = System.Windows.Application.Current?.Dispatcher;
@@ -1904,8 +2048,9 @@ public partial class MainViewModel : ObservableObject
     public ObservableCollection<string> GallerySources { get; } = new()
     {
         "Automático",
-        "Fanart.tv",
-        "Deezer"
+        "Last.fm",
+        "Deezer",
+        "Fanart.tv"
     };
 
     [ObservableProperty]
@@ -2288,7 +2433,21 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     public void ViewCurrentAlbum()
     {
-        var albumName = _audio.CurrentTrack?.Album ?? NowPlaying.Album;
+        var track = _audio.CurrentTrack ?? NowPlaying.CurrentTrack;
+        if (track == null) return;
+
+        // Si la canción es de osu! o no está en la biblioteca local, abrimos su vista de álbum dedicada
+        if (track.Genre == "osu!" || Settings.IsOsuModeEnabled)
+        {
+            PushCurrentNavigationState();
+            CurrentView = "OsuLibrary";
+            IsNowPlayingActive = false;
+            _ = OsuLibrary.OpenTrackAlbumAsync(track);
+            UpdateCanGoBack();
+            return;
+        }
+
+        var albumName = track.Album ?? NowPlaying.Album;
         if (!string.IsNullOrWhiteSpace(albumName))
         {
             NavigateToAlbum(albumName);
@@ -2298,11 +2457,26 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     public void ViewCurrentArtist()
     {
-        var artistName = _audio.CurrentTrack?.Artist ?? NowPlaying.Artist;
-        if (!string.IsNullOrWhiteSpace(artistName))
+        var track = _audio.CurrentTrack ?? NowPlaying.CurrentTrack;
+        var artistName = track?.Artist ?? NowPlaying.Artist;
+        if (string.IsNullOrWhiteSpace(artistName)) return;
+
+        if (track?.Genre == "osu!" || Settings.IsOsuModeEnabled)
         {
-            NavigateToArtist(artistName);
+            var osuArtist = OsuLibrary.Artists.FirstOrDefault(a => string.Equals(a.Name, artistName, StringComparison.OrdinalIgnoreCase))
+                         ?? Services.Library.OsuLibraryService.Instance.Artists.FirstOrDefault(a => string.Equals(a.Name, artistName, StringComparison.OrdinalIgnoreCase));
+            if (osuArtist != null)
+            {
+                PushCurrentNavigationState();
+                CurrentView = "OsuLibrary";
+                IsNowPlayingActive = false;
+                OsuLibrary.OpenArtistDetail(osuArtist);
+                UpdateCanGoBack();
+                return;
+            }
         }
+
+        NavigateToArtist(artistName);
     }
 
     [RelayCommand]
