@@ -141,15 +141,15 @@ public partial class InfoAlbum : UserControl
     {
         if (Album == null) return;
 
-        if (e.Delta < 0 && !IsCompactHeader)
+        if (AlbumTracksListView != null && !AlbumTracksListView.IsMouseOver)
         {
-            _lastHeaderToggleTick = Environment.TickCount64;
-            IsCompactHeader = true;
-        }
-        else if (e.Delta > 0 && IsCompactHeader && _lastVerticalOffset <= 24.0)
-        {
-            _lastHeaderToggleTick = Environment.TickCount64;
-            IsCompactHeader = false;
+            var eventArg = new MouseWheelEventArgs(e.MouseDevice, e.Timestamp, e.Delta)
+            {
+                RoutedEvent = UIElement.MouseWheelEvent,
+                Source = sender
+            };
+            AlbumTracksListView.RaiseEvent(eventArg);
+            e.Handled = true;
         }
     }
 
@@ -161,24 +161,33 @@ public partial class InfoAlbum : UserControl
         if (Math.Abs(e.ViewportHeightChange) > 0.5 && Math.Abs(e.VerticalChange) < 0.5)
             return;
 
-        // Si volvemos arriba del todo, restablecemos de inmediato el encabezado expandido
-        if (e.VerticalOffset <= 6.0)
+        double totalContent = e.ExtentHeight;
+        double viewport = e.ViewportHeight;
+        double scrollable = totalContent - viewport;
+
+        bool canCompact = scrollable > 150.0;
+
+        if (!IsCompactHeader)
         {
-            if (IsCompactHeader)
+            if (canCompact && e.VerticalOffset >= 80.0 && e.VerticalChange > 0)
             {
-                _lastHeaderToggleTick = Environment.TickCount64;
-                IsCompactHeader = false;
+                if (Environment.TickCount64 - _lastHeaderToggleTick >= 200)
+                {
+                    _lastHeaderToggleTick = Environment.TickCount64;
+                    IsCompactHeader = true;
+                }
             }
-            return;
         }
-
-        if (Environment.TickCount64 - _lastHeaderToggleTick < 180)
-            return;
-
-        if (!IsCompactHeader && e.VerticalChange > 0 && e.VerticalOffset > 12.0)
+        else
         {
-            _lastHeaderToggleTick = Environment.TickCount64;
-            IsCompactHeader = true;
+            if (e.VerticalOffset <= 15.0 || scrollable <= 10.0)
+            {
+                if (Environment.TickCount64 - _lastHeaderToggleTick >= 200)
+                {
+                    _lastHeaderToggleTick = Environment.TickCount64;
+                    IsCompactHeader = false;
+                }
+            }
         }
     }
 

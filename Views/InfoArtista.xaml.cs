@@ -573,17 +573,16 @@ public partial class InfoArtista : UserControl
         if (Artist == null || IsBioPopupOpen) return;
 
         var activeScroll = IsGridView ? GridScrollViewer : ListScrollViewer;
-        double offset = activeScroll?.VerticalOffset ?? 0.0;
+        if (activeScroll == null) return;
 
-        if (e.Delta < 0 && !IsCompactHeader)
+        // Si el cursor está sobre la cabecera (Row 0 o Row 1) y no directamente sobre el ScrollViewer,
+        // encaminamos el desplazamiento al ScrollViewer activo para que el scroll fluya con naturalidad.
+        if (!activeScroll.IsMouseOver)
         {
-            _lastHeaderToggleTick = Environment.TickCount64;
-            IsCompactHeader = true;
-        }
-        else if (e.Delta > 0 && IsCompactHeader && offset <= 24.0)
-        {
-            _lastHeaderToggleTick = Environment.TickCount64;
-            IsCompactHeader = false;
+            double scrollAmount = e.Delta > 0 ? -70 : 70;
+            double targetOffset = Math.Max(0, Math.Min(activeScroll.ScrollableHeight, activeScroll.VerticalOffset + scrollAmount));
+            activeScroll.ScrollToVerticalOffset(targetOffset);
+            e.Handled = true;
         }
     }
 
@@ -593,24 +592,42 @@ public partial class InfoArtista : UserControl
         if (Math.Abs(e.ViewportHeightChange) > 0.5 && Math.Abs(e.VerticalChange) < 0.5)
             return;
 
-        // Si volvemos arriba del todo, restablecemos de inmediato el encabezado expandido
-        if (e.VerticalOffset <= 6.0)
+        var activeScroll = IsGridView ? GridScrollViewer : ListScrollViewer;
+        if (activeScroll == null) return;
+
+        // Comprobación de desbordamiento suficiente para absorber la compactación (~120px)
+        // sin que el scrollbar desaparezca y provoque bucles de rebote/parpadeo.
+        double totalContent = e.ExtentHeight;
+        double viewport = e.ViewportHeight;
+        double scrollable = totalContent - viewport;
+
+        // Si el encabezado NO está compacto, requerimos que el contenido exceda el viewport
+        // por al menos 150px antes de permitir compactar.
+        bool canCompact = scrollable > 150.0;
+
+        if (!IsCompactHeader)
         {
-            if (IsCompactHeader)
+            if (canCompact && e.VerticalOffset >= 80.0 && e.VerticalChange > 0)
             {
-                _lastHeaderToggleTick = Environment.TickCount64;
-                IsCompactHeader = false;
+                if (Environment.TickCount64 - _lastHeaderToggleTick >= 200)
+                {
+                    _lastHeaderToggleTick = Environment.TickCount64;
+                    IsCompactHeader = true;
+                }
             }
-            return;
         }
-
-        if (Environment.TickCount64 - _lastHeaderToggleTick < 180)
-            return;
-
-        if (!IsCompactHeader && e.VerticalChange > 0 && e.VerticalOffset > 12.0)
+        else // Está compacto
         {
-            _lastHeaderToggleTick = Environment.TickCount64;
-            IsCompactHeader = true;
+            // Volver a expandir cuando el usuario sube cerca de la cima (<= 15px)
+            // o si el contenido ya no tiene altura suficiente para justificar estar compacto
+            if (e.VerticalOffset <= 15.0 || scrollable <= 10.0)
+            {
+                if (Environment.TickCount64 - _lastHeaderToggleTick >= 200)
+                {
+                    _lastHeaderToggleTick = Environment.TickCount64;
+                    IsCompactHeader = false;
+                }
+            }
         }
     }
 
