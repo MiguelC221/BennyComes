@@ -41,6 +41,28 @@
                     <Style.Triggers>
                         <DataTrigger Binding="{Binding IsCompactHeader, ElementName=RootInfoArtista}" Value="True">
                             <Setter Property="Margin" Value="0,0,0,10" />
+                            <DataTrigger.EnterActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetProperty="MaxHeight" To="96" Duration="0:0:0.26">
+                                            <DoubleAnimation.EasingFunction>
+                                                <CubicEase EasingMode="EaseOut" />
+                                            </DoubleAnimation.EasingFunction>
+                                        </DoubleAnimation>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </DataTrigger.EnterActions>
+                            <DataTrigger.ExitActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetProperty="MaxHeight" To="192" Duration="0:0:0.26">
+                                            <DoubleAnimation.EasingFunction>
+                                                <CubicEase EasingMode="EaseOut" />
+                                            </DoubleAnimation.EasingFunction>
+                                        </DoubleAnimation>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </DataTrigger.ExitActions>
                         </DataTrigger>
                     </Style.Triggers>
                 </Style>
@@ -63,6 +85,11 @@
                                                         <CubicEase EasingMode="EaseOut" />
                                                     </DoubleAnimation.EasingFunction>
                                                 </DoubleAnimation>
+                                                <DoubleAnimation Storyboard.TargetProperty="MaxHeight" To="96" Duration="0:0:0.26">
+                                                    <DoubleAnimation.EasingFunction>
+                                                        <CubicEase EasingMode="EaseOut" />
+                                                    </DoubleAnimation.EasingFunction>
+                                                </DoubleAnimation>
                                                 <DoubleAnimation Storyboard.TargetProperty="Opacity" To="0.75" Duration="0:0:0.26">
                                                     <DoubleAnimation.EasingFunction>
                                                         <CubicEase EasingMode="EaseOut" />
@@ -75,6 +102,11 @@
                                         <BeginStoryboard>
                                             <Storyboard>
                                                 <DoubleAnimation Storyboard.TargetProperty="Width" To="380" Duration="0:0:0.26">
+                                                    <DoubleAnimation.EasingFunction>
+                                                        <CubicEase EasingMode="EaseOut" />
+                                                    </DoubleAnimation.EasingFunction>
+                                                </DoubleAnimation>
+                                                <DoubleAnimation Storyboard.TargetProperty="MaxHeight" To="192" Duration="0:0:0.26">
                                                     <DoubleAnimation.EasingFunction>
                                                         <CubicEase EasingMode="EaseOut" />
                                                     </DoubleAnimation.EasingFunction>
@@ -93,6 +125,7 @@
                     </Border.Style>
                     <Image Source="{Binding Artist.CoverImageSource, ElementName=RootInfoArtista}"
                            Stretch="UniformToFill" HorizontalAlignment="Right" VerticalAlignment="Center"
+                           MaxHeight="192"
                            RenderOptions.BitmapScalingMode="HighQuality">
                         <Image.OpacityMask>
                             <LinearGradientBrush StartPoint="1,0.5" EndPoint="0,0.5">
