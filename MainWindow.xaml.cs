@@ -45,6 +45,9 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
             Services.ThemeService.Instance.ThemeChanged += () => Dispatcher.InvokeAsync(EnsureTitleBarButtonsWhite);
             if (DataContext is MainViewModel vm)
             {
+                vm.IsMiniPlayerVolumeSliderCollapsed = ActualWidth > 0 ? ActualWidth <= 900 : Width <= 900;
+                vm.IsMiniPlayerCompact = ActualWidth > 0 ? ActualWidth < 620 : Width < 620;
+
                 vm.PropertyChanged += (sender, args) =>
                 {
                     if (args.PropertyName == nameof(MainViewModel.IsNavPaneOpen))
@@ -332,7 +335,8 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
     {
         if (DataContext is not MainViewModel vm) return;
 
-        vm.IsMiniPlayerCompact = e.NewSize.Width < 900;
+        vm.IsMiniPlayerVolumeSliderCollapsed = e.NewSize.Width <= 900;
+        vm.IsMiniPlayerCompact = e.NewSize.Width < 620;
         if (vm.NowPlaying != null)
         {
             vm.NowPlaying.IsCompactMode = e.NewSize.Width <= 750;
@@ -623,6 +627,33 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
             float newVol = Math.Clamp(ViewModel.NowPlaying.Volume + step, 0.0f, 1.0f);
             ViewModel.NowPlaying.Volume = newVol;
             e.Handled = true;
+        }
+    }
+
+    private void OnMiniPlayerVolumeButtonClick(object sender, RoutedEventArgs e)
+    {
+        if (DataContext is not MainViewModel vm) return;
+
+        if (sender is FrameworkElement targetElement && MiniPlayerVolumePopup != null)
+        {
+            MiniPlayerVolumePopup.PlacementTarget = targetElement;
+        }
+
+        if (vm.IsMiniPlayerVolumeSliderCollapsed || (sender is FrameworkElement fe && fe.Name == "MiniCompactVolumeButton"))
+        {
+            vm.IsMiniPlayerVolumePopupOpen = !vm.IsMiniPlayerVolumePopupOpen;
+        }
+        else
+        {
+            vm.NowPlaying?.ToggleMuteCommand?.Execute(null);
+        }
+    }
+
+    private void OnMiniPlayerVolumePopupClosed(object? sender, EventArgs e)
+    {
+        if (DataContext is MainViewModel vm)
+        {
+            vm.IsMiniPlayerVolumePopupOpen = false;
         }
     }
 

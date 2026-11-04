@@ -91,6 +91,14 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty]
     private bool _isMiniPlayerCompact = false;
 
+    /// <summary>Oculta el slider de volumen en el minireproductor si el ancho de ventana es menor o igual a 900px.</summary>
+    [ObservableProperty]
+    private bool _isMiniPlayerVolumeSliderCollapsed = false;
+
+    /// <summary>Controla la visibilidad del popup flotante de volumen del minireproductor en modo compacto.</summary>
+    [ObservableProperty]
+    private bool _isMiniPlayerVolumePopupOpen = false;
+
     [ObservableProperty]
     private bool _isQueueDrawerOpen;
 

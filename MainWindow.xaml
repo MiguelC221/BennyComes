@@ -1896,9 +1896,12 @@
                 <!-- COLUMNA 2: VOLUMEN VISIBLE, SELECTOR DAC (PARLANTE) Y MÁS -->
                 <!-- ====================================================== -->
                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Right">
-                    <!-- Icono de Volumen -->
-                    <Button Command="{Binding NowPlaying.ToggleMuteCommand}" Cursor="Hand" Width="34" Height="34" Padding="0"
-                            Background="Transparent" BorderThickness="0" ToolTip="Silenciar / Activar sonido" Margin="0,0,4,0">
+                    <!-- Icono / Botón de Volumen (En <= 900px abre el popup flotante con el slider) -->
+                    <Button x:Name="MiniPlayerVolumeButton"
+                            Click="OnMiniPlayerVolumeButtonClick"
+                            Cursor="Hand" Width="34" Height="34" Padding="0"
+                            Background="Transparent" BorderThickness="0"
+                            ToolTip="Volumen" Margin="0,0,4,0">
                         <ui:SymbolIcon FontSize="18" Foreground="#E0FFFFFF" HorizontalAlignment="Center">
                             <ui:SymbolIcon.Symbol>
                                 <MultiBinding Converter="{StaticResource VolumeToSymbolConverter}">
@@ -1909,8 +1912,18 @@
                         </ui:SymbolIcon>
                     </Button>
 
-                    <!-- Slider de Volumen con riel relleno estilo NowPlayingView -->
+                    <!-- Slider de Volumen con riel relleno estilo NowPlayingView (Se oculta automáticamente a <= 900px) -->
                     <Border Background="Transparent" Padding="0" Margin="0,0,14,0" Cursor="Hand" VerticalAlignment="Center">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Setter Property="Visibility" Value="Visible" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsMiniPlayerVolumeSliderCollapsed}" Value="True">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
                         <Slider Width="105" Height="30" Minimum="0" Maximum="1"
                                 IsMoveToPointEnabled="True"
                                 Value="{Binding NowPlaying.Volume, Mode=TwoWay}"
@@ -1939,6 +1952,76 @@
                             </Slider.Template>
                         </Slider>
                     </Border>
+
+                    <!-- Popup flotante de volumen encima del cursor / botón cuando el slider está oculto (<= 900px) -->
+                    <Popup x:Name="MiniPlayerVolumePopup"
+                           IsOpen="{Binding IsMiniPlayerVolumePopupOpen, Mode=TwoWay}"
+                           PlacementTarget="{Binding ElementName=MiniPlayerVolumeButton}"
+                           Placement="Top"
+                           VerticalOffset="-8"
+                           HorizontalOffset="-90"
+                           StaysOpen="False"
+                           AllowsTransparency="True"
+                           Closed="OnMiniPlayerVolumePopupClosed">
+                        <Border Background="#F0181920"
+                                BorderBrush="#35FFFFFF"
+                                BorderThickness="1"
+                                CornerRadius="10"
+                                Padding="12,8"
+                                PreviewMouseWheel="OnMiniPlayerBarPreviewMouseWheel">
+                            <Border.Effect>
+                                <DropShadowEffect BlurRadius="20" ShadowDepth="4" Opacity="0.60" Color="#000000" />
+                            </Border.Effect>
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <!-- Botón Silenciar / Activar sonido -->
+                                <Button Command="{Binding NowPlaying.ToggleMuteCommand}" Cursor="Hand" Width="32" Height="32" Padding="0"
+                                        Background="Transparent" BorderThickness="0" ToolTip="Silenciar / Activar sonido" Margin="0,0,6,0">
+                                    <ui:SymbolIcon FontSize="17" Foreground="#E0FFFFFF" HorizontalAlignment="Center">
+                                        <ui:SymbolIcon.Symbol>
+                                            <MultiBinding Converter="{StaticResource VolumeToSymbolConverter}">
+                                                <Binding Path="NowPlaying.Volume" />
+                                                <Binding Path="NowPlaying.IsMuted" />
+                                            </MultiBinding>
+                                        </ui:SymbolIcon.Symbol>
+                                    </ui:SymbolIcon>
+                                </Button>
+
+                                <!-- Slider de Volumen con riel relleno -->
+                                <Slider Width="120" Height="30" Minimum="0" Maximum="1"
+                                        IsMoveToPointEnabled="True"
+                                        Value="{Binding NowPlaying.Volume, Mode=TwoWay}"
+                                        PreviewMouseLeftButtonDown="OnVolumeSliderPreviewMouseDown"
+                                        PreviewMouseMove="OnVolumeSliderPreviewMouseMove"
+                                        PreviewMouseLeftButtonUp="OnVolumeSliderPreviewMouseUp"
+                                        VerticalAlignment="Center">
+                                    <Slider.Template>
+                                        <ControlTemplate TargetType="Slider">
+                                            <Border Background="Transparent" VerticalAlignment="Center" Height="30">
+                                                <Grid Background="Transparent" Height="30" VerticalAlignment="Center">
+                                                    <Track x:Name="PART_Track" Height="30" VerticalAlignment="Center">
+                                                        <Track.DecreaseRepeatButton>
+                                                            <RepeatButton Command="{x:Static Slider.DecreaseLarge}" Style="{StaticResource ModernSliderDecreaseRepeatButtonStyle}" />
+                                                        </Track.DecreaseRepeatButton>
+                                                        <Track.Thumb>
+                                                            <Thumb Style="{StaticResource ModernSliderThumbStyle}" VerticalAlignment="Center" />
+                                                        </Track.Thumb>
+                                                        <Track.IncreaseRepeatButton>
+                                                            <RepeatButton Command="{x:Static Slider.IncreaseLarge}" Style="{StaticResource ModernSliderIncreaseRepeatButtonStyle}" />
+                                                        </Track.IncreaseRepeatButton>
+                                                    </Track>
+                                                </Grid>
+                                            </Border>
+                                        </ControlTemplate>
+                                    </Slider.Template>
+                                </Slider>
+
+                                <!-- Porcentaje de volumen (ej: 85%) -->
+                                <TextBlock Text="{Binding NowPlaying.Volume, StringFormat={}{0:P0}}"
+                                           FontSize="12" FontWeight="SemiBold" Foreground="#D0D8E4"
+                                           VerticalAlignment="Center" Margin="8,0,2,0" Width="36" TextAlignment="Right" />
+                            </StackPanel>
+                        </Border>
+                    </Popup>
 
                     <!-- Selector DAC con icono vectorial de parlante/bafle idéntico al de NowPlayingView -->
                     <Button Command="{Binding ToggleDeviceSelectorCommand}" Cursor="Hand" Padding="0" Margin="0,0,8,0"
@@ -2130,6 +2213,17 @@
                             Command="{Binding NowPlaying.PlayPauseCommand}" Margin="2,0" />
                     <ui:Button Appearance="Transparent" Padding="8" Command="{Binding NowPlaying.NextCommand}" ToolTip="Siguiente">
                         <ui:SymbolIcon Symbol="Next24" FontSize="18" Foreground="#E0FFFFFF" />
+                    </ui:Button>
+                    <ui:Button x:Name="MiniCompactVolumeButton" Appearance="Transparent" Padding="7"
+                               Click="OnMiniPlayerVolumeButtonClick" ToolTip="Volumen">
+                        <ui:SymbolIcon FontSize="17" Foreground="#E0FFFFFF">
+                            <ui:SymbolIcon.Symbol>
+                                <MultiBinding Converter="{StaticResource VolumeToSymbolConverter}">
+                                    <Binding Path="NowPlaying.Volume" />
+                                    <Binding Path="NowPlaying.IsMuted" />
+                                </MultiBinding>
+                            </ui:SymbolIcon.Symbol>
+                        </ui:SymbolIcon>
                     </ui:Button>
                     <ui:Button Appearance="Transparent" Padding="6" Click="OnMoreOptionsButtonClick" ToolTip="Más opciones">
                         <ui:Button.ContextMenu>
