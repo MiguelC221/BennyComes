@@ -244,6 +244,7 @@ public partial class SettingsViewModel : ObservableObject
         if (!string.IsNullOrWhiteSpace(value))
         {
             _ = _libraryDao.SetSettingAsync("osu_folder_path", value);
+            OsuLibraryCacheDao.Instance.SaveDbVersion("");
         }
     }
 
@@ -268,6 +269,7 @@ public partial class SettingsViewModel : ObservableObject
         {
             OsuFolderPath = dialog.FolderName;
             await _libraryDao.SetSettingAsync("osu_folder_path", OsuFolderPath);
+            OsuLibraryCacheDao.Instance.SaveDbVersion("");
             if (IsOsuModeEnabled)
             {
                 await ReloadOsuLibraryAsync();
@@ -283,6 +285,8 @@ public partial class SettingsViewModel : ObservableObject
             OsuStatusMessage = "Ruta de osu! no válida o carpeta no encontrada.";
             return;
         }
+
+        OsuLibraryCacheDao.Instance.SaveDbVersion("");
 
         IsLoadingOsu = true;
         OsuStatusMessage = "Cargando osu!.db...";
@@ -946,6 +950,13 @@ public partial class SettingsViewModel : ObservableObject
 
         try
         {
+            // Borrar tablas de caché de osu! (osu_tracks y osu_meta)
+            try
+            {
+                await OsuLibraryCacheDao.Instance.ClearCacheAsync();
+            }
+            catch { }
+
             // 1. Detener reproducción y servicios en segundo plano
             Services.Audio.AudioPlayerService.Instance.Stop();
             Services.Online.ArtistEnrichmentService.Instance.Cancel();

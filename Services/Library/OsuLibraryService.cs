@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using System.Threading.Tasks;
+using BenyComes.Data;
 using BenyComes.Models;
 
 namespace BenyComes.Services.Library;
@@ -78,6 +79,34 @@ public class OsuLibraryService
         if (!File.Exists(dbPath))
         {
             return false;
+        }
+
+        string currentDbVersion = File.GetLastWriteTimeUtc(dbPath).Ticks.ToString();
+
+        // 1. Verificar si la versión coincide con la caché persistente SQLite
+        string? cachedVersion = await OsuLibraryCacheDao.Instance.GetDbVersionAsync();
+        if (!string.IsNullOrEmpty(cachedVersion) && cachedVersion == currentDbVersion)
+        {
+            var cachedTracks = await OsuLibraryCacheDao.Instance.TryLoadTracksAsync();
+            if (cachedTracks != null && cachedTracks.Count > 0)
+            {
+                await ArtistSplitterService.Instance.LoadSettingsAsync();
+
+                await Task.Run(() =>
+                {
+                    _osuTracks.Clear();
+                    _osuTracks.AddRange(cachedTracks);
+                    Data.Favoritos.Instance.SyncTracksFavoriteState(_osuTracks);
+                    RebuildArtistsFromTracks();
+                });
+
+                IsLoaded = true;
+                LibraryUpdated?.Invoke();
+                progress?.Report($"Cargado desde caché ({_osuTracks.Count} canciones)");
+
+                _ = Task.Run(() => Online.ArtistEnrichmentService.Instance.EnqueueAndStartAsync(force: false));
+                return true;
+            }
         }
 
         string songsDirectory = Path.Combine(osuDirectory, "Songs");
@@ -198,15 +227,30 @@ public class OsuLibraryService
             return result;
         });
 
-        _osuTracks.Clear();
-        _osuTracks.AddRange(tracks);
-        Data.Favoritos.Instance.SyncTracksFavoriteState(_osuTracks);
-
-        RebuildArtistsFromTracks();
+        await Task.Run(() =>
+        {
+            _osuTracks.Clear();
+            _osuTracks.AddRange(tracks);
+            Data.Favoritos.Instance.SyncTracksFavoriteState(_osuTracks);
+            RebuildArtistsFromTracks();
+        });
 
         IsLoaded = true;
         LibraryUpdated?.Invoke();
         progress?.Report($"Listo ({_osuTracks.Count} canciones cargadas)");
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await OsuLibraryCacheDao.Instance.SaveTracksAsync(tracks);
+                await OsuLibraryCacheDao.Instance.SaveDbVersionAsync(currentDbVersion);
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"[OsuLibraryService] Error saving cache: {ex.Message}");
+            }
+        });
 
         _ = Task.Run(() => Online.ArtistEnrichmentService.Instance.EnqueueAndStartAsync(force: false));
 
