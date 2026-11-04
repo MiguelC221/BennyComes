@@ -31,6 +31,7 @@ public partial class NowPlayingView : UserControl
         PreviewKeyDown += OnUserActivity;
 
         Loaded += OnLoaded;
+        Unloaded += OnUnloaded;
         IsVisibleChanged += OnIsVisibleChanged;
         Services.Audio.AudioPlayerService.Instance.TrackChanged += OnAudioTrackChanged;
     }
@@ -84,55 +85,107 @@ public partial class NowPlayingView : UserControl
         UpdateCompactTitleMarquee();
     }
 
+    private static readonly HashSet<string> _incompatibleVideos = new(StringComparer.OrdinalIgnoreCase);
+    private static bool _hasShownIncompatibleVideoToast = false;
+
     private void UpdateOsuVideoState(Track? track)
     {
-        try
-        {
-            if (OsuBackgroundVideoPlayer == null) return;
+        if (OsuBackgroundVideoPlayer == null) return;
 
-            if (DataContext is MainViewModel vm && vm.NowPlaying.PlayOsuBackgroundVideo && track != null && track.HasVideo && System.IO.File.Exists(track.VideoPath))
-            {
-                OsuBackgroundVideoPlayer.Source = new Uri(track.VideoPath, UriKind.Absolute);
-                OsuBackgroundVideoPlayer.Play();
-                OsuBackgroundVideoPlayer.Opacity = 1.0;
-            }
-            else
-            {
-                OsuBackgroundVideoPlayer.Stop();
-                OsuBackgroundVideoPlayer.Source = null;
-                OsuBackgroundVideoPlayer.Opacity = 0.0;
-            }
+        if (DataContext is MainViewModel vm &&
+            vm.NowPlaying.PlayOsuBackgroundVideo &&
+            track != null &&
+            track.HasVideo &&
+            !_incompatibleVideos.Contains(track.VideoPath) &&
+            System.IO.File.Exists(track.VideoPath))
+        {
+            OsuBackgroundVideoPlayer.Source = new Uri(track.VideoPath, UriKind.Absolute);
+            OsuBackgroundVideoPlayer.Play();
+            OsuBackgroundVideoPlayer.Opacity = 1.0;
         }
-        catch { }
+        else
+        {
+            OsuBackgroundVideoPlayer.Stop();
+            OsuBackgroundVideoPlayer.Source = null;
+            OsuBackgroundVideoPlayer.Opacity = 0.0;
+        }
     }
 
     private void SyncOsuVideoPlayback()
     {
-        try
+        if (OsuBackgroundVideoPlayer == null || OsuBackgroundVideoPlayer.Source == null) return;
+        if (DataContext is MainViewModel vm && vm.NowPlaying.CurrentTrack != null)
         {
-            if (OsuBackgroundVideoPlayer == null || OsuBackgroundVideoPlayer.Source == null) return;
-            if (DataContext is MainViewModel vm && vm.NowPlaying.CurrentTrack != null)
+            if (_incompatibleVideos.Contains(vm.NowPlaying.CurrentTrack.VideoPath))
             {
-                if (vm.NowPlaying.IsPlaying)
-                {
-                    double targetSec = vm.NowPlaying.CurrentPositionSeconds + (vm.NowPlaying.CurrentTrack.VideoOffsetMs / 1000.0);
-                    if (targetSec < 0) targetSec = 0;
-                    var targetTime = TimeSpan.FromSeconds(targetSec);
+                OsuBackgroundVideoPlayer.Stop();
+                OsuBackgroundVideoPlayer.Source = null;
+                OsuBackgroundVideoPlayer.Opacity = 0.0;
+                return;
+            }
 
-                    // Re-sincronizar solo si hay desvío mayor a 0.5s para no causar tartamudeo en el video
-                    if (Math.Abs((OsuBackgroundVideoPlayer.Position - targetTime).TotalSeconds) > 0.5)
-                    {
-                        OsuBackgroundVideoPlayer.Position = targetTime;
-                    }
-                    OsuBackgroundVideoPlayer.Play();
-                }
-                else
+            if (vm.NowPlaying.IsPlaying)
+            {
+                double targetSec = vm.NowPlaying.CurrentPositionSeconds + (vm.NowPlaying.CurrentTrack.VideoOffsetMs / 1000.0);
+                if (targetSec < 0) targetSec = 0;
+                var targetTime = TimeSpan.FromSeconds(targetSec);
+
+                // Re-sincronizar solo si hay desvío mayor a 0.5s para no causar tartamudeo en el video
+                if (Math.Abs((OsuBackgroundVideoPlayer.Position - targetTime).TotalSeconds) > 0.5)
                 {
-                    OsuBackgroundVideoPlayer.Pause();
+                    OsuBackgroundVideoPlayer.Position = targetTime;
                 }
+                OsuBackgroundVideoPlayer.Play();
+            }
+            else
+            {
+                OsuBackgroundVideoPlayer.Pause();
             }
         }
-        catch { }
+    }
+
+    private void OnOsuVideoMediaFailed(object? sender, ExceptionRoutedEventArgs e)
+    {
+        e.Handled = true;
+
+        string? failedPath = null;
+        if (OsuBackgroundVideoPlayer?.Source != null && OsuBackgroundVideoPlayer.Source.IsFile)
+        {
+            failedPath = OsuBackgroundVideoPlayer.Source.LocalPath;
+        }
+        else if (DataContext is MainViewModel vmTrack && vmTrack.NowPlaying?.CurrentTrack != null)
+        {
+            failedPath = vmTrack.NowPlaying.CurrentTrack.VideoPath;
+        }
+
+        if (!string.IsNullOrEmpty(failedPath))
+        {
+            _incompatibleVideos.Add(failedPath);
+        }
+
+        if (OsuBackgroundVideoPlayer != null)
+        {
+            OsuBackgroundVideoPlayer.Stop();
+            OsuBackgroundVideoPlayer.Source = null;
+            OsuBackgroundVideoPlayer.Opacity = 0.0;
+        }
+
+        if (DataContext is MainViewModel vm && vm.NowPlaying.BackgroundImage != null)
+        {
+            BackgroundPrimary.Source = vm.NowPlaying.BackgroundImage;
+        }
+        StartBackgroundCinematicMotion();
+
+        if (!_hasShownIncompatibleVideoToast)
+        {
+            _hasShownIncompatibleVideoToast = true;
+            (DataContext as MainViewModel ?? MainViewModel.Instance)?.ShowToast(
+                "osu! Video",
+                "Vídeo sin códec compatible, mostrando fondo de carátula",
+                isWarning: false,
+                durationMs: 3500
+            );
+        }
     }
 
     private void OnLoaded(object sender, RoutedEventArgs e)
@@ -140,6 +193,12 @@ public partial class NowPlayingView : UserControl
         _hudInactivityTimer.Start();
         SizeChanged -= OnNowPlayingViewSizeChanged;
         SizeChanged += OnNowPlayingViewSizeChanged;
+
+        if (OsuBackgroundVideoPlayer != null)
+        {
+            OsuBackgroundVideoPlayer.MediaFailed -= OnOsuVideoMediaFailed;
+            OsuBackgroundVideoPlayer.MediaFailed += OnOsuVideoMediaFailed;
+        }
 
         if (CustomizationPopup != null)
         {
@@ -166,6 +225,14 @@ public partial class NowPlayingView : UserControl
         }
 
         StartBackgroundCinematicMotion();
+    }
+
+    private void OnUnloaded(object sender, RoutedEventArgs e)
+    {
+        if (OsuBackgroundVideoPlayer != null)
+        {
+            OsuBackgroundVideoPlayer.MediaFailed -= OnOsuVideoMediaFailed;
+        }
     }
 
     private void OnUserActivity(object? sender, EventArgs e)
