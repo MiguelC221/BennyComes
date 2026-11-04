@@ -45,6 +45,24 @@
             </Border.Style>
 
             <Grid>
+                <!-- Lateral Mini-Backdrop: Portada duplicada lateral con difuminado hacia el centro y clic para visor -->
+                <Border HorizontalAlignment="Right" VerticalAlignment="Stretch" Width="380" ClipToBounds="True"
+                        Cursor="Hand" MouseLeftButtonUp="OnLateralCoverImageClick" ToolTip="Clic para ver portada completa del álbum">
+                    <Image Source="{Binding Album.CoverImageSource, ElementName=RootInfoAlbum}"
+                           Stretch="UniformToFill" HorizontalAlignment="Right" VerticalAlignment="Center"
+                           RenderOptions.BitmapScalingMode="HighQuality">
+                        <Image.OpacityMask>
+                            <LinearGradientBrush StartPoint="1,0.5" EndPoint="0,0.5">
+                                <GradientStop Color="#CC000000" Offset="0.0" />
+                                <GradientStop Color="#80000000" Offset="0.35" />
+                                <GradientStop Color="#26000000" Offset="0.7" />
+                                <GradientStop Color="#00000000" Offset="1.0" />
+                            </LinearGradientBrush>
+                        </Image.OpacityMask>
+                    </Image>
+                </Border>
+
+                <Grid>
                 <Grid.Style>
                     <Style TargetType="Grid">
                         <Setter Property="Margin" Value="24,22" />
@@ -389,6 +407,7 @@
                     </WrapPanel>
                 </StackPanel>
             </Grid>
+            </Grid>
         </Border>
 
         <!-- ============================================================== -->
@@ -643,5 +662,40 @@
                 </StackPanel>
             </Border>
         </Border>
+
+        <!-- ============================================================== -->
+        <!-- POPUP MODAL OVERLAY: VISOR DE PORTADA COMPLETA                 -->
+        <!-- ============================================================== -->
+        <Grid x:Name="ImagePreviewModal"
+              Grid.Row="0" Grid.RowSpan="2"
+              Background="#D9000000"
+              Panel.ZIndex="3000"
+              Visibility="{Binding IsImagePreviewOpen, ElementName=RootInfoAlbum, Converter={StaticResource BoolToVisConverter}}"
+              MouseLeftButtonDown="OnCloseImagePreviewClick">
+            <Border MaxWidth="640" MaxHeight="640" Margin="24"
+                    CornerRadius="16" ClipToBounds="True"
+                    Background="#1C1C24" BorderBrush="#33FFFFFF" BorderThickness="1"
+                    HorizontalAlignment="Center" VerticalAlignment="Center">
+                <Border.Effect>
+                    <DropShadowEffect BlurRadius="40" Color="#000000" Opacity="0.8" ShadowDepth="8" />
+                </Border.Effect>
+                <Grid>
+                    <Image Source="{Binding Album.CoverImageSource, ElementName=RootInfoAlbum}"
+                           Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality" />
+                    <Button HorizontalAlignment="Right" VerticalAlignment="Top" Margin="12"
+                            Width="34" Height="34" Cursor="Hand"
+                            Click="OnCloseImagePreviewClick" ToolTip="Cerrar">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border CornerRadius="17" Background="#B3000000">
+                                    <ui2:SymbolIcon Symbol="Dismiss24" FontSize="16" Foreground="#FFFFFF"
+                                                    HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                            </ControlTemplate>
+                        </Button.Template>
+                    </Button>
+                </Grid>
+            </Border>
+        </Grid>
     </Grid>
 </UserControl>

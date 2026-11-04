@@ -38,6 +38,9 @@ public partial class InfoAlbum : UserControl
     public static readonly DependencyProperty IsLoadingProperty =
         DependencyProperty.Register(nameof(IsLoading), typeof(bool), typeof(InfoAlbum), new PropertyMetadata(false));
 
+    public static readonly DependencyProperty IsImagePreviewOpenProperty =
+        DependencyProperty.Register(nameof(IsImagePreviewOpen), typeof(bool), typeof(InfoAlbum), new PropertyMetadata(false));
+
     public AlbumModel? Album
     {
         get => (AlbumModel?)GetValue(AlbumProperty);
@@ -74,6 +77,24 @@ public partial class InfoAlbum : UserControl
         set => SetValue(IsCompactHeaderProperty, value);
     }
 
+    public bool IsImagePreviewOpen
+    {
+        get => (bool)GetValue(IsImagePreviewOpenProperty);
+        set => SetValue(IsImagePreviewOpenProperty, value);
+    }
+
+    private void OnLateralCoverImageClick(object sender, MouseButtonEventArgs e)
+    {
+        IsImagePreviewOpen = true;
+        e.Handled = true;
+    }
+
+    private void OnCloseImagePreviewClick(object sender, RoutedEventArgs e)
+    {
+        IsImagePreviewOpen = false;
+        if (e != null) e.Handled = true;
+    }
+
     private long _lastHeaderToggleTick;
     private double _lastVerticalOffset;
 
@@ -86,6 +107,7 @@ public partial class InfoAlbum : UserControl
     {
         if (d is not InfoAlbum control) return;
         control.IsCompactHeader = false;
+        control.IsImagePreviewOpen = false;
         control._lastVerticalOffset = 0;
 
         if (e.NewValue is AlbumModel album)
@@ -335,7 +357,7 @@ public partial class InfoAlbum : UserControl
 
         var refreshItem = new Wpf.Ui.Controls.MenuItem
         {
-            Header = "Refrescar información",
+            Header = "Volver a consultar Last.fm / APIs",
             Icon = new SymbolIcon { Symbol = SymbolRegular.ArrowSync24 }
         };
         refreshItem.Click += async (_, _) =>
@@ -426,6 +448,26 @@ public partial class InfoAlbum : UserControl
                             {
                                 firstTrack.ArtworkPath = cachedCover;
                                 Album.ArtworkPath = cachedCover;
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    // Álbum de la biblioteca musical local: volver a consultar Last.fm / APIs
+                    string artName = !string.IsNullOrWhiteSpace(Album.Artist) ? Album.Artist : firstTrack.Artist;
+                    string albName = !string.IsNullOrWhiteSpace(Album.Name) ? Album.Name : (firstTrack.Album ?? "");
+                    var info = await Services.Online.LastFmService.Instance.FetchTrackAlbumInfoAsync(artName, firstTrack.Title);
+                    if (!string.IsNullOrWhiteSpace(info.AlbumCoverUrl))
+                    {
+                        string? cachedCover = await Services.Online.LastFmService.Instance.DownloadAndCacheAlbumCoverAsync(artName, albName, info.AlbumCoverUrl);
+                        if (!string.IsNullOrEmpty(cachedCover))
+                        {
+                            Album.ArtworkPath = cachedCover;
+                            foreach (var t in Album.Tracks)
+                            {
+                                if (string.IsNullOrEmpty(t.ArtworkPath) || t.ArtworkPath == firstTrack.ArtworkPath)
+                                    t.ArtworkPath = cachedCover;
                             }
                         }
                     }

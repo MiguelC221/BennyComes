@@ -1985,13 +1985,49 @@
                                         </TextBlock>
                                     </StackPanel>
 
-                                    <!-- Col 2: Artist -->
-                                    <TextBlock Grid.Column="1" Text="{Binding Artist}" FontSize="12"
-                                               Foreground="#B0FFFFFF" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Margin="0,0,10,0" />
+                                    <!-- Col 2: Artist (Clic para redirigir al artista) -->
+                                    <Button Grid.Column="1" Margin="0,0,10,0" Padding="0" HorizontalAlignment="Left" VerticalAlignment="Center"
+                                            Background="Transparent" BorderThickness="0" Cursor="Hand"
+                                            Command="{Binding Source={x:Static vm:MainViewModel.Instance}, Path=NavigateToTrackArtistCommand}"
+                                            CommandParameter="{Binding}"
+                                            ToolTip="{Binding Artist, StringFormat='Ir al artista: {0}'}">
+                                        <Button.Template>
+                                            <ControlTemplate TargetType="Button">
+                                                <Border Background="Transparent" CornerRadius="4" Padding="2,1">
+                                                    <TextBlock x:Name="TxtArtist" Text="{Binding Artist}" FontSize="12"
+                                                               Foreground="#B0FFFFFF" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                                </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter TargetName="TxtArtist" Property="TextDecorations" Value="Underline" />
+                                                        <Setter TargetName="TxtArtist" Property="Foreground" Value="#FFFFFF" />
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Button.Template>
+                                    </Button>
 
-                                    <!-- Col 3: Album -->
-                                    <TextBlock Grid.Column="2" Text="{Binding Album}" FontSize="12"
-                                               Foreground="#88FFFFFF" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Margin="0,0,10,0" />
+                                    <!-- Col 3: Album (Clic para redirigir al álbum) -->
+                                    <Button Grid.Column="2" Margin="0,0,10,0" Padding="0" HorizontalAlignment="Left" VerticalAlignment="Center"
+                                            Background="Transparent" BorderThickness="0" Cursor="Hand"
+                                            Command="{Binding Source={x:Static vm:MainViewModel.Instance}, Path=NavigateToTrackAlbumCommand}"
+                                            CommandParameter="{Binding}"
+                                            ToolTip="{Binding Album, StringFormat='Ir al álbum: {0}'}">
+                                        <Button.Template>
+                                            <ControlTemplate TargetType="Button">
+                                                <Border Background="Transparent" CornerRadius="4" Padding="2,1">
+                                                    <TextBlock x:Name="TxtAlbum" Text="{Binding Album}" FontSize="12"
+                                                               Foreground="#88FFFFFF" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                                </Border>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter TargetName="TxtAlbum" Property="TextDecorations" Value="Underline" />
+                                                        <Setter TargetName="TxtAlbum" Property="Foreground" Value="#FFFFFF" />
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Button.Template>
+                                    </Button>
 
                                     <!-- Col 4: Favorite ♥ & Duration -->
                                     <StackPanel Grid.Column="3" Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">

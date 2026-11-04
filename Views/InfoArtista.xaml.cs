@@ -44,6 +44,9 @@ public partial class InfoArtista : UserControl
     public static readonly DependencyProperty IsBioPopupOpenProperty =
         DependencyProperty.Register(nameof(IsBioPopupOpen), typeof(bool), typeof(InfoArtista), new PropertyMetadata(false));
 
+    public static readonly DependencyProperty IsImagePreviewOpenProperty =
+        DependencyProperty.Register(nameof(IsImagePreviewOpen), typeof(bool), typeof(InfoArtista), new PropertyMetadata(false));
+
     public ArtistModel? Artist
     {
         get => (ArtistModel?)GetValue(ArtistProperty);
@@ -86,6 +89,24 @@ public partial class InfoArtista : UserControl
         set => SetValue(IsBioPopupOpenProperty, value);
     }
 
+    public bool IsImagePreviewOpen
+    {
+        get => (bool)GetValue(IsImagePreviewOpenProperty);
+        set => SetValue(IsImagePreviewOpenProperty, value);
+    }
+
+    private void OnLateralCoverImageClick(object sender, MouseButtonEventArgs e)
+    {
+        IsImagePreviewOpen = true;
+        e.Handled = true;
+    }
+
+    private void OnCloseImagePreviewClick(object sender, RoutedEventArgs e)
+    {
+        IsImagePreviewOpen = false;
+        if (e != null) e.Handled = true;
+    }
+
     private long _lastHeaderToggleTick;
     private long _artistOpenedTick;
 
@@ -108,6 +129,7 @@ public partial class InfoArtista : UserControl
         if (d is not InfoArtista control) return;
         control.IsCompactHeader = false;
         control.IsBioPopupOpen = false;
+        control.IsImagePreviewOpen = false;
         control.ListScrollViewer?.ScrollToTop();
         control.GridScrollViewer?.ScrollToTop();
 
@@ -503,7 +525,44 @@ public partial class InfoArtista : UserControl
             }
             else
             {
-                vm.MyMusic.OpenAlbumDetail(album);
+                // Para la librería local: obtener el álbum completo con todas sus canciones (no solo las del artista actual)
+                var cache = Services.Library.LibraryCacheService.Instance;
+                var fullAlbum = cache.CachedAlbums
+                    .FirstOrDefault(a => string.Equals(a.Name, album.Name, StringComparison.OrdinalIgnoreCase))
+                    ?? cache.CachedAlbums
+                    .FirstOrDefault(a => a.Name.Contains(album.Name, StringComparison.OrdinalIgnoreCase));
+
+                if (fullAlbum != null)
+                {
+                    vm.MyMusic.OpenAlbumDetail(fullAlbum);
+                }
+                else
+                {
+                    var allMatchingTracks = cache.CachedTracks
+                        .Where(t => string.Equals(t.Album, album.Name, StringComparison.OrdinalIgnoreCase))
+                        .OrderBy(t => t.TrackNumber == 0 ? uint.MaxValue : t.TrackNumber)
+                        .ThenBy(t => t.Title, StringComparer.OrdinalIgnoreCase)
+                        .ToList();
+
+                    if (allMatchingTracks.Count > 0)
+                    {
+                        var mergedAlbum = new AlbumModel
+                        {
+                            Name = album.Name,
+                            Artist = album.Artist,
+                            Year = album.Year,
+                            Genre = album.Genre,
+                            ArtworkPath = album.ArtworkPath,
+                            Tracks = allMatchingTracks,
+                            PersistedTrackCount = allMatchingTracks.Count
+                        };
+                        vm.MyMusic.OpenAlbumDetail(mergedAlbum);
+                    }
+                    else
+                    {
+                        vm.MyMusic.OpenAlbumDetail(album);
+                    }
+                }
             }
             e.Handled = true;
         }

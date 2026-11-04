@@ -2872,14 +2872,69 @@ public partial class MainViewModel : ObservableObject
         IsNowPlayingQueueExpanded = true;
     }
 
+    private bool IsTrackInLocalLibrary(Track track)
+    {
+        if (track == null) return false;
+        if (!string.IsNullOrEmpty(track.FilePath) &&
+            _cache.CachedTracks.Any(t => string.Equals(t.FilePath, track.FilePath, StringComparison.OrdinalIgnoreCase)))
+        {
+            return true;
+        }
+
+        var albumName = track.Album ?? NowPlaying.Album;
+        if (!string.IsNullOrWhiteSpace(albumName) &&
+            _cache.CachedAlbums.Any(a => string.Equals(a.Name, albumName, StringComparison.OrdinalIgnoreCase)))
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    private bool IsTrackFromOsu(Track track)
+    {
+        if (track == null) return false;
+        if (track.Genre == "osu!") return true;
+        if (!string.IsNullOrEmpty(track.FilePath) &&
+            !string.IsNullOrEmpty(Settings.OsuFolderPath) &&
+            track.FilePath.StartsWith(Settings.OsuFolderPath, StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+        if (Services.Library.OsuLibraryService.Instance.IsLoaded &&
+            Services.Library.OsuLibraryService.Instance.Tracks.Any(t => string.Equals(t.FilePath, track.FilePath, StringComparison.OrdinalIgnoreCase)))
+        {
+            return true;
+        }
+        return false;
+    }
+
     [RelayCommand]
     public void ViewCurrentAlbum()
     {
         var track = _audio.CurrentTrack ?? NowPlaying.CurrentTrack;
         if (track == null) return;
+        NavigateToTrackAlbum(track);
+    }
 
-        // Si la canción es de osu! o no está en la biblioteca local, abrimos su vista de álbum dedicada
-        if (track.Genre == "osu!" || Settings.IsOsuModeEnabled)
+    [RelayCommand]
+    public void NavigateToTrackAlbum(Track? track)
+    {
+        if (track == null) return;
+
+        // 1. Si los metadatos o el archivo existen en la biblioteca local, cargamos el álbum de la biblioteca local
+        if (IsTrackInLocalLibrary(track))
+        {
+            var albumName = track.Album ?? NowPlaying.Album;
+            if (!string.IsNullOrWhiteSpace(albumName))
+            {
+                NavigateToAlbum(albumName);
+                return;
+            }
+        }
+
+        // 2. Si no están en la biblioteca local y es de osu! (o está activo osu!), abrir desde osu!
+        if (IsTrackFromOsu(track) || (Settings.IsOsuModeEnabled && track.Genre == "osu!"))
         {
             PushCurrentNavigationState();
             CurrentView = "OsuLibrary";
@@ -2889,10 +2944,11 @@ public partial class MainViewModel : ObservableObject
             return;
         }
 
-        var albumName = track.Album ?? NowPlaying.Album;
-        if (!string.IsNullOrWhiteSpace(albumName))
+        // 3. Fallback: buscar por nombre de álbum en la biblioteca local
+        var fallbackAlbum = track.Album ?? NowPlaying.Album;
+        if (!string.IsNullOrWhiteSpace(fallbackAlbum))
         {
-            NavigateToAlbum(albumName);
+            NavigateToAlbum(fallbackAlbum);
         }
     }
 
@@ -2900,10 +2956,24 @@ public partial class MainViewModel : ObservableObject
     public void ViewCurrentArtist()
     {
         var track = _audio.CurrentTrack ?? NowPlaying.CurrentTrack;
+        NavigateToTrackArtist(track);
+    }
+
+    [RelayCommand]
+    public void NavigateToTrackArtist(Track? track)
+    {
         var artistName = track?.Artist ?? NowPlaying.Artist;
         if (string.IsNullOrWhiteSpace(artistName)) return;
 
-        if (track?.Genre == "osu!" || Settings.IsOsuModeEnabled)
+        // 1. Si el artista existe en la biblioteca musical local, abrir el artista local
+        if (track != null && IsTrackInLocalLibrary(track))
+        {
+            NavigateToArtist(artistName);
+            return;
+        }
+
+        // 2. Si no, verificar si existe en la biblioteca de osu!
+        if (track != null && (IsTrackFromOsu(track) || track.Genre == "osu!"))
         {
             var osuArtist = OsuLibrary.Artists.FirstOrDefault(a => string.Equals(a.Name, artistName, StringComparison.OrdinalIgnoreCase))
                          ?? Services.Library.OsuLibraryService.Instance.Artists.FirstOrDefault(a => string.Equals(a.Name, artistName, StringComparison.OrdinalIgnoreCase));
@@ -2918,6 +2988,7 @@ public partial class MainViewModel : ObservableObject
             }
         }
 
+        // 3. Fallback: navegar a artista en biblioteca local
         NavigateToArtist(artistName);
     }
 
