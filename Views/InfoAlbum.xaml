@@ -31,7 +31,6 @@
                 Grid.Row="0"
                 CornerRadius="12"
                 ClipToBounds="True"
-                MaxHeight="192"
                 Background="{Binding Album.DominantHeaderBrush, ElementName=RootInfoAlbum, FallbackValue='#242632', TargetNullValue='#242632'}"
                 BorderBrush="#26FFFFFF"
                 BorderThickness="1">
@@ -41,35 +40,13 @@
                     <Style.Triggers>
                         <DataTrigger Binding="{Binding IsCompactHeader, ElementName=RootInfoAlbum}" Value="True">
                             <Setter Property="Margin" Value="0,0,0,10" />
-                            <DataTrigger.EnterActions>
-                                <BeginStoryboard>
-                                    <Storyboard>
-                                        <DoubleAnimation Storyboard.TargetProperty="MaxHeight" To="96" Duration="0:0:0.26">
-                                            <DoubleAnimation.EasingFunction>
-                                                <CubicEase EasingMode="EaseOut" />
-                                            </DoubleAnimation.EasingFunction>
-                                        </DoubleAnimation>
-                                    </Storyboard>
-                                </BeginStoryboard>
-                            </DataTrigger.EnterActions>
-                            <DataTrigger.ExitActions>
-                                <BeginStoryboard>
-                                    <Storyboard>
-                                        <DoubleAnimation Storyboard.TargetProperty="MaxHeight" To="192" Duration="0:0:0.26">
-                                            <DoubleAnimation.EasingFunction>
-                                                <CubicEase EasingMode="EaseOut" />
-                                            </DoubleAnimation.EasingFunction>
-                                        </DoubleAnimation>
-                                    </Storyboard>
-                                </BeginStoryboard>
-                            </DataTrigger.ExitActions>
                         </DataTrigger>
                     </Style.Triggers>
                 </Style>
             </Border.Style>
 
             <Grid>
-                <!-- Lateral Mini-Backdrop: Portada duplicada lateral con difuminado hacia el centro y reducción fluida al hacer scroll -->
+                <!-- Lateral Mini-Backdrop: Portada duplicada lateral con difuminado hacia el centro y reducción fluida al hacer scroll (sin inflar altura) -->
                 <Border x:Name="LateralAlbumCoverBorder"
                         HorizontalAlignment="Right" VerticalAlignment="Stretch" Width="380" ClipToBounds="True"
                         Cursor="Hand" MouseLeftButtonUp="OnLateralCoverImageClick" ToolTip="Clic para ver portada completa del álbum">
@@ -81,11 +58,6 @@
                                         <BeginStoryboard>
                                             <Storyboard>
                                                 <DoubleAnimation Storyboard.TargetProperty="Width" To="220" Duration="0:0:0.26">
-                                                    <DoubleAnimation.EasingFunction>
-                                                        <CubicEase EasingMode="EaseOut" />
-                                                    </DoubleAnimation.EasingFunction>
-                                                </DoubleAnimation>
-                                                <DoubleAnimation Storyboard.TargetProperty="MaxHeight" To="96" Duration="0:0:0.26">
                                                     <DoubleAnimation.EasingFunction>
                                                         <CubicEase EasingMode="EaseOut" />
                                                     </DoubleAnimation.EasingFunction>
@@ -106,11 +78,6 @@
                                                         <CubicEase EasingMode="EaseOut" />
                                                     </DoubleAnimation.EasingFunction>
                                                 </DoubleAnimation>
-                                                <DoubleAnimation Storyboard.TargetProperty="MaxHeight" To="192" Duration="0:0:0.26">
-                                                    <DoubleAnimation.EasingFunction>
-                                                        <CubicEase EasingMode="EaseOut" />
-                                                    </DoubleAnimation.EasingFunction>
-                                                </DoubleAnimation>
                                                 <DoubleAnimation Storyboard.TargetProperty="Opacity" To="1.0" Duration="0:0:0.26">
                                                     <DoubleAnimation.EasingFunction>
                                                         <CubicEase EasingMode="EaseOut" />
@@ -123,19 +90,22 @@
                             </Style.Triggers>
                         </Style>
                     </Border.Style>
-                    <Image Source="{Binding Album.CoverImageSource, ElementName=RootInfoAlbum}"
-                           Stretch="UniformToFill" HorizontalAlignment="Right" VerticalAlignment="Center"
-                           MaxHeight="192"
-                           RenderOptions.BitmapScalingMode="HighQuality">
-                        <Image.OpacityMask>
+                    <Rectangle HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                               RenderOptions.BitmapScalingMode="HighQuality">
+                        <Rectangle.Fill>
+                            <ImageBrush ImageSource="{Binding Album.CoverImageSource, ElementName=RootInfoAlbum}"
+                                        Stretch="UniformToFill"
+                                        AlignmentX="Right" AlignmentY="Center" />
+                        </Rectangle.Fill>
+                        <Rectangle.OpacityMask>
                             <LinearGradientBrush StartPoint="1,0.5" EndPoint="0,0.5">
                                 <GradientStop Color="#CC000000" Offset="0.0" />
                                 <GradientStop Color="#80000000" Offset="0.35" />
                                 <GradientStop Color="#26000000" Offset="0.7" />
                                 <GradientStop Color="#00000000" Offset="1.0" />
                             </LinearGradientBrush>
-                        </Image.OpacityMask>
-                    </Image>
+                        </Rectangle.OpacityMask>
+                    </Rectangle>
                 </Border>
 
                 <Grid x:Name="AlbumBoxInnerGrid">
@@ -159,7 +129,6 @@
                 <Border x:Name="AlbumCoverContainer"
                         Grid.Column="0"
                         Width="148" Height="148"
-                        MaxWidth="148" MaxHeight="148"
                         Margin="0,0,26,0"
                         CornerRadius="8"
                         ClipToBounds="True"
@@ -184,16 +153,6 @@
                                                         <CubicEase EasingMode="EaseOut" />
                                                     </DoubleAnimation.EasingFunction>
                                                 </DoubleAnimation>
-                                                <DoubleAnimation Storyboard.TargetProperty="MaxWidth" To="68" Duration="0:0:0.26">
-                                                    <DoubleAnimation.EasingFunction>
-                                                        <CubicEase EasingMode="EaseOut" />
-                                                    </DoubleAnimation.EasingFunction>
-                                                </DoubleAnimation>
-                                                <DoubleAnimation Storyboard.TargetProperty="MaxHeight" To="68" Duration="0:0:0.26">
-                                                    <DoubleAnimation.EasingFunction>
-                                                        <CubicEase EasingMode="EaseOut" />
-                                                    </DoubleAnimation.EasingFunction>
-                                                </DoubleAnimation>
                                             </Storyboard>
                                         </BeginStoryboard>
                                     </DataTrigger.EnterActions>
@@ -206,16 +165,6 @@
                                                     </DoubleAnimation.EasingFunction>
                                                 </DoubleAnimation>
                                                 <DoubleAnimation Storyboard.TargetProperty="Height" To="148" Duration="0:0:0.26">
-                                                    <DoubleAnimation.EasingFunction>
-                                                        <CubicEase EasingMode="EaseOut" />
-                                                    </DoubleAnimation.EasingFunction>
-                                                </DoubleAnimation>
-                                                <DoubleAnimation Storyboard.TargetProperty="MaxWidth" To="148" Duration="0:0:0.26">
-                                                    <DoubleAnimation.EasingFunction>
-                                                        <CubicEase EasingMode="EaseOut" />
-                                                    </DoubleAnimation.EasingFunction>
-                                                </DoubleAnimation>
-                                                <DoubleAnimation Storyboard.TargetProperty="MaxHeight" To="148" Duration="0:0:0.26">
                                                     <DoubleAnimation.EasingFunction>
                                                         <CubicEase EasingMode="EaseOut" />
                                                     </DoubleAnimation.EasingFunction>
@@ -235,7 +184,6 @@
                                         HorizontalAlignment="Center" VerticalAlignment="Center" />
                         <Image Source="{Binding Album.CoverImageSource, ElementName=RootInfoAlbum}"
                                Stretch="UniformToFill"
-                               MaxWidth="148" MaxHeight="148"
                                RenderOptions.BitmapScalingMode="HighQuality" />
                     </Grid>
                 </Border>
