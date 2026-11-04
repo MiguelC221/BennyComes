@@ -95,6 +95,23 @@ public partial class NowPlayingView : UserControl
         UpdateCompactTitleMarquee();
     }
 
+    // =========================================================================
+    // ARQUITECTURA DE REPRODUCCIÓN DE VÍDEO DE FONDO (OSU! BEATMAPS):
+    // -------------------------------------------------------------------------
+    // Capa 1 - MediaElement (WPF nativo con Media Foundation):
+    //   - MP4 (H.264)
+    //   - AVI (MJPEG)
+    //   - WMV
+    //   - MOV básico
+    //
+    // Capa 2 - LibVLCSharp.WPF (Fallback transparente con motor LibVLC):
+    //   - FLV
+    //   - AVI (DivX/Xvid)
+    //   - MPEG-1/2
+    //   - MKV
+    //   - WebM
+    //   - Y el resto de formatos/códecs no soportados por Media Foundation
+    // =========================================================================
     private static readonly HashSet<string> _incompatibleVideos = new(StringComparer.OrdinalIgnoreCase);
     private static bool _hasShownIncompatibleVideoToast = false;
 
@@ -383,9 +400,17 @@ public partial class NowPlayingView : UserControl
         if (!_hasShownIncompatibleVideoToast)
         {
             _hasShownIncompatibleVideoToast = true;
+            string ext = !string.IsNullOrWhiteSpace(videoPath)
+                ? System.IO.Path.GetExtension(videoPath).TrimStart('.').ToUpperInvariant()
+                : string.Empty;
+
+            string message = string.IsNullOrEmpty(ext)
+                ? "Vídeo sin códec compatible, mostrando fondo de carátula"
+                : $"Vídeo {ext} sin códec compatible, mostrando fondo de carátula";
+
             (MainViewModel.Instance)?.ShowToast(
                 "osu! Video",
-                "Vídeo sin códec compatible, mostrando fondo de carátula",
+                message,
                 isWarning: false,
                 durationMs: 3500
             );
