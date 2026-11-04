@@ -81,6 +81,7 @@ public partial class NowPlayingView : UserControl
 
         TrackInfoSlideX.BeginAnimation(TranslateTransform.XProperty, slideAnim);
         TrackInfoContainer.BeginAnimation(OpacityProperty, fadeAnim);
+        UpdateCompactTitleMarquee();
     }
 
     private void UpdateOsuVideoState(Track? track)
@@ -180,7 +181,15 @@ public partial class NowPlayingView : UserControl
     private void OnInactivityTimerTick(object? sender, EventArgs e)
     {
         if (_isDraggingSeek || _isDraggingVolume) return;
-        if (DataContext is MainViewModel vm && vm.IsNowPlayingQueueExpanded) return;
+        if (DataContext is MainViewModel vm)
+        {
+            if (vm.IsNowPlayingQueueExpanded) return;
+            if (vm.NowPlaying?.IsCompactMode == true) return;
+        }
+        else if (DataContext is NowPlayingViewModel np && np.IsCompactMode)
+        {
+            return;
+        }
 
         if (_isHudVisible)
         {
@@ -198,18 +207,39 @@ public partial class NowPlayingView : UserControl
 
         var fadeOut = new DoubleAnimation(1.0, 0.0, duration) { EasingFunction = ease };
 
-        TopHudContainer.BeginAnimation(OpacityProperty, fadeOut);
-        BottomHudControlsContainer.BeginAnimation(OpacityProperty, fadeOut);
-        TechBadgesPanel.BeginAnimation(OpacityProperty, fadeOut);
-        TopHudContainer.IsHitTestVisible = false;
-        BottomHudControlsContainer.IsHitTestVisible = false;
-        TechBadgesPanel.IsHitTestVisible = false;
+        if (TopHudContainer != null)
+        {
+            TopHudContainer.BeginAnimation(OpacityProperty, fadeOut);
+            TopHudContainer.IsHitTestVisible = false;
+        }
+        if (BottomHudControlsContainer != null)
+        {
+            BottomHudControlsContainer.BeginAnimation(OpacityProperty, fadeOut);
+            BottomHudControlsContainer.IsHitTestVisible = false;
+        }
+        if (TechBadgesPanel != null)
+        {
+            TechBadgesPanel.BeginAnimation(OpacityProperty, fadeOut);
+            TechBadgesPanel.IsHitTestVisible = false;
+        }
 
         // Al estar inactivo el mouse, acomodar suavemente hacia abajo el bloque único y los visualizadores alternativos
-        double hudRowHeight = NormalImmersiveContainer.RowDefinitions[1].ActualHeight;
+        double hudRowHeight = 0;
+        if (StandardImmersiveLayout != null && StandardImmersiveLayout.RowDefinitions.Count > 1)
+        {
+            hudRowHeight = StandardImmersiveLayout.RowDefinitions[1].ActualHeight;
+        }
+        else if (BottomHudControlsContainer != null)
+        {
+            hudRowHeight = BottomHudControlsContainer.ActualHeight;
+        }
+
         double trackLift = Math.Max(0, hudRowHeight - 28.0);
-        TrackInfoTranslate.BeginAnimation(TranslateTransform.YProperty,
-            new DoubleAnimation(TrackInfoTranslate.Y, trackLift, moveDuration) { EasingFunction = easeInOut });
+        if (TrackInfoTranslate != null)
+        {
+            TrackInfoTranslate.BeginAnimation(TranslateTransform.YProperty,
+                new DoubleAnimation(TrackInfoTranslate.Y, trackLift, moveDuration) { EasingFunction = easeInOut });
+        }
 
         if (VisualizerCenterTranslate != null)
         {
@@ -231,23 +261,37 @@ public partial class NowPlayingView : UserControl
         var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
         var fadeIn = new DoubleAnimation(0.0, 1.0, duration) { EasingFunction = ease };
 
-        TopHudContainer.BeginAnimation(OpacityProperty, fadeIn);
-        BottomHudControlsContainer.BeginAnimation(OpacityProperty, fadeIn);
-        TechBadgesPanel.BeginAnimation(OpacityProperty, fadeIn);
-        TopHudContainer.IsHitTestVisible = true;
-        BottomHudControlsContainer.IsHitTestVisible = true;
-        TechBadgesPanel.IsHitTestVisible = true;
+        if (TopHudContainer != null)
+        {
+            TopHudContainer.BeginAnimation(OpacityProperty, fadeIn);
+            TopHudContainer.IsHitTestVisible = true;
+        }
+        if (BottomHudControlsContainer != null)
+        {
+            BottomHudControlsContainer.BeginAnimation(OpacityProperty, fadeIn);
+            BottomHudControlsContainer.IsHitTestVisible = true;
+        }
+        if (TechBadgesPanel != null)
+        {
+            TechBadgesPanel.BeginAnimation(OpacityProperty, fadeIn);
+            TechBadgesPanel.IsHitTestVisible = true;
+        }
 
         // Restore track info container smoothly to original position
-        var restoreTrackInfo = new DoubleAnimation(0.0, returnDuration) { EasingFunction = ease };
-        TrackInfoTranslate.BeginAnimation(TranslateTransform.YProperty, restoreTrackInfo);
+        if (TrackInfoTranslate != null)
+        {
+            var restoreTrackInfo = new DoubleAnimation(0.0, returnDuration) { EasingFunction = ease };
+            TrackInfoTranslate.BeginAnimation(TranslateTransform.YProperty, restoreTrackInfo);
+        }
 
         if (VisualizerCenterTranslate != null)
         {
+            var restoreTrackInfo = new DoubleAnimation(0.0, returnDuration) { EasingFunction = ease };
             VisualizerCenterTranslate.BeginAnimation(TranslateTransform.YProperty, restoreTrackInfo);
         }
         if (VisualizerRightTranslate != null)
         {
+            var restoreTrackInfo = new DoubleAnimation(0.0, returnDuration) { EasingFunction = ease };
             VisualizerRightTranslate.BeginAnimation(TranslateTransform.YProperty, restoreTrackInfo);
         }
     }
@@ -352,7 +396,7 @@ public partial class NowPlayingView : UserControl
         int index = -1;
         for (int i = 0; i < QueueListView.Items.Count; i++)
         {
-            if (QueueListView.Items[i] is Track t && (t.Id == current.Id || t.FilePath == current.FilePath))
+            if (QueueListView.Items[i] is Track t && !string.IsNullOrEmpty(current.FilePath) && string.Equals(t.FilePath, current.FilePath, StringComparison.OrdinalIgnoreCase))
             {
                 index = i;
                 break;
@@ -777,6 +821,60 @@ public partial class NowPlayingView : UserControl
     private void OnNowPlayingViewSizeChanged(object sender, SizeChangedEventArgs e)
     {
         UpdateCustomizationFlyoutMaxHeight();
+        bool isCompact = e.NewSize.Width <= 750;
+        if (DataContext is MainViewModel vm && vm.NowPlaying != null)
+        {
+            if (vm.NowPlaying.IsCompactMode != isCompact)
+                vm.NowPlaying.IsCompactMode = isCompact;
+        }
+        else if (DataContext is NowPlayingViewModel np)
+        {
+            if (np.IsCompactMode != isCompact)
+                np.IsCompactMode = isCompact;
+        }
+        UpdateCompactTitleMarquee();
+    }
+
+    private void OnCompactTitleSizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        UpdateCompactTitleMarquee();
+    }
+
+    private void UpdateCompactTitleMarquee()
+    {
+        if (CompactTitleViewport == null || CompactTitleTextBlock == null || CompactTitleTranslate == null) return;
+
+        CompactTitleTranslate.BeginAnimation(TranslateTransform.XProperty, null);
+        CompactTitleTranslate.X = 0;
+
+        double viewportWidth = CompactTitleViewport.ActualWidth;
+        double textWidth = CompactTitleTextBlock.ActualWidth;
+        double overflow = textWidth - viewportWidth;
+
+        if (viewportWidth > 10 && overflow > 2.0)
+        {
+            double scrollSeconds = Math.Max(3.0, overflow / 24.0);
+            double pauseSeconds = 2.0;
+
+            var keyFrames = new DoubleAnimationUsingKeyFrames
+            {
+                RepeatBehavior = RepeatBehavior.Forever
+            };
+
+            double t0 = 0;
+            double t1 = pauseSeconds;
+            double t2 = t1 + scrollSeconds;
+            double t3 = t2 + pauseSeconds;
+            double t4 = t3 + scrollSeconds;
+
+            keyFrames.KeyFrames.Add(new LinearDoubleKeyFrame(0, TimeSpan.FromSeconds(t0)));
+            keyFrames.KeyFrames.Add(new LinearDoubleKeyFrame(0, TimeSpan.FromSeconds(t1)));
+            keyFrames.KeyFrames.Add(new LinearDoubleKeyFrame(-overflow, TimeSpan.FromSeconds(t2)));
+            keyFrames.KeyFrames.Add(new LinearDoubleKeyFrame(-overflow, TimeSpan.FromSeconds(t3)));
+            keyFrames.KeyFrames.Add(new LinearDoubleKeyFrame(0, TimeSpan.FromSeconds(t4)));
+
+            CompactTitleTranslate.BeginAnimation(TranslateTransform.XProperty, keyFrames);
+        }
     }
 
     private void UpdateCustomizationFlyoutMaxHeight()

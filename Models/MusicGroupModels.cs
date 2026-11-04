@@ -47,6 +47,9 @@ public partial class AlbumModel : ObservableObject
     private BitmapImage? _coverImage;
 
     [ObservableProperty]
+    private bool _isFetchingMetadata;
+
+    [ObservableProperty]
     private System.Windows.Media.Brush? _dominantHeaderBrush;
 
     partial void OnCoverImageChanged(BitmapImage? value)

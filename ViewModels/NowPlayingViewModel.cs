@@ -19,10 +19,10 @@ public partial class NowPlayingViewModel : ObservableObject
     private Track? _currentTrack;
 
     [ObservableProperty]
-    private string _title = "BenyComes Hi-Fi Player";
+    private string _title = "Sin pistas por ahora";
 
     [ObservableProperty]
-    private string _artist = "Selecciona una canción o añade tu música";
+    private string _artist = "Prueba a reproducir algo";
 
     [ObservableProperty]
     private string _album = "";
@@ -34,7 +34,7 @@ public partial class NowPlayingViewModel : ObservableObject
     private bool _isAlbumNotFound;
 
     [ObservableProperty]
-    private string _artistAndAlbum = "Bienvenido a BenyComes";
+    private string _artistAndAlbum = "Sin pistas por ahora";
 
     [ObservableProperty]
     private BitmapImage? _albumArt;
@@ -71,6 +71,25 @@ public partial class NowPlayingViewModel : ObservableObject
 
     [ObservableProperty]
     private bool _isMuted;
+
+    [ObservableProperty]
+    private bool _isCompactMode;
+
+    public string QueuePositionText
+    {
+        get
+        {
+            int count = _audio.Queue.Count;
+            if (count == 0) return string.Empty;
+            int idx = _audio.CurrentQueueIndex >= 0 ? _audio.CurrentQueueIndex + 1 : 1;
+            return $"{idx} / {count}";
+        }
+    }
+
+    public string AlbumFallbackTitle =>
+        !string.IsNullOrWhiteSpace(Album) && !string.Equals(Album, "osu! Beatmaps", StringComparison.OrdinalIgnoreCase)
+            ? Album
+            : (!string.IsNullOrWhiteSpace(Title) ? Title : "Reproducción en curso");
 
     [ObservableProperty]
     private AudioTechnicalInfo _technicalInfo = new();
@@ -416,10 +435,10 @@ public partial class NowPlayingViewModel : ObservableObject
 
         if (track == null)
         {
-            Title = "BenyComes Hi-Fi Player";
-            Artist = "Reproductor Bit-Perfect";
+            Title = "Sin pistas por ahora";
+            Artist = "Prueba a reproducir algo";
             Album = "";
-            ArtistAndAlbum = "Listo para reproducir";
+            ArtistAndAlbum = "Sin pistas por ahora";
             AlbumArt = MetadataService.Instance.GetFallbackArt();
             BackgroundImage = AlbumArt;
             CurrentTimeText = "0:00";
@@ -486,6 +505,8 @@ public partial class NowPlayingViewModel : ObservableObject
         UpdateTechnicalBadges();
 
         OnPropertyChanged(nameof(HasOsuVideo));
+        OnPropertyChanged(nameof(QueuePositionText));
+        OnPropertyChanged(nameof(AlbumFallbackTitle));
 
         // Multi-artist collaboration detection
         CollaborationArtists.Clear();

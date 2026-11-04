@@ -49,7 +49,7 @@ public partial class PlaylistDetailPage : UserControl
         int idx = -1;
         for (int i = 0; i < PlaylistTracksListView.Items.Count; i++)
         {
-            if (PlaylistTracksListView.Items[i] is Track t && (t.Id == track.Id || t.FilePath == track.FilePath))
+            if (PlaylistTracksListView.Items[i] is Track t && !string.IsNullOrEmpty(track.FilePath) && string.Equals(t.FilePath, track.FilePath, StringComparison.OrdinalIgnoreCase))
             {
                 idx = i;
                 break;

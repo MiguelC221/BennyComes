@@ -886,6 +886,7 @@
             <!-- DETAIL VIEW 2: Selected Album (InfoAlbum) -->
             <views:InfoAlbum Margin="28,16,28,0"
                              Album="{Binding OsuLibrary.SelectedAlbumDetail}"
+                             IsLoading="{Binding OsuLibrary.IsFetchingAlbumInfo}"
                              OpenArtistByNameCommand="{Binding OsuLibrary.OpenArtistByNameCommand}"
                              PlayTrackCommand="{Binding OsuLibrary.PlayTrackCommand}"
                              TrackContextMenu="{StaticResource SharedOsuTrackContextMenu}" />

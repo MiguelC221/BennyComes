@@ -35,10 +35,19 @@ public partial class InfoAlbum : UserControl
     public static readonly DependencyProperty IsCompactHeaderProperty =
         DependencyProperty.Register(nameof(IsCompactHeader), typeof(bool), typeof(InfoAlbum), new PropertyMetadata(false));
 
+    public static readonly DependencyProperty IsLoadingProperty =
+        DependencyProperty.Register(nameof(IsLoading), typeof(bool), typeof(InfoAlbum), new PropertyMetadata(false));
+
     public AlbumModel? Album
     {
         get => (AlbumModel?)GetValue(AlbumProperty);
         set => SetValue(AlbumProperty, value);
+    }
+
+    public bool IsLoading
+    {
+        get => (bool)GetValue(IsLoadingProperty);
+        set => SetValue(IsLoadingProperty, value);
     }
 
     public ICommand? OpenArtistByNameCommand
@@ -161,7 +170,14 @@ public partial class InfoAlbum : UserControl
 
     private void OnHeaderArtistButtonClick(object sender, RoutedEventArgs e)
     {
-        NavigateToArtistFromAlbum(Album?.Artist);
+        if (sender is FrameworkElement fe && !string.IsNullOrWhiteSpace(Album?.Artist))
+        {
+            Helpers.ArtistNavigationHelper.HandleArtistClick(fe, Album.Artist);
+        }
+        else
+        {
+            NavigateToArtistFromAlbum(Album?.Artist);
+        }
         e.Handled = true;
     }
 
@@ -169,7 +185,11 @@ public partial class InfoAlbum : UserControl
     {
         if (sender is FrameworkElement fe && fe.DataContext is Track track && !string.IsNullOrWhiteSpace(track.Artist))
         {
-            NavigateToArtistFromAlbum(track.Artist);
+            Helpers.ArtistNavigationHelper.HandleArtistClick(fe, track.Artist);
+        }
+        else if (sender is FrameworkElement feFallback && !string.IsNullOrWhiteSpace(Album?.Artist))
+        {
+            Helpers.ArtistNavigationHelper.HandleArtistClick(feFallback, Album.Artist);
         }
         else
         {
@@ -313,6 +333,18 @@ public partial class InfoAlbum : UserControl
             Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom
         };
 
+        var refreshItem = new Wpf.Ui.Controls.MenuItem
+        {
+            Header = "Refrescar información",
+            Icon = new SymbolIcon { Symbol = SymbolRegular.ArrowSync24 }
+        };
+        refreshItem.Click += async (_, _) =>
+        {
+            await RefreshAlbumInfoAsync();
+        };
+        menu.Items.Add(refreshItem);
+        menu.Items.Add(new Separator());
+
         var artistItem = new Wpf.Ui.Controls.MenuItem
         {
             Header = $"Ir al artista ({Album.Artist})",
@@ -349,5 +381,80 @@ public partial class InfoAlbum : UserControl
         btn.ContextMenu = menu;
         menu.IsOpen = true;
         e.Handled = true;
+    }
+
+    private async Task RefreshAlbumInfoAsync()
+    {
+        if (Album == null) return;
+        try
+        {
+            IsLoading = true;
+            Album.IsFetchingMetadata = true;
+
+            var firstTrack = Album.Tracks.FirstOrDefault();
+            if (firstTrack != null)
+            {
+                // Si es de osu!, verificar fondo en .osu y consultar/actualizar Last.fm
+                if (firstTrack.Genre == "osu!" || (!string.IsNullOrEmpty(firstTrack.FilePath) && firstTrack.FilePath.IndexOf("Songs", StringComparison.OrdinalIgnoreCase) >= 0))
+                {
+                    string? folder = System.IO.Path.GetDirectoryName(firstTrack.FilePath);
+                    if (!string.IsNullOrEmpty(folder) && System.IO.Directory.Exists(folder))
+                    {
+                        string? realBg = Services.Library.OsuLibraryService.ExtractBackgroundFromOsuFolder(folder);
+                        if (!string.IsNullOrEmpty(realBg))
+                        {
+                            firstTrack.ArtworkPath = realBg;
+                            Album.ArtworkPath = realBg;
+                        }
+                    }
+
+                    string primaryArt = !string.IsNullOrWhiteSpace(firstTrack.OsuArtistRoumaji) ? firstTrack.OsuArtistRoumaji : firstTrack.Artist;
+                    string primaryTit = !string.IsNullOrWhiteSpace(firstTrack.OsuTitleRoumaji) ? firstTrack.OsuTitleRoumaji : firstTrack.Title;
+                    string? altArt = !string.IsNullOrWhiteSpace(firstTrack.OsuArtistUnicode) ? firstTrack.OsuArtistUnicode : null;
+                    string? altTit = !string.IsNullOrWhiteSpace(firstTrack.OsuTitleUnicode) ? firstTrack.OsuTitleUnicode : null;
+
+                    var info = await Services.Online.LastFmService.Instance.FetchTrackAlbumInfoAsync(primaryArt, primaryTit, altArt, altTit);
+                    if (!string.IsNullOrWhiteSpace(info.AlbumTitle))
+                    {
+                        firstTrack.Album = info.AlbumTitle;
+                        Album.Name = info.AlbumTitle;
+
+                        if (!string.IsNullOrWhiteSpace(info.AlbumCoverUrl))
+                        {
+                            string? cachedCover = await Services.Online.LastFmService.Instance.DownloadAndCacheAlbumCoverAsync(firstTrack.Artist, info.AlbumTitle, info.AlbumCoverUrl);
+                            if (!string.IsNullOrEmpty(cachedCover))
+                            {
+                                firstTrack.ArtworkPath = cachedCover;
+                                Album.ArtworkPath = cachedCover;
+                            }
+                        }
+                    }
+                }
+
+                // Recargar imagen de portada y color dominante
+                Album.CoverImage = null;
+                Album.DominantHeaderBrush = null;
+                var cover = Album.CoverImageSource;
+                if (cover != null)
+                {
+                    Album.DominantHeaderBrush = Services.ThemeService.CreateAccentedBoxBrush(cover);
+                }
+            }
+
+            Album.RefreshStats();
+            Favoritos.Instance.SyncTracksFavoriteState(Album.Tracks);
+            PlayEntranceAnimation();
+
+            MainViewModel.Instance?.ShowToast("Álbum", "Información del álbum actualizada.", false, 2500);
+        }
+        catch (Exception ex)
+        {
+            MainViewModel.Instance?.ShowToast("Error", $"No se pudo actualizar: {ex.Message}", true, 3000);
+        }
+        finally
+        {
+            if (Album != null) Album.IsFetchingMetadata = false;
+            IsLoading = false;
+        }
     }
 }

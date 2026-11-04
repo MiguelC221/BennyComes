@@ -211,13 +211,20 @@ public partial class ThemeService : ObservableObject
             {
                 ApplyAccentColor(EnsureVibrantAccent(_lastRawExtractedColor, !isLight));
             }
+            else
+            {
+                ApplyAccentColor(EnsureVibrantAccent(_lastRawManualColor, !isLight));
+            }
         }
     }
+
+    private Color _lastRawManualColor = Color.FromRgb(0, 210, 106);
 
     public void SetAccentColor(Color color)
     {
         AutoExtractAccent = false;
-        ApplyAccentColor(color);
+        _lastRawManualColor = color;
+        ApplyAccentColor(EnsureVibrantAccent(color, CurrentTheme != "Claro"));
     }
 
     public static Color GetDominantTintedColor(BitmapSource? image)
@@ -390,15 +397,19 @@ public partial class ThemeService : ObservableObject
         // If the cover is black/gray/achromatic (saturation < 0.12 or max < 0.12)
         if (s < 0.12 || max < 0.12)
         {
-            // Sky blue #60A5FA by default
-            return Color.FromRgb(0x60, 0xA5, 0xFA);
+            // Sky blue #78B7FF (clarified for dark mode) by default
+            return isDarkTheme ? Color.FromRgb(0x78, 0xB7, 0xFF) : Color.FromRgb(0x00, 0x78, 0xD7);
         }
 
-        // In Dark Mode: force minimum Luminosity of 62% (L = Math.Max(L, 0.62f)) and minimum Saturation of 55%
+        // In Dark Mode: force minimum Luminosity and Saturation so reactive icons pop clearly.
+        // Blues and Purples (hue 0.50 to 0.80) have lower perceived luminance by the human eye,
+        // so we raise their minimum luminosity to >= 0.74 so they never get lost against dark backgrounds.
         if (isDarkTheme)
         {
-            l = Math.Max(l, 0.62);
-            s = Math.Max(s, 0.55);
+            bool isBlueOrPurple = h >= 0.50 && h <= 0.80;
+            double minL = isBlueOrPurple ? 0.74 : 0.68;
+            l = Math.Max(l, minL);
+            s = Math.Clamp(s, 0.60, 0.90);
         }
         else
         {

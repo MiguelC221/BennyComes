@@ -308,6 +308,7 @@ public partial class MainViewModel : ObservableObject
 
     private record struct NavigationStateEntry(
         string ViewName,
+        bool IsNowPlayingActive,
         int MyMusicTabIndex,
         ArtistModel? ArtistDetail,
         AlbumModel? AlbumDetail,
@@ -332,6 +333,7 @@ public partial class MainViewModel : ObservableObject
 
         var entry = new NavigationStateEntry(
             CurrentView,
+            IsNowPlayingActive,
             MyMusic.SelectedTabIndex,
             MyMusic.SelectedArtistDetail,
             MyMusic.SelectedAlbumDetail,
@@ -355,6 +357,7 @@ public partial class MainViewModel : ObservableObject
 
         var entry = new NavigationStateEntry(
             "MyMusic",
+            IsNowPlayingActive,
             oldTabIndex,
             MyMusic.SelectedArtistDetail,
             MyMusic.SelectedAlbumDetail,
@@ -404,9 +407,9 @@ public partial class MainViewModel : ObservableObject
         try
         {
             var prev = _navigationHistory.Pop();
-            IsNowPlayingActive = false;
+            IsNowPlayingActive = prev.IsNowPlayingActive;
 
-            if (prev.ViewName == "Home")
+            if (prev.ViewName == "Home" && !prev.IsNowPlayingActive)
             {
                 CurrentView = "Home";
                 MyMusic.SelectedAlbumDetail = null;
@@ -477,6 +480,13 @@ public partial class MainViewModel : ObservableObject
             NowPlaying.CurrentTrack = null;
             NowPlaying.CurrentPositionSeconds = 0;
             NowPlaying.CurrentTimeText = "0:00";
+            NowPlaying.TotalTimeText = "0:00";
+            NowPlaying.Title = "Sin pistas por ahora";
+            NowPlaying.Artist = "Prueba a reproducir algo";
+            NowPlaying.ArtistAndAlbum = "Sin pistas por ahora";
+            NowPlaying.Album = "";
+            NowPlaying.AlbumArt = null;
+            NowPlaying.BackgroundImage = null;
 
             ForceUiPlaybackUpdate(null, false);
             OnPropertyChanged(nameof(CurrentTrack));
@@ -695,7 +705,7 @@ public partial class MainViewModel : ObservableObject
             // Sync IsCurrent and IsPlaying in Queue
             foreach (var t in Queue.Queue)
             {
-                bool isCur = currentTrack != null && (t.Id == currentTrack.Id || string.Equals(t.FilePath, currentTrack.FilePath, StringComparison.OrdinalIgnoreCase));
+                bool isCur = currentTrack != null && !string.IsNullOrEmpty(currentTrack.FilePath) && string.Equals(t.FilePath, currentTrack.FilePath, StringComparison.OrdinalIgnoreCase);
                 if (t.IsCurrent != isCur) t.IsCurrent = isCur;
                 bool shouldPlay = isPlaying && isCur;
                 if (t.IsPlaying != shouldPlay) t.IsPlaying = shouldPlay;
@@ -705,7 +715,7 @@ public partial class MainViewModel : ObservableObject
             {
                 foreach (var t in SelectedPlaylistForDetail.Tracks)
                 {
-                    bool isCur = currentTrack != null && (t.Id == currentTrack.Id || string.Equals(t.FilePath, currentTrack.FilePath, StringComparison.OrdinalIgnoreCase));
+                    bool isCur = currentTrack != null && !string.IsNullOrEmpty(currentTrack.FilePath) && string.Equals(t.FilePath, currentTrack.FilePath, StringComparison.OrdinalIgnoreCase);
                     if (t.IsCurrent != isCur) t.IsCurrent = isCur;
                     bool shouldPlay = isPlaying && isCur;
                     if (t.IsPlaying != shouldPlay) t.IsPlaying = shouldPlay;
@@ -1492,9 +1502,13 @@ public partial class MainViewModel : ObservableObject
         if (string.IsNullOrWhiteSpace(artistName)) return;
         PushCurrentNavigationState();
 
+        var split = Services.Library.ArtistSplitterService.Instance.SplitArtists(artistName);
+        string primaryName = split.Count > 0 ? split[0] : artistName.Trim();
+
         var artist = _cache.CachedArtists.FirstOrDefault(a => a.Name.Equals(artistName, StringComparison.OrdinalIgnoreCase))
-                  ?? _cache.CachedArtists.FirstOrDefault(a => a.Name.Contains(artistName, StringComparison.OrdinalIgnoreCase))
-                  ?? new ArtistModel { Name = artistName.Trim() };
+                  ?? _cache.CachedArtists.FirstOrDefault(a => a.Name.Equals(primaryName, StringComparison.OrdinalIgnoreCase))
+                  ?? _cache.CachedArtists.FirstOrDefault(a => a.Name.Contains(primaryName, StringComparison.OrdinalIgnoreCase))
+                  ?? new ArtistModel { Name = primaryName };
 
         _isRestoringNavigation = true;
         try
@@ -2770,7 +2784,7 @@ public partial class MainViewModel : ObservableObject
             PushCurrentNavigationState();
             CurrentView = "OsuLibrary";
             IsNowPlayingActive = false;
-            _ = OsuLibrary.OpenTrackAlbumAsync(track);
+            _ = OsuLibrary.OpenTrackAlbumAsync(track, skipPush: true);
             UpdateCanGoBack();
             return;
         }
@@ -2798,7 +2812,7 @@ public partial class MainViewModel : ObservableObject
                 PushCurrentNavigationState();
                 CurrentView = "OsuLibrary";
                 IsNowPlayingActive = false;
-                OsuLibrary.OpenArtistDetail(osuArtist);
+                OsuLibrary.OpenArtistDetail(osuArtist, skipPush: true);
                 UpdateCanGoBack();
                 return;
             }

@@ -437,24 +437,21 @@ public partial class InfoArtista : UserControl
     {
         if (sender is FrameworkElement fe && fe.DataContext is Track track && !string.IsNullOrWhiteSpace(track.Artist))
         {
-            var vm = MainViewModel.Instance;
-            if (vm != null)
-            {
-                if (vm.CurrentView == "OsuLibrary")
-                {
-                    vm.OsuLibrary.OpenArtistByNameCommand.Execute(track.Artist);
-                }
-                else if (vm.CurrentView == "Favorites")
-                {
-                    vm.Favorites.OpenArtistByNameCommand.Execute(track.Artist);
-                }
-                else
-                {
-                    vm.NavigateToArtist(track.Artist);
-                }
-            }
+            Helpers.ArtistNavigationHelper.HandleArtistClick(fe, track.Artist);
         }
         e.Handled = true;
+    }
+
+    private void OnMoreInfoLastFmClick(object sender, RoutedEventArgs e)
+    {
+        e.Handled = true;
+        if (Artist == null || string.IsNullOrWhiteSpace(Artist.Name)) return;
+        try
+        {
+            string url = $"https://www.last.fm/music/{Uri.EscapeDataString(Artist.Name.Trim())}";
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true });
+        }
+        catch { }
     }
 
     private void OnOpenAlbumDetailClick(object sender, MouseButtonEventArgs e)

@@ -7,7 +7,8 @@
              xmlns:models="clr-namespace:BenyComes.Models"
              xmlns:vm="clr-namespace:BenyComes.ViewModels"
              mc:Ignorable="d" 
-             d:DesignHeight="800" d:DesignWidth="1100">
+             d:DesignHeight="800" d:DesignWidth="1100"
+             SizeChanged="OnNowPlayingViewSizeChanged">
 
     <Grid ClipToBounds="True">
         <!-- ============================================================== -->
@@ -102,6 +103,43 @@
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
+
+            <!-- Top Left / Center in Compact Mobile Mode (Back Chevron Down & Queue position / Album title) -->
+            <Grid Grid.Column="0">
+                <!-- Back Button in Compact Mode (Left) -->
+                <ui:Button Appearance="Transparent" Padding="8,6" HorizontalAlignment="Left" VerticalAlignment="Center"
+                           Command="{Binding CloseNowPlayingCommand, Source={x:Static vm:MainViewModel.Instance}}"
+                           ToolTip="Ocultar Reproducción en curso">
+                    <ui:Button.Style>
+                        <Style TargetType="ui:Button">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding NowPlaying.IsCompactMode}" Value="True">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </ui:Button.Style>
+                    <ui:SymbolIcon Symbol="ChevronDown24" FontSize="20" Foreground="#FFFFFF" />
+                </ui:Button>
+
+                <!-- Center Title / Queue info in Compact Mode -->
+                <StackPanel Orientation="Vertical" HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <StackPanel.Style>
+                        <Style TargetType="StackPanel">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding NowPlaying.IsCompactMode}" Value="True">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </StackPanel.Style>
+                    <TextBlock Text="{Binding NowPlaying.QueuePositionText}" FontSize="11" Foreground="#99FFFFFF" HorizontalAlignment="Center" />
+                    <TextBlock Text="{Binding NowPlaying.AlbumFallbackTitle}" FontSize="13" FontWeight="Bold" Foreground="#FFFFFF"
+                               TextTrimming="CharacterEllipsis" MaxWidth="280" HorizontalAlignment="Center" Margin="0,1,0,0" />
+                </StackPanel>
+            </Grid>
 
             <!-- Top Right Action Buttons: Personalización (...) & Output Mode Badge -->
             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
@@ -404,10 +442,24 @@
                 <TranslateTransform x:Name="NormalImmersiveTranslate" Y="0" />
             </Grid.RenderTransform>
 
-            <Grid.RowDefinitions>
-                <RowDefinition Height="*" />
-                <RowDefinition Height="Auto" />
-            </Grid.RowDefinitions>
+            <!-- ========================================================== -->
+            <!-- 1. MODO ESTÁNDAR (ANCHO > 750px - Widescreen Groove Style) -->
+            <!-- ========================================================== -->
+            <Grid x:Name="StandardImmersiveLayout">
+                <Grid.Style>
+                    <Style TargetType="Grid">
+                        <Setter Property="Visibility" Value="Visible" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding NowPlaying.IsCompactMode}" Value="True">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Grid.Style>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
 
             <!-- Bottom-Left Main Info Block (Groove Music style) -->
             <Grid x:Name="TrackInfoContainer" Grid.Row="0"
@@ -1041,6 +1093,338 @@
                 </Grid>
                 </StackPanel>
             </StackPanel>
+            </Grid>
+
+            <!-- ========================================================== -->
+            <!-- 2. MODO COMPACTO MÓVIL (ANCHO <= 750px)                    -->
+            <!-- ========================================================== -->
+            <Grid x:Name="CompactMobileLayout" Margin="24,6,24,14">
+                <Grid.Style>
+                    <Style TargetType="Grid">
+                        <Setter Property="Visibility" Value="Collapsed" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding NowPlaying.IsCompactMode}" Value="True">
+                                <Setter Property="Visibility" Value="Visible" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Grid.Style>
+
+                <Grid.RowDefinitions>
+                    <!-- Fila 0: Carátula centrada -->
+                    <RowDefinition Height="*" MinHeight="170" />
+                    <!-- Fila 1: Info pista + Corazón + Visualizador detrás -->
+                    <RowDefinition Height="Auto" />
+                    <!-- Fila 2: Progreso de pista (Seekbar) -->
+                    <RowDefinition Height="Auto" />
+                    <!-- Fila 3: Controles de transporte (Atrás, Play/Pause, Siguiente) -->
+                    <RowDefinition Height="Auto" />
+                    <!-- Fila 4: Utilidades (Volumen, DAC, Pantalla completa, Tres puntos) -->
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <!-- 0. CARÁTULA CENTRADA (Borde suave, sombra y pulso de bajos) -->
+                <Grid Grid.Row="0" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,4,0,10">
+                    <Border MaxWidth="300" MaxHeight="300" MinWidth="170" MinHeight="170"
+                            CornerRadius="18" ClipToBounds="True" Background="#1C1C24"
+                            RenderTransformOrigin="0.5,0.5">
+                        <Border.RenderTransform>
+                            <ScaleTransform ScaleX="{Binding NowPlaying.Visualizer.BassScale}"
+                                            ScaleY="{Binding NowPlaying.Visualizer.BassScale}" />
+                        </Border.RenderTransform>
+                        <Border.Effect>
+                            <DropShadowEffect BlurRadius="40" Color="{Binding Theme.CurrentAccentColor}"
+                                              Opacity="{Binding NowPlaying.Visualizer.BassGlowOpacity}" ShadowDepth="0" />
+                        </Border.Effect>
+                        <Image Source="{Binding NowPlaying.AlbumArt}" Stretch="UniformToFill" RenderOptions.BitmapScalingMode="HighQuality" />
+                    </Border>
+                </Grid>
+
+                <!-- 1. INFO DE PISTA + CORAZÓN CON VISUALIZADOR POR DETRÁS -->
+                <Grid Grid.Row="1" Margin="0,4,0,6">
+                    <!-- Capa 0: Visualizador reactivo de fondo (Onda o Espectro) -->
+                    <Grid Panel.ZIndex="0" VerticalAlignment="Center" Height="50" IsHitTestVisible="False">
+                        <!-- Onda Reactiva -->
+                        <Polyline Points="{Binding NowPlaying.Visualizer.WaveformPoints}"
+                                  Stroke="{Binding Theme.CurrentAccentBrush}"
+                                  StrokeThickness="2.5"
+                                  Opacity="0.5"
+                                  HorizontalAlignment="Center" VerticalAlignment="Center">
+                            <Polyline.Style>
+                                <Style TargetType="Polyline">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding NowPlaying.Visualizer.SelectedVisualizerMode}" Value="Onda Reactiva">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Polyline.Style>
+                        </Polyline>
+
+                        <!-- Barras de Espectro -->
+                        <ItemsControl ItemsSource="{Binding NowPlaying.Visualizer.SpectrumBars}"
+                                      HorizontalAlignment="Center" VerticalAlignment="Center"
+                                      Opacity="0.45">
+                            <ItemsControl.Style>
+                                <Style TargetType="ItemsControl">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding NowPlaying.Visualizer.SelectedVisualizerMode}" Value="Barras de Espectro">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </ItemsControl.Style>
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Width="6" Height="{Binding}" CornerRadius="3" Margin="2,0"
+                                            VerticalAlignment="Center"
+                                            Background="{Binding DataContext.Theme.CurrentAccentBrush, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </Grid>
+
+                    <!-- Capa 1: Información de pista (con marquesina si es largo) y botón de corazón fijo -->
+                    <Grid Panel.ZIndex="1" Margin="0,4,0,4">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <!-- Título y artista con scroll/marquesina si excede -->
+                        <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,12,0" ClipToBounds="True">
+                            <TextBlock Text="{Binding NowPlaying.Artist}"
+                                       FontFamily="Segoe UI Variable Display, Segoe UI"
+                                       FontSize="17" FontWeight="Bold"
+                                       Foreground="#FFFFFF"
+                                       TextTrimming="CharacterEllipsis">
+                                <TextBlock.Effect>
+                                    <DropShadowEffect BlurRadius="8" Color="#000000" Opacity="0.6" ShadowDepth="1" />
+                                </TextBlock.Effect>
+                            </TextBlock>
+
+                            <!-- Viewport de título con marquesina suave -->
+                            <ScrollViewer x:Name="CompactTitleViewport"
+                                          HorizontalScrollBarVisibility="Hidden"
+                                          VerticalScrollBarVisibility="Disabled"
+                                          Focusable="False"
+                                          IsHitTestVisible="False"
+                                          ClipToBounds="True"
+                                          SizeChanged="OnCompactTitleSizeChanged"
+                                          Margin="0,3,0,0">
+                                <TextBlock x:Name="CompactTitleTextBlock"
+                                           Text="{Binding NowPlaying.Title}"
+                                           FontFamily="Segoe UI Variable Text, Segoe UI"
+                                           FontSize="14" FontWeight="SemiBold"
+                                           Foreground="#D8FFFFFF"
+                                           SizeChanged="OnCompactTitleSizeChanged">
+                                    <TextBlock.RenderTransform>
+                                        <TranslateTransform x:Name="CompactTitleTranslate" X="0" />
+                                    </TextBlock.RenderTransform>
+                                    <TextBlock.Effect>
+                                        <DropShadowEffect BlurRadius="6" Color="#000000" Opacity="0.5" ShadowDepth="1" />
+                                    </TextBlock.Effect>
+                                </TextBlock>
+                            </ScrollViewer>
+                        </StackPanel>
+
+                        <!-- Botón de Favorito (Corazón ♥) NUNCA se oculta ni sale de pantalla -->
+                        <Button Grid.Column="1"
+                                Command="{Binding ToggleCurrentTrackFavoriteCommand}"
+                                Cursor="Hand" Padding="0" Margin="0"
+                                VerticalAlignment="Center" HorizontalAlignment="Right"
+                                ToolTip="Marcar o quitar de Favoritos">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border x:Name="CompactFavBdr" CornerRadius="12" Padding="8" Background="#26000000">
+                                        <ui:SymbolIcon x:Name="CompactFavIcon" Symbol="Heart24" FontSize="24"
+                                                       Foreground="#E0FFFFFF" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <DataTrigger Binding="{Binding CurrentTrack.IsFavorite}" Value="True">
+                                            <Setter TargetName="CompactFavIcon" Property="Filled" Value="True" />
+                                            <Setter TargetName="CompactFavIcon" Property="Foreground" Value="#FFE81123" />
+                                        </DataTrigger>
+                                        <DataTrigger Binding="{Binding NowPlaying.CurrentTrack.IsFavorite}" Value="True">
+                                            <Setter TargetName="CompactFavIcon" Property="Filled" Value="True" />
+                                            <Setter TargetName="CompactFavIcon" Property="Foreground" Value="#FFE81123" />
+                                        </DataTrigger>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="CompactFavBdr" Property="Background" Value="#44000000" />
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Button.Template>
+                        </Button>
+                    </Grid>
+                </Grid>
+
+                <!-- 2. PROGRESO DE LA PISTA (SEEKBAR) -->
+                <Grid Grid.Row="2" Margin="0,6,0,4">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="46" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="46" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="{Binding NowPlaying.CurrentTimeText}" FontSize="12" FontWeight="SemiBold"
+                               Foreground="#B0FFFFFF" VerticalAlignment="Center" HorizontalAlignment="Left" />
+                    <Border Grid.Column="1" Background="Transparent" Padding="0,6" Cursor="Hand"
+                            PreviewMouseLeftButtonDown="OnSeekContainerMouseDown"
+                            PreviewMouseMove="OnSeekContainerMouseMove"
+                            PreviewMouseLeftButtonUp="OnSeekContainerMouseUp">
+                        <Slider Margin="6,0"
+                                Minimum="0" Maximum="{Binding NowPlaying.TotalDurationSeconds}"
+                                Value="{Binding NowPlaying.CurrentPositionSeconds, Mode=TwoWay}"
+                                IsMoveToPointEnabled="True"
+                                PreviewMouseLeftButtonDown="OnSeekSliderPreviewMouseDown"
+                                PreviewMouseMove="OnSeekSliderPreviewMouseMove"
+                                PreviewMouseLeftButtonUp="OnSeekSliderPreviewMouseUp"
+                                ValueChanged="OnSeekSliderValueChanged" />
+                    </Border>
+                    <TextBlock Grid.Column="2" Text="{Binding NowPlaying.TotalTimeText}" FontSize="12" FontWeight="SemiBold"
+                               Foreground="#B0FFFFFF" VerticalAlignment="Center" HorizontalAlignment="Right" />
+                </Grid>
+
+                <!-- 3. CONTROLES DE TRANSPORTE (ATRÁS, PLAY/PAUSA, SIGUIENTE) -->
+                <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,4,0,10">
+                    <!-- Aleatorio (Shuffle) -->
+                    <Button Command="{Binding NowPlaying.ToggleShuffleCommand}" Cursor="Hand" Padding="0" Margin="0,0,12,0" ToolTip="Reproducción aleatoria">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border x:Name="BtnBorder" CornerRadius="8" Padding="8,5" Background="Transparent">
+                                    <ui:SymbolIcon x:Name="BtnIcon" Symbol="ArrowShuffle24" FontSize="18" Foreground="#D9FFFFFF" />
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <DataTrigger Binding="{Binding NowPlaying.IsShuffleEnabled}" Value="True">
+                                        <Setter TargetName="BtnBorder" Property="Background" Value="#CC121216" />
+                                        <Setter TargetName="BtnIcon" Property="Foreground" Value="{DynamicResource AccentBrush}" />
+                                    </DataTrigger>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="BtnBorder" Property="Background" Value="#33000000" />
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Button.Template>
+                    </Button>
+
+                    <!-- Atrás (Anterior) -->
+                    <ui:Button Appearance="Transparent" Padding="10" Margin="0,0,10,0" Command="{Binding NowPlaying.PreviousCommand}" ToolTip="Anterior">
+                        <ui:SymbolIcon Symbol="Previous24" FontSize="24" Foreground="#E0FFFFFF" />
+                    </ui:Button>
+
+                    <!-- Play / Pausa (Circular central prominente) -->
+                    <Button Style="{StaticResource CircularPlayPauseButtonStyle}"
+                            Command="{Binding NowPlaying.PlayPauseCommand}"
+                            Width="62" Height="62"
+                            Margin="6,0" />
+
+                    <!-- Siguiente -->
+                    <ui:Button Appearance="Transparent" Padding="10" Margin="10,0,0,0" Command="{Binding NowPlaying.NextCommand}" ToolTip="Siguiente">
+                        <ui:SymbolIcon Symbol="Next24" FontSize="24" Foreground="#E0FFFFFF" />
+                    </ui:Button>
+
+                    <!-- Repetir (Repeat) -->
+                    <Button Command="{Binding NowPlaying.CycleRepeatCommand}" Cursor="Hand" Padding="0" Margin="12,0,0,0" ToolTip="Modo de repetición">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border x:Name="BtnBorder" CornerRadius="8" Padding="8,5" Background="Transparent">
+                                    <ui:SymbolIcon x:Name="BtnIcon" Symbol="{Binding NowPlaying.RepeatMode, Converter={StaticResource RepeatModeToSymbolConverter}}" FontSize="18" Foreground="#D9FFFFFF" />
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <DataTrigger Binding="{Binding NowPlaying.RepeatMode}" Value="All">
+                                        <Setter TargetName="BtnBorder" Property="Background" Value="#CC121216" />
+                                        <Setter TargetName="BtnIcon" Property="Foreground" Value="{DynamicResource AccentBrush}" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding NowPlaying.RepeatMode}" Value="One">
+                                        <Setter TargetName="BtnBorder" Property="Background" Value="#CC121216" />
+                                        <Setter TargetName="BtnIcon" Property="Foreground" Value="{DynamicResource AccentBrush}" />
+                                    </DataTrigger>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="BtnBorder" Property="Background" Value="#33000000" />
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Button.Template>
+                    </Button>
+                </StackPanel>
+
+                <!-- 4. FILA DE UTILIDADES (VOLUMEN, FUENTE DE AUDIO, PANTALLA COMPLETA, COLA, TRES PUNTITOS) -->
+                <Grid Grid.Row="4" Margin="0,2,0,0">
+                    <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <!-- Volumen / Silenciar -->
+                        <Button Command="{Binding NowPlaying.ToggleMuteCommand}" Cursor="Hand" Width="40" Height="40" Padding="0" Margin="6,0" ToolTip="Volumen">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border x:Name="BtnBorder" CornerRadius="8" Padding="6,5" Background="Transparent">
+                                        <ui:SymbolIcon x:Name="BtnIcon" FontSize="18" Foreground="#D9FFFFFF" HorizontalAlignment="Center">
+                                            <ui:SymbolIcon.Symbol>
+                                                <MultiBinding Converter="{StaticResource VolumeToSymbolConverter}">
+                                                    <Binding Path="NowPlaying.Volume" />
+                                                    <Binding Path="NowPlaying.IsMuted" />
+                                                </MultiBinding>
+                                            </ui:SymbolIcon.Symbol>
+                                        </ui:SymbolIcon>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="BtnBorder" Property="Background" Value="#33000000" />
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Button.Template>
+                        </Button>
+
+                        <!-- Fuente de audio / DAC -->
+                        <Button Command="{Binding ToggleDeviceSelectorCommand}" Cursor="Hand" Width="40" Height="40" Padding="0" Margin="6,0" ToolTip="Fuente de audio / DAC">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border x:Name="BtnBorder" CornerRadius="8" Padding="7,5" Background="Transparent">
+                                        <Grid Width="16" Height="19" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                            <Rectangle Width="14" Height="17.5" RadiusX="2.5" RadiusY="2.5" Stroke="#D9FFFFFF" StrokeThickness="1.5" Fill="#1AFFFFFF" />
+                                            <Ellipse Width="3.5" Height="3.5" Fill="#D9FFFFFF" HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,3.5,0,0" />
+                                            <Ellipse Width="7.5" Height="7.5" Stroke="#D9FFFFFF" StrokeThickness="1.2" Fill="Transparent" HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,2.5" />
+                                            <Ellipse Width="2.5" Height="2.5" Fill="#D9FFFFFF" HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,5" />
+                                        </Grid>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter TargetName="BtnBorder" Property="Background" Value="#33000000" />
+                                        </Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </Button.Template>
+                        </Button>
+
+                        <!-- Cola actual (Lista de reproducción / Up Next) con flecha hacia arriba y área de clic más ancha -->
+                        <ui:Button Appearance="Transparent" Width="70" Height="40" Padding="0" Margin="4,0"
+                                   Command="{Binding ToggleNowPlayingQueueCommand}"
+                                   ToolTip="Lista actual / Desplegar Cola">
+                            <ui:SymbolIcon Symbol="ChevronUp24" FontSize="22" Foreground="#FFFFFF" />
+                        </ui:Button>
+
+                        <!-- Pantalla completa -->
+                        <ui:Button Appearance="Transparent" Width="40" Height="40" Padding="0" Margin="6,0"
+                                   Command="{Binding ToggleFullscreenCommand}"
+                                   ToolTip="Pantalla completa (F11)">
+                            <ui:SymbolIcon Symbol="FullScreenMaximize24" FontSize="18" Foreground="#E0FFFFFF" />
+                        </ui:Button>
+
+                        <!-- Tres puntitos (Más opciones) -->
+                        <ui:Button Appearance="Transparent" Width="40" Height="40" Padding="0" Margin="6,0"
+                                   Click="OnMoreOptionsButtonClick"
+                                   ToolTip="Más opciones">
+                            <ui:SymbolIcon Symbol="MoreHorizontal24" FontSize="18" Foreground="#E0FFFFFF" />
+                        </ui:Button>
+                    </StackPanel>
+                </Grid>
+            </Grid>
         </Grid>
 
         <!-- ============================================================== -->

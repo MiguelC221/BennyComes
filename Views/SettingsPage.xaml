@@ -4,6 +4,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             xmlns:vm="clr-namespace:BenyComes.ViewModels"
              mc:Ignorable="d" 
              d:DesignHeight="950" d:DesignWidth="900">
 
@@ -152,6 +153,42 @@
             <TextBlock Text="Configuración"
                        FontFamily="Segoe UI Variable Display, Segoe UI"
                        FontSize="28" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,20" />
+
+            <!-- ============================================== -->
+            <!-- CONFIGURACIÓN INICIAL / PANTALLA DE BIENVENIDA -->
+            <!-- ============================================== -->
+            <Border Background="{DynamicResource SurfaceCardBrush}"
+                    BorderBrush="{DynamicResource SurfaceCardBorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    Padding="16,14"
+                    Margin="0,0,0,14">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <ui:SymbolIcon Grid.Column="0" Symbol="Sparkle24" FontSize="22" Foreground="{Binding Theme.CurrentAccentBrush}" Margin="0,0,16,0" VerticalAlignment="Center" />
+
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
+                        <TextBlock Text="Configuración inicial" FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" />
+                        <TextBlock Text="Vuelve a abrir la pantalla de bienvenida y el asistente para agregar carpetas e inicializar tu biblioteca"
+                                   FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,2,0,0" TextWrapping="Wrap" />
+                    </StackPanel>
+
+                    <ui:Button Grid.Column="2" Appearance="Primary" Padding="16,7" VerticalAlignment="Center"
+                               Background="{Binding Theme.CurrentAccentBrush}"
+                               Command="{Binding OpenOnboardingCommand}"
+                               ToolTip="Abrir asistente de bienvenida y configuración inicial">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <ui:SymbolIcon Symbol="Play24" FontSize="13" Foreground="{Binding Theme.AccentForegroundBrush}" Margin="0,0,6,0" />
+                            <TextBlock Text="Abrir bienvenida" FontWeight="SemiBold" FontSize="12.5" Foreground="{Binding Theme.AccentForegroundBrush}" />
+                        </StackPanel>
+                    </ui:Button>
+                </Grid>
+            </Border>
 
             <!-- ============================================== -->
             <!-- SECTION 1: BIBLIOTECA DE MÚSICA (CARPETAS)    -->

@@ -333,6 +333,10 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         if (DataContext is not MainViewModel vm) return;
 
         vm.IsMiniPlayerCompact = e.NewSize.Width < 900;
+        if (vm.NowPlaying != null)
+        {
+            vm.NowPlaying.IsCompactMode = e.NewSize.Width <= 750;
+        }
 
         bool isNarrow = e.NewSize.Width < 1080;
         if (isNarrow && !_wasNarrowWindow)

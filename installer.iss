@@ -34,6 +34,7 @@ PrivilegesRequiredOverridesAllowed=dialog
 OutputDir=installer_output
 OutputBaseFilename=BenyComesMusic_Installer_v{#MyAppVersion}
 SetupIconFile=Assets\app.ico
+LicenseFile=LICENSE
 
 ; Configuración de compresión óptima
 Compression=lzma2/ultra64
@@ -59,6 +60,7 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 Source: "{#SourcePublishDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 ; Icono de la aplicación
 Source: "Assets\app.ico"; DestDir: "{app}"; Flags: ignoreversion
+Source: "LICENSE"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 ; Acceso directo en el menú Inicio de Windows

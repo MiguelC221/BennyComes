@@ -109,7 +109,7 @@ public partial class FavoritesViewModel : ObservableObject
         {
             foreach (var t in list)
             {
-                bool isCur = currentPath != null && current != null && (t.Id == current.Id || string.Equals(t.FilePath, currentPath, StringComparison.OrdinalIgnoreCase));
+                bool isCur = !string.IsNullOrEmpty(currentPath) && string.Equals(t.FilePath, currentPath, StringComparison.OrdinalIgnoreCase);
                 if (t.IsCurrent != isCur) t.IsCurrent = isCur;
                 bool match = playingPath != null && isCur;
                 if (t.IsPlaying != match) t.IsPlaying = match;
@@ -321,6 +321,15 @@ public partial class FavoritesViewModel : ObservableObject
     {
         if (artist == null || artist.Tracks == null || artist.Tracks.Count == 0) return;
         _audio.PlayQueue(artist.Tracks, 0);
+    }
+
+    [RelayCommand]
+    public void OpenArtistDetail(ArtistModel? artist)
+    {
+        if (artist == null) return;
+        MainViewModel.Instance?.PushCurrentNavigationState();
+        SelectedAlbumDetail = null;
+        SelectedArtistDetail = artist;
     }
 
     [RelayCommand]

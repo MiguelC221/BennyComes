@@ -156,7 +156,7 @@ public partial class OsuLibraryViewModel : ObservableObject
         {
             foreach (var t in list)
             {
-                bool isCur = currentPath != null && current != null && (t.Id == current.Id || string.Equals(t.FilePath, currentPath, StringComparison.OrdinalIgnoreCase));
+                bool isCur = !string.IsNullOrEmpty(currentPath) && string.Equals(t.FilePath, currentPath, StringComparison.OrdinalIgnoreCase);
                 if (t.IsCurrent != isCur) t.IsCurrent = isCur;
                 bool match = playingPath != null && isCur;
                 if (t.IsPlaying != match) t.IsPlaying = match;
@@ -411,8 +411,17 @@ public partial class OsuLibraryViewModel : ObservableObject
     [RelayCommand]
     public void OpenArtistDetail(ArtistModel? artist)
     {
+        OpenArtistDetail(artist, skipPush: false);
+    }
+
+    public void OpenArtistDetail(ArtistModel? artist, bool skipPush = false)
+    {
         if (artist == null) return;
-        MainViewModel.Instance?.PushCurrentNavigationState();
+        if (!skipPush)
+        {
+            MainViewModel.Instance?.PushCurrentNavigationState();
+        }
+        SelectedAlbumDetail = null;
         SelectedArtistDetail = artist;
     }
 
@@ -432,15 +441,26 @@ public partial class OsuLibraryViewModel : ObservableObject
     public void OpenArtistByName(string? artistName)
     {
         if (string.IsNullOrWhiteSpace(artistName)) return;
-        bool MatchesArtist(ArtistModel a) =>
-            string.Equals(a.Name, artistName, StringComparison.OrdinalIgnoreCase) ||
-            a.AltNames.Any(alt => string.Equals(alt, artistName, StringComparison.OrdinalIgnoreCase));
+        bool MatchesArtist(ArtistModel a, string name) =>
+            string.Equals(a.Name, name, StringComparison.OrdinalIgnoreCase) ||
+            a.AltNames.Any(alt => string.Equals(alt, name, StringComparison.OrdinalIgnoreCase));
 
-        var artist = Artists.FirstOrDefault(MatchesArtist)
-                  ?? _osuService.Artists.FirstOrDefault(MatchesArtist);
+        var artist = Artists.FirstOrDefault(a => MatchesArtist(a, artistName))
+                  ?? _osuService.Artists.FirstOrDefault(a => MatchesArtist(a, artistName));
+
+        if (artist == null)
+        {
+            var split = Services.Library.ArtistSplitterService.Instance.SplitArtists(artistName);
+            if (split.Count > 0)
+            {
+                var first = split[0];
+                artist = Artists.FirstOrDefault(a => MatchesArtist(a, first))
+                      ?? _osuService.Artists.FirstOrDefault(a => MatchesArtist(a, first));
+            }
+        }
+
         if (artist != null)
         {
-            SelectedAlbumDetail = null;
             OpenArtistDetail(artist);
         }
     }
@@ -448,15 +468,47 @@ public partial class OsuLibraryViewModel : ObservableObject
     [RelayCommand]
     public async Task OpenTrackAlbumAsync(Track? track)
     {
+        await OpenTrackAlbumInternalAsync(track, skipPush: false);
+    }
+
+    public async Task OpenTrackAlbumAsync(Track? track, bool skipPush)
+    {
+        await OpenTrackAlbumInternalAsync(track, skipPush: skipPush);
+    }
+
+    private async Task OpenTrackAlbumInternalAsync(Track? track, bool skipPush)
+    {
         if (track == null) return;
 
-        MainViewModel.Instance?.PushCurrentNavigationState();
+        if (!skipPush)
+        {
+            MainViewModel.Instance?.PushCurrentNavigationState();
+        }
         SelectedArtistDetail = null;
+
+        // Inmediatamente mostrar el detalle del álbum con los datos ya conocidos
+        // para dar retroalimentación instantánea al clic del usuario
+        string localArt = !string.IsNullOrEmpty(track.ArtworkPath) ? track.ArtworkPath : string.Empty;
+        string initialAlbumName = !string.IsNullOrWhiteSpace(track.Album) &&
+                                  !string.Equals(track.Album, "osu! Beatmaps", StringComparison.OrdinalIgnoreCase)
+                                  ? track.Album
+                                  : (!string.IsNullOrWhiteSpace(track.Title) ? track.Title : "Álbum");
+
+        var album = new AlbumModel
+        {
+            Name = initialAlbumName,
+            Artist = track.Artist,
+            ArtworkPath = localArt,
+            Tracks = new List<Track> { track },
+            PersistedTrackCount = 1,
+            IsFetchingMetadata = true
+        };
+
+        SelectedAlbumDetail = album;
         IsFetchingAlbumInfo = true;
+
         try
         {
-            // Primero usar la miniatura / arte local del mapa como base inmediata
-            string localArt = !string.IsNullOrEmpty(track.ArtworkPath) ? track.ArtworkPath : string.Empty;
             string albumName = track.Album;
             string? coverUrl = null;
 
@@ -496,19 +548,15 @@ public partial class OsuLibraryViewModel : ObservableObject
                 }
             }
 
-            var album = new AlbumModel
-            {
-                Name = albumName,
-                Artist = track.Artist,
-                ArtworkPath = finalCoverPath,
-                Tracks = new List<Track> { track },
-                PersistedTrackCount = 1
-            };
-
-            SelectedAlbumDetail = album;
+            album.Name = albumName;
+            album.ArtworkPath = finalCoverPath;
+            album.CoverImage = null;
+            album.DominantHeaderBrush = null;
+            album.RefreshStats();
         }
         finally
         {
+            album.IsFetchingMetadata = false;
             IsFetchingAlbumInfo = false;
         }
     }
