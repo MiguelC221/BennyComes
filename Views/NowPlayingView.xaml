@@ -42,6 +42,29 @@
                 </Image>
             </Grid>
 
+            <!-- Dynamic Blurred Video Backdrop Container (Rellena los espacios y bordes del vídeo de osu!) -->
+            <Grid x:Name="OsuVideoBlurContainer" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Opacity="0.0" IsHitTestVisible="False">
+                <!-- Capa para MediaElement nativo (VisualBrush en tiempo real) -->
+                <Rectangle x:Name="OsuVideoMediaElementBlur" Stretch="Fill" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" IsHitTestVisible="False">
+                    <Rectangle.Fill>
+                        <VisualBrush Visual="{Binding ElementName=OsuBackgroundVideoPlayer}" Stretch="UniformToFill" />
+                    </Rectangle.Fill>
+                    <Rectangle.Effect>
+                        <BlurEffect Radius="60" KernelType="Gaussian" RenderingBias="Performance" />
+                    </Rectangle.Effect>
+                </Rectangle>
+
+                <!-- Capa para LibVLC Fallback (Renderizado dinámico de _vlcBitmap con UniformToFill y Blur) -->
+                <Image x:Name="OsuVlcVideoBlurImage" Stretch="UniformToFill" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False">
+                    <Image.Effect>
+                        <BlurEffect Radius="60" KernelType="Gaussian" RenderingBias="Performance" />
+                    </Image.Effect>
+                </Image>
+
+                <!-- Tinte oscuro para que el fondo difuminado resalte el vídeo central y mantenga contraste -->
+                <Border Background="#73000000" />
+            </Grid>
+
             <!-- osu! Video Background Player Layer (MediaElement nativo) -->
             <MediaElement x:Name="OsuBackgroundVideoPlayer"
                           LoadedBehavior="Manual"
@@ -64,7 +87,7 @@
 
             <!-- Darkening overlay with user-adjustable opacity -->
             <Border x:Name="BackgroundDarknessOverlay" Background="#000000" Opacity="{Binding NowPlaying.BackgroundDarkness}" />
-            <Border>
+            <Border x:Name="BackgroundGradientOverlay">
                 <Border.Background>
                     <LinearGradientBrush StartPoint="0.5,0" EndPoint="0.5,1">
                         <GradientStop Color="#8009090D" Offset="0.0" />

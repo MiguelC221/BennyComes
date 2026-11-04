@@ -545,6 +545,7 @@ public partial class ArtistModel : ObservableObject
 public class ArtistLetterSection
 {
     public string Letter { get; set; } = string.Empty;
+    public bool HasLetter => !string.IsNullOrEmpty(Letter);
     public List<ArtistModel> Artists { get; set; } = new();
 
     public static readonly string[] SectionLetters = new[]

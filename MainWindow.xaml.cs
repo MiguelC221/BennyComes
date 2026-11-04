@@ -926,6 +926,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         {
             if (AppTitleBar == null) return;
             AppTitleBar.Foreground = System.Windows.Media.Brushes.White;
+            AppTitleBar.Background = System.Windows.Media.Brushes.Transparent;
             foreach (var btn in FindVisualChildren<System.Windows.Controls.Primitives.ButtonBase>(AppTitleBar))
             {
                 btn.Foreground = System.Windows.Media.Brushes.White;

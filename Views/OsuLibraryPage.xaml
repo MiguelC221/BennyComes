@@ -516,7 +516,18 @@
 
                 <ui:Button Appearance="Transparent" Padding="8,6" Margin="10,0,0,0"
                            Command="{Binding OsuLibrary.OpenJumpListCommand}"
+                           IsEnabled="{Binding OsuLibrary.IsAlphabetEnabled}"
                            ToolTip="Abrir selector alfabético (JumpList)">
+                    <ui:Button.Style>
+                        <Style TargetType="ui:Button" BasedOn="{StaticResource {x:Type ui:Button}}">
+                            <Style.Triggers>
+                                <Trigger Property="IsEnabled" Value="False">
+                                    <Setter Property="Opacity" Value="0.3" />
+                                    <Setter Property="ToolTip" Value="Abecedario desactivado al ordenar por cantidad de canciones" />
+                                </Trigger>
+                            </Style.Triggers>
+                        </Style>
+                    </ui:Button.Style>
                     <StackPanel Orientation="Horizontal">
                         <ui:SymbolIcon Symbol="TextBulletListSquare24" FontSize="16" Foreground="{Binding Theme.CurrentAccentBrush}" Margin="0,0,4,0" />
                         <TextBlock Text="A-Z" FontSize="12" FontWeight="Bold" Foreground="{Binding Theme.CurrentAccentBrush}" VerticalAlignment="Center" />

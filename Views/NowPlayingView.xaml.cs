@@ -145,6 +145,7 @@ public partial class NowPlayingView : UserControl
     private bool _isVlcActive = false;
     private string? _currentVlcVideoPath = null;
     private bool _isCinemaMode = false;
+    private bool _isVideoActive = false;
 
     private static void EnsureLibVlcInitialized()
     {
@@ -232,6 +233,10 @@ public partial class NowPlayingView : UserControl
             {
                 OsuVlcVideoImage.Source = _vlcBitmap;
             }
+            if (OsuVlcVideoBlurImage != null)
+            {
+                OsuVlcVideoBlurImage.Source = _vlcBitmap;
+            }
         }
     }
 
@@ -290,23 +295,47 @@ public partial class NowPlayingView : UserControl
             !_incompatibleVideos.Contains(track.VideoPath) &&
             System.IO.File.Exists(track.VideoPath))
         {
+            _isVideoActive = true;
             if (OsuBackgroundVideoPlayer != null)
             {
                 OsuBackgroundVideoPlayer.Source = new Uri(track.VideoPath, UriKind.Absolute);
                 OsuBackgroundVideoPlayer.Play();
                 OsuBackgroundVideoPlayer.Opacity = 1.0;
             }
+            if (OsuVideoBlurContainer != null)
+            {
+                OsuVideoBlurContainer.Opacity = 1.0;
+            }
+            if (BackgroundTransformContainer != null)
+            {
+                BackgroundTransformContainer.Opacity = 0.0;
+            }
+        }
+        else
+        {
+            _isVideoActive = false;
+            RestoreArtworkBackground();
         }
     }
 
     private void StopOsuVideoPlayback()
     {
+        _isVideoActive = false;
         if (OsuBackgroundVideoPlayer != null)
         {
             OsuBackgroundVideoPlayer.Stop();
             OsuBackgroundVideoPlayer.Source = null;
             OsuBackgroundVideoPlayer.Opacity = 0.0;
         }
+        if (OsuVideoBlurContainer != null)
+        {
+            OsuVideoBlurContainer.Opacity = 0.0;
+        }
+        if (BackgroundTransformContainer != null)
+        {
+            BackgroundTransformContainer.Opacity = 1.0;
+        }
+        ResetDarknessOverlays();
         StopVlcPlayback();
     }
 
@@ -325,6 +354,10 @@ public partial class NowPlayingView : UserControl
         {
             OsuVlcVideoImage.Opacity = 0.0;
             OsuVlcVideoImage.Source = null;
+        }
+        if (OsuVlcVideoBlurImage != null)
+        {
+            OsuVlcVideoBlurImage.Source = null;
         }
         _vlcBitmap = null;
     }
@@ -443,10 +476,19 @@ public partial class NowPlayingView : UserControl
             using var media = new VlcMedia(_libVlc, videoPath, VlcFromType.FromPath);
             _currentVlcVideoPath = videoPath;
             _isVlcActive = true;
+            _isVideoActive = true;
 
             if (OsuVlcVideoImage != null)
             {
                 OsuVlcVideoImage.Opacity = 1.0;
+            }
+            if (OsuVideoBlurContainer != null)
+            {
+                OsuVideoBlurContainer.Opacity = 1.0;
+            }
+            if (BackgroundTransformContainer != null)
+            {
+                BackgroundTransformContainer.Opacity = 0.0;
             }
 
             _libVlcPlayer.Play(media);
@@ -497,11 +539,36 @@ public partial class NowPlayingView : UserControl
 
     private void RestoreArtworkBackground()
     {
+        _isVideoActive = false;
+        if (OsuVideoBlurContainer != null)
+        {
+            OsuVideoBlurContainer.Opacity = 0.0;
+        }
+        if (BackgroundTransformContainer != null)
+        {
+            BackgroundTransformContainer.Opacity = 1.0;
+        }
+        ResetDarknessOverlays();
         if (DataContext is MainViewModel vm && vm.NowPlaying.BackgroundImage != null)
         {
             BackgroundPrimary.Source = vm.NowPlaying.BackgroundImage;
         }
         StartBackgroundCinematicMotion();
+    }
+
+    private void ResetDarknessOverlays()
+    {
+        double defaultDarkness = (DataContext is MainViewModel vm) ? vm.NowPlaying.BackgroundDarkness : 0.4;
+        if (BackgroundDarknessOverlay != null)
+        {
+            BackgroundDarknessOverlay.BeginAnimation(OpacityProperty, null);
+            BackgroundDarknessOverlay.Opacity = defaultDarkness;
+        }
+        if (BackgroundGradientOverlay != null)
+        {
+            BackgroundGradientOverlay.BeginAnimation(OpacityProperty, null);
+            BackgroundGradientOverlay.Opacity = 1.0;
+        }
     }
 
     private static void ShowIncompatibleVideoToast(string? videoPath)
@@ -728,6 +795,19 @@ public partial class NowPlayingView : UserControl
                     new DoubleAnimation(VisualizerRightTranslate.Y, trackLift, moveDuration) { EasingFunction = easeInOut });
             }
         }
+
+        if (_isVideoActive)
+        {
+            var fadeDarkness = new DoubleAnimation(0.0, duration) { EasingFunction = ease };
+            if (BackgroundDarknessOverlay != null)
+            {
+                BackgroundDarknessOverlay.BeginAnimation(OpacityProperty, fadeDarkness);
+            }
+            if (BackgroundGradientOverlay != null)
+            {
+                BackgroundGradientOverlay.BeginAnimation(OpacityProperty, fadeDarkness);
+            }
+        }
     }
 
     private void FadeInHud()
@@ -737,6 +817,21 @@ public partial class NowPlayingView : UserControl
         var returnDuration = TimeSpan.FromMilliseconds(450);
         var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
         var fadeIn = new DoubleAnimation(0.0, 1.0, duration) { EasingFunction = ease };
+
+        if (_isVideoActive)
+        {
+            double targetDarkness = (DataContext is MainViewModel vmDark) ? vmDark.NowPlaying.BackgroundDarkness : 0.4;
+            var restoreDarkness = new DoubleAnimation(targetDarkness, duration) { EasingFunction = ease };
+            var restoreGradient = new DoubleAnimation(1.0, duration) { EasingFunction = ease };
+            if (BackgroundDarknessOverlay != null)
+            {
+                BackgroundDarknessOverlay.BeginAnimation(OpacityProperty, restoreDarkness);
+            }
+            if (BackgroundGradientOverlay != null)
+            {
+                BackgroundGradientOverlay.BeginAnimation(OpacityProperty, restoreGradient);
+            }
+        }
 
         if (TopHudContainer != null)
         {
@@ -999,6 +1094,12 @@ public partial class NowPlayingView : UserControl
 
     private void CrossfadeBackgroundWithKenBurns(BitmapImage newImage, bool isArtistPhoto)
     {
+        if (_isVideoActive && isArtistPhoto)
+        {
+            // Cuando hay un vídeo de osu! activo, desactiva automáticamente la imagen del artista
+            return;
+        }
+
         var duration = TimeSpan.FromMilliseconds(1000);
         var ease = new CubicEase { EasingMode = EasingMode.EaseInOut };
 

@@ -365,6 +365,23 @@
                             </ControlTemplate>
                         </Button.Template>
                     </Button>
+
+                    <!-- Chip / Atajo: Buscar en osu! library -->
+                    <Button Margin="6,0,0,0" Padding="14,6" Cursor="Hand"
+                            Visibility="{Binding Settings.IsOsuModeEnabled, Source={x:Static vm:MainViewModel.Instance}, Converter={StaticResource BoolToVisConverter}}"
+                            Command="{Binding Search.SearchInOsuLibraryCommand}"
+                            ToolTip="Buscar estas canciones dentro de osu!library">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border CornerRadius="16" BorderThickness="1" Background="#22FF66AA" BorderBrush="#55FF66AA" Padding="{TemplateBinding Padding}">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <ui:SymbolIcon Symbol="MusicNote224" FontSize="13" Foreground="#FF66AA" Margin="0,0,6,0" />
+                                        <TextBlock Text="Buscar en osu! library" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" />
+                                    </StackPanel>
+                                </Border>
+                            </ControlTemplate>
+                        </Button.Template>
+                    </Button>
                 </StackPanel>
 
                 <!-- Quick Action: Reproducir todas las canciones encontradas -->

@@ -13,7 +13,7 @@
         WindowBackdropType="Mica"
         ExtendsContentIntoTitleBar="True"
         WindowStartupLocation="CenterScreen"
-        Background="{DynamicResource AppBackgroundBrush}"
+        Background="Transparent"
         Foreground="{DynamicResource TextPrimaryBrush}"
         AllowDrop="True"
         Drop="OnWindowDrop"
@@ -291,7 +291,7 @@
         <!-- ============================================================== -->
         <!-- ROW 1: MAIN SHELL AREA (NAV PANE + CONTENT FRAME + OVERLAYS)  -->
         <!-- ============================================================== -->
-        <Grid Grid.Row="1">
+        <Grid Grid.Row="1" Background="{DynamicResource AppBackgroundBrush}">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition x:Name="SidebarColumn" Width="240" /> <!-- Navigation Sidebar Column (Dinámico: 240/48 en desktop, 48 en móvil) -->
                 <ColumnDefinition Width="*" />  <!-- Content Pages -->

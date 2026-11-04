@@ -268,6 +268,10 @@ public partial class SearchViewModel : ObservableObject
                 _ = ExecuteFullSearchAsync();
                 break;
 
+            case "OsuSearch":
+                SearchInOsuLibrary();
+                break;
+
             case "Track":
                 if (item.Target is Track track)
                 {
@@ -290,6 +294,21 @@ public partial class SearchViewModel : ObservableObject
                     MainViewModel.Instance?.MyMusic.OpenAlbumDetail(album);
                 }
                 break;
+        }
+    }
+
+    [RelayCommand]
+    public void SearchInOsuLibrary()
+    {
+        IsSuggestionsOpen = false;
+        IsSidebarSuggestionsOpen = false;
+        IsPageSuggestionsOpen = false;
+        string q = SearchQuery?.Trim() ?? string.Empty;
+        if (MainViewModel.Instance != null)
+        {
+            MainViewModel.Instance.NavigateToCommand.Execute("OsuLibrary");
+            MainViewModel.Instance.OsuLibrary.SelectedTabIndex = 0; // Canciones
+            MainViewModel.Instance.OsuLibrary.SearchFilter = q;
         }
     }
 
@@ -374,6 +393,19 @@ public partial class SearchViewModel : ObservableObject
                     SuggestionType = "Search",
                     Icon = SymbolRegular.Search24
                 });
+
+                // Opción de búsqueda en osu! library si está activo
+                if (MainViewModel.Instance?.Settings.IsOsuModeEnabled == true ||
+                    (Services.Library.OsuLibraryService.Instance.IsLoaded && Services.Library.OsuLibraryService.Instance.Tracks.Count > 0))
+                {
+                    list.Add(new SearchSuggestionItem
+                    {
+                        Title = $"Buscar \"{q}\" en osu! library",
+                        Subtitle = "Ver canciones en la biblioteca de osu!",
+                        SuggestionType = "OsuSearch",
+                        Icon = SymbolRegular.MusicNote224
+                    });
+                }
 
                 // Top artists (up to 2)
                 var cachedArtists = _cache.CachedArtists;

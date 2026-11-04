@@ -55,6 +55,8 @@ public partial class OsuLibraryViewModel : ObservableObject
     public string SortDirectionTooltip => IsSortDescending ? "Orden descendente (clic para ascendente)" : "Orden ascendente (clic para descendente)";
     public SymbolRegular SortDirectionIcon => IsSortDescending ? SymbolRegular.ArrowDown24 : SymbolRegular.ArrowUp24;
 
+    public bool IsAlphabetEnabled => SelectedTabIndex != 1 || !string.Equals(SelectedArtistSort, "Cantidad de canciones", StringComparison.OrdinalIgnoreCase);
+
     public BulkObservableCollection<Track> Songs { get; } = new();
     public BulkObservableCollection<Track> VideoSongs { get; } = new();
     public BulkObservableCollection<ArtistModel> Artists { get; } = new();
@@ -176,6 +178,7 @@ public partial class OsuLibraryViewModel : ObservableObject
 
     partial void OnSelectedArtistSortChanged(string value)
     {
+        OnPropertyChanged(nameof(IsAlphabetEnabled));
         ApplyFilter();
     }
 
@@ -194,6 +197,7 @@ public partial class OsuLibraryViewModel : ObservableObject
         IsJumpListOpen = false;
         SelectedArtistDetail = null;
         SelectedAlbumDetail = null;
+        OnPropertyChanged(nameof(IsAlphabetEnabled));
         ApplyFilter();
         sw.Stop();
         System.Diagnostics.Debug.WriteLine($"[PERF] OsuLibrary.OnSelectedTabIndexChanged(tab={value}): {sw.Elapsed.TotalMilliseconds:F1} ms");
@@ -315,8 +319,9 @@ public partial class OsuLibraryViewModel : ObservableObject
             }
 
             bool isSortByName = string.Equals(sortOption, "Nombre (A-Z)", StringComparison.OrdinalIgnoreCase);
+            bool isSortByTrackCount = string.Equals(sortOption, "Cantidad de canciones", StringComparison.OrdinalIgnoreCase);
 
-            if (string.Equals(sortOption, "Cantidad de canciones", StringComparison.OrdinalIgnoreCase))
+            if (isSortByTrackCount)
             {
                 artistQuery = descending
                     ? artistQuery.OrderBy(a => a.TrackCount).ThenBy(a => a.Name, StringComparer.CurrentCultureIgnoreCase)
@@ -330,8 +335,24 @@ public partial class OsuLibraryViewModel : ObservableObject
             }
 
             var filteredArtists = artistQuery.ToList();
-            bool reverseSections = descending && isSortByName;
-            var sections = ArtistLetterSection.BuildSections(filteredArtists, reverseSections);
+            List<ArtistLetterSection> sections;
+            if (isSortByTrackCount)
+            {
+                // Al filtrar por cantidad de canciones, se desagrupan los artistas mostrando todos en una lista plana continua sin cabecera de letra
+                sections = new List<ArtistLetterSection>
+                {
+                    new ArtistLetterSection
+                    {
+                        Letter = string.Empty,
+                        Artists = filteredArtists
+                    }
+                };
+            }
+            else
+            {
+                bool reverseSections = descending && isSortByName;
+                sections = ArtistLetterSection.BuildSections(filteredArtists, reverseSections);
+            }
             swBg.Stop();
             System.Diagnostics.Debug.WriteLine($"[PERF] OsuLibrary.ApplyFilter Task.Run(artists={filteredArtists.Count}, sections={sections.Count}): {swBg.Elapsed.TotalMilliseconds:F1} ms");
 
@@ -564,6 +585,7 @@ public partial class OsuLibraryViewModel : ObservableObject
     [RelayCommand]
     public void OpenJumpList()
     {
+        if (!IsAlphabetEnabled) return;
         JumpListLetters.Clear();
         var activeLetters = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
