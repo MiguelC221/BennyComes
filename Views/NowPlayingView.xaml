@@ -4,6 +4,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             xmlns:vlc="clr-namespace:LibVLCSharp.WPF;assembly=LibVLCSharp.WPF"
              xmlns:models="clr-namespace:BenyComes.Models"
              xmlns:vm="clr-namespace:BenyComes.ViewModels"
              mc:Ignorable="d" 
@@ -51,6 +52,13 @@
                           IsMuted="True"
                           ScrubbingEnabled="True"
                           Opacity="0.0" />
+
+            <!-- LibVLC Fallback Video Player Layer -->
+            <vlc:VideoView x:Name="OsuVlcVideoPlayer"
+                           HorizontalAlignment="Stretch"
+                           VerticalAlignment="Stretch"
+                           Visibility="Collapsed"
+                           Opacity="0.0" />
 
             <!-- Darkening overlay with user-adjustable opacity -->
             <Border x:Name="BackgroundDarknessOverlay" Background="#000000" Opacity="{Binding NowPlaying.BackgroundDarkness}" />

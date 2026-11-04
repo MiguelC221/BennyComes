@@ -7,6 +7,10 @@ using System.Windows.Media.Animation;
 using System.Windows.Media.Imaging;
 using BenyComes.Models;
 using BenyComes.ViewModels;
+using VlcInstance = LibVLCSharp.Shared.LibVLC;
+using VlcPlayer = LibVLCSharp.Shared.MediaPlayer;
+using VlcMedia = LibVLCSharp.Shared.Media;
+using VlcFromType = LibVLCSharp.Shared.FromType;
 
 namespace BenyComes.Views;
 
@@ -34,6 +38,12 @@ public partial class NowPlayingView : UserControl
         Unloaded += OnUnloaded;
         IsVisibleChanged += OnIsVisibleChanged;
         Services.Audio.AudioPlayerService.Instance.TrackChanged += OnAudioTrackChanged;
+
+        if (Application.Current != null)
+        {
+            Application.Current.Exit -= OnApplicationExit;
+            Application.Current.Exit += OnApplicationExit;
+        }
     }
 
     private void OnIsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
@@ -88,9 +98,60 @@ public partial class NowPlayingView : UserControl
     private static readonly HashSet<string> _incompatibleVideos = new(StringComparer.OrdinalIgnoreCase);
     private static bool _hasShownIncompatibleVideoToast = false;
 
+    private static VlcInstance? _libVlc;
+    private static VlcPlayer? _libVlcPlayer;
+    private static bool _isLibVlcInitialized = false;
+    private static NowPlayingView? _currentInstance;
+
+    private bool _isVlcActive = false;
+    private string? _currentVlcVideoPath = null;
+
+    private static void EnsureLibVlcInitialized()
+    {
+        if (_isLibVlcInitialized) return;
+        try
+        {
+            LibVLCSharp.Shared.Core.Initialize();
+            _libVlc = new VlcInstance("--no-audio");
+            _libVlcPlayer = new VlcPlayer(_libVlc);
+            _libVlcPlayer.EncounteredError += OnVlcPlayerEncounteredError;
+            _isLibVlcInitialized = true;
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[LibVLC] Init failed: {ex.Message}");
+        }
+    }
+
+    private static void OnApplicationExit(object? sender, ExitEventArgs e)
+    {
+        DisposeVlc();
+    }
+
+    private static void DisposeVlc()
+    {
+        try
+        {
+            if (_libVlcPlayer != null)
+            {
+                _libVlcPlayer.EncounteredError -= OnVlcPlayerEncounteredError;
+                var oldMedia = _libVlcPlayer.Media;
+                _libVlcPlayer.Media = null;
+                oldMedia?.Dispose();
+                _libVlcPlayer.Dispose();
+                _libVlcPlayer = null;
+            }
+
+            _libVlc?.Dispose();
+            _libVlc = null;
+            _isLibVlcInitialized = false;
+        }
+        catch { }
+    }
+
     private void UpdateOsuVideoState(Track? track)
     {
-        if (OsuBackgroundVideoPlayer == null) return;
+        StopOsuVideoPlayback();
 
         if (DataContext is MainViewModel vm &&
             vm.NowPlaying.PlayOsuBackgroundVideo &&
@@ -99,48 +160,104 @@ public partial class NowPlayingView : UserControl
             !_incompatibleVideos.Contains(track.VideoPath) &&
             System.IO.File.Exists(track.VideoPath))
         {
-            OsuBackgroundVideoPlayer.Source = new Uri(track.VideoPath, UriKind.Absolute);
-            OsuBackgroundVideoPlayer.Play();
-            OsuBackgroundVideoPlayer.Opacity = 1.0;
+            if (OsuBackgroundVideoPlayer != null)
+            {
+                OsuBackgroundVideoPlayer.Source = new Uri(track.VideoPath, UriKind.Absolute);
+                OsuBackgroundVideoPlayer.Play();
+                OsuBackgroundVideoPlayer.Opacity = 1.0;
+            }
         }
-        else
+    }
+
+    private void StopOsuVideoPlayback()
+    {
+        if (OsuBackgroundVideoPlayer != null)
         {
             OsuBackgroundVideoPlayer.Stop();
             OsuBackgroundVideoPlayer.Source = null;
             OsuBackgroundVideoPlayer.Opacity = 0.0;
         }
+        StopVlcPlayback();
+    }
+
+    private void StopVlcPlayback()
+    {
+        _isVlcActive = false;
+        _currentVlcVideoPath = null;
+        if (_libVlcPlayer != null)
+        {
+            _libVlcPlayer.Stop();
+            var oldMedia = _libVlcPlayer.Media;
+            _libVlcPlayer.Media = null;
+            oldMedia?.Dispose();
+        }
+        if (OsuVlcVideoPlayer != null)
+        {
+            OsuVlcVideoPlayer.Opacity = 0.0;
+            OsuVlcVideoPlayer.Visibility = Visibility.Collapsed;
+        }
     }
 
     private void SyncOsuVideoPlayback()
     {
-        if (OsuBackgroundVideoPlayer == null || OsuBackgroundVideoPlayer.Source == null) return;
-        if (DataContext is MainViewModel vm && vm.NowPlaying.CurrentTrack != null)
-        {
-            if (_incompatibleVideos.Contains(vm.NowPlaying.CurrentTrack.VideoPath))
-            {
-                OsuBackgroundVideoPlayer.Stop();
-                OsuBackgroundVideoPlayer.Source = null;
-                OsuBackgroundVideoPlayer.Opacity = 0.0;
-                return;
-            }
+        if (DataContext is not MainViewModel vm || vm.NowPlaying.CurrentTrack == null) return;
 
+        var currentTrack = vm.NowPlaying.CurrentTrack;
+        if (_incompatibleVideos.Contains(currentTrack.VideoPath))
+        {
+            StopOsuVideoPlayback();
+            return;
+        }
+
+        double targetSec = vm.NowPlaying.CurrentPositionSeconds + (currentTrack.VideoOffsetMs / 1000.0);
+        if (targetSec < 0) targetSec = 0;
+
+        // Si LibVLC está activo como fallback
+        if (_isVlcActive && _libVlcPlayer != null)
+        {
+            long targetMs = (long)(targetSec * 1000.0);
             if (vm.NowPlaying.IsPlaying)
             {
-                double targetSec = vm.NowPlaying.CurrentPositionSeconds + (vm.NowPlaying.CurrentTrack.VideoOffsetMs / 1000.0);
-                if (targetSec < 0) targetSec = 0;
-                var targetTime = TimeSpan.FromSeconds(targetSec);
-
-                // Re-sincronizar solo si hay desvío mayor a 0.5s para no causar tartamudeo en el video
-                if (Math.Abs((OsuBackgroundVideoPlayer.Position - targetTime).TotalSeconds) > 0.5)
+                if (_libVlcPlayer.Time >= 0 && Math.Abs(_libVlcPlayer.Time - targetMs) > 500)
                 {
-                    OsuBackgroundVideoPlayer.Position = targetTime;
+                    _libVlcPlayer.Time = targetMs;
                 }
-                OsuBackgroundVideoPlayer.Play();
+                if (!_libVlcPlayer.IsPlaying)
+                {
+                    _libVlcPlayer.Play();
+                }
             }
             else
             {
-                OsuBackgroundVideoPlayer.Pause();
+                if (_libVlcPlayer.Time >= 0 && Math.Abs(_libVlcPlayer.Time - targetMs) > 500)
+                {
+                    _libVlcPlayer.Time = targetMs;
+                }
+                if (_libVlcPlayer.CanPause && _libVlcPlayer.IsPlaying)
+                {
+                    _libVlcPlayer.Pause();
+                }
             }
+            return;
+        }
+
+        // Si MediaElement está activo
+        if (OsuBackgroundVideoPlayer == null || OsuBackgroundVideoPlayer.Source == null) return;
+
+        if (vm.NowPlaying.IsPlaying)
+        {
+            var targetTime = TimeSpan.FromSeconds(targetSec);
+
+            // Re-sincronizar solo si hay desvío mayor a 0.5s para no causar tartamudeo en el video
+            if (Math.Abs((OsuBackgroundVideoPlayer.Position - targetTime).TotalSeconds) > 0.5)
+            {
+                OsuBackgroundVideoPlayer.Position = targetTime;
+            }
+            OsuBackgroundVideoPlayer.Play();
+        }
+        else
+        {
+            OsuBackgroundVideoPlayer.Pause();
         }
     }
 
@@ -158,11 +275,6 @@ public partial class NowPlayingView : UserControl
             failedPath = vmTrack.NowPlaying.CurrentTrack.VideoPath;
         }
 
-        if (!string.IsNullOrEmpty(failedPath))
-        {
-            _incompatibleVideos.Add(failedPath);
-        }
-
         if (OsuBackgroundVideoPlayer != null)
         {
             OsuBackgroundVideoPlayer.Stop();
@@ -170,16 +282,108 @@ public partial class NowPlayingView : UserControl
             OsuBackgroundVideoPlayer.Opacity = 0.0;
         }
 
+        if (string.IsNullOrEmpty(failedPath) || !System.IO.File.Exists(failedPath))
+        {
+            RestoreArtworkBackground();
+            return;
+        }
+
+        // Fallback a LibVLC
+        if (TryPlayWithLibVlc(failedPath))
+        {
+            return;
+        }
+
+        // Si LibVLC tampoco pudo reproducirlo
+        _incompatibleVideos.Add(failedPath);
+        RestoreArtworkBackground();
+        ShowIncompatibleVideoToast(failedPath);
+    }
+
+    private bool TryPlayWithLibVlc(string videoPath)
+    {
+        EnsureLibVlcInitialized();
+        if (_libVlc == null || _libVlcPlayer == null) return false;
+
+        try
+        {
+            StopVlcPlayback();
+
+            using var media = new VlcMedia(_libVlc, videoPath, VlcFromType.FromPath);
+            _currentVlcVideoPath = videoPath;
+            _isVlcActive = true;
+
+            if (OsuVlcVideoPlayer != null)
+            {
+                if (OsuVlcVideoPlayer.MediaPlayer != _libVlcPlayer)
+                {
+                    OsuVlcVideoPlayer.MediaPlayer = _libVlcPlayer;
+                }
+                OsuVlcVideoPlayer.Visibility = Visibility.Visible;
+                OsuVlcVideoPlayer.Opacity = 1.0;
+            }
+
+            _libVlcPlayer.Play(media);
+
+            if (DataContext is MainViewModel vm && vm.NowPlaying.CurrentTrack != null)
+            {
+                double targetSec = vm.NowPlaying.CurrentPositionSeconds + (vm.NowPlaying.CurrentTrack.VideoOffsetMs / 1000.0);
+                if (targetSec > 0)
+                {
+                    _libVlcPlayer.Time = (long)(targetSec * 1000.0);
+                }
+                if (!vm.NowPlaying.IsPlaying)
+                {
+                    _libVlcPlayer.Pause();
+                }
+            }
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[LibVLC] Error starting video: {ex.Message}");
+            StopVlcPlayback();
+            return false;
+        }
+    }
+
+    private static void OnVlcPlayerEncounteredError(object? sender, EventArgs e)
+    {
+        Application.Current?.Dispatcher.BeginInvoke(new Action(() =>
+        {
+            _currentInstance?.HandleVlcPlaybackFailure();
+        }));
+    }
+
+    private void HandleVlcPlaybackFailure()
+    {
+        string? failedPath = _currentVlcVideoPath;
+        if (!string.IsNullOrEmpty(failedPath))
+        {
+            _incompatibleVideos.Add(failedPath);
+        }
+
+        StopVlcPlayback();
+        RestoreArtworkBackground();
+        ShowIncompatibleVideoToast(failedPath);
+    }
+
+    private void RestoreArtworkBackground()
+    {
         if (DataContext is MainViewModel vm && vm.NowPlaying.BackgroundImage != null)
         {
             BackgroundPrimary.Source = vm.NowPlaying.BackgroundImage;
         }
         StartBackgroundCinematicMotion();
+    }
 
+    private static void ShowIncompatibleVideoToast(string? videoPath)
+    {
         if (!_hasShownIncompatibleVideoToast)
         {
             _hasShownIncompatibleVideoToast = true;
-            (DataContext as MainViewModel ?? MainViewModel.Instance)?.ShowToast(
+            (MainViewModel.Instance)?.ShowToast(
                 "osu! Video",
                 "Vídeo sin códec compatible, mostrando fondo de carátula",
                 isWarning: false,
@@ -190,6 +394,13 @@ public partial class NowPlayingView : UserControl
 
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
+        _currentInstance = this;
+        EnsureLibVlcInitialized();
+        if (OsuVlcVideoPlayer != null && _libVlcPlayer != null)
+        {
+            OsuVlcVideoPlayer.MediaPlayer = _libVlcPlayer;
+        }
+
         _hudInactivityTimer.Start();
         SizeChanged -= OnNowPlayingViewSizeChanged;
         SizeChanged += OnNowPlayingViewSizeChanged;
@@ -232,6 +443,11 @@ public partial class NowPlayingView : UserControl
         if (OsuBackgroundVideoPlayer != null)
         {
             OsuBackgroundVideoPlayer.MediaFailed -= OnOsuVideoMediaFailed;
+        }
+        StopVlcPlayback();
+        if (ReferenceEquals(_currentInstance, this))
+        {
+            _currentInstance = null;
         }
     }
 
@@ -554,7 +770,8 @@ public partial class NowPlayingView : UserControl
         {
             UpdateOsuVideoState(vmVideo.NowPlaying.CurrentTrack);
         }
-        else if (e.PropertyName == nameof(NowPlayingViewModel.CurrentPositionSeconds))
+        else if (e.PropertyName == nameof(NowPlayingViewModel.CurrentPositionSeconds) ||
+                 e.PropertyName == nameof(NowPlayingViewModel.IsPlaying))
         {
             SyncOsuVideoPlayback();
         }
