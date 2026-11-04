@@ -1526,11 +1526,19 @@ public partial class MainViewModel : ObservableObject
 
         var split = Services.Library.ArtistSplitterService.Instance.SplitArtists(artistName);
         string primaryName = split.Count > 0 ? split[0] : artistName.Trim();
+        string canonical = Services.Library.ArtistAliasService.Instance.GetCanonicalName(primaryName);
 
-        var artist = _cache.CachedArtists.FirstOrDefault(a => a.Name.Equals(artistName, StringComparison.OrdinalIgnoreCase))
-                  ?? _cache.CachedArtists.FirstOrDefault(a => a.Name.Equals(primaryName, StringComparison.OrdinalIgnoreCase))
+        bool Matches(ArtistModel a) =>
+            string.Equals(a.Name, artistName, StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(a.Name, primaryName, StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(a.Name, canonical, StringComparison.OrdinalIgnoreCase) ||
+            a.AltNames.Any(alt => string.Equals(alt, artistName, StringComparison.OrdinalIgnoreCase) ||
+                                  string.Equals(alt, primaryName, StringComparison.OrdinalIgnoreCase) ||
+                                  string.Equals(alt, canonical, StringComparison.OrdinalIgnoreCase));
+
+        var artist = _cache.CachedArtists.FirstOrDefault(Matches)
                   ?? _cache.CachedArtists.FirstOrDefault(a => a.Name.Contains(primaryName, StringComparison.OrdinalIgnoreCase))
-                  ?? new ArtistModel { Name = primaryName };
+                  ?? new ArtistModel { Name = canonical };
 
         _isRestoringNavigation = true;
         try

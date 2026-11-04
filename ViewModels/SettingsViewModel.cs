@@ -6,6 +6,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Media;
 using BenyComes.Data;
+using BenyComes.Models;
 using BenyComes.Services;
 using BenyComes.Services.Audio;
 using BenyComes.Services.Library;
@@ -227,6 +228,9 @@ public partial class SettingsViewModel : ObservableObject
         }
 
         IsDebugModeEnabled = Services.Diagnostics.DiagnosticLoggerService.Instance.IsDebugModeEnabled;
+        RefreshCombinedArtistsList();
+        Services.Library.ArtistAliasService.Instance.AliasesChanged += () =>
+            App.Current?.Dispatcher?.Invoke(RefreshCombinedArtistsList);
     }
 
     partial void OnPreferOsuUnicodeMetadataChanged(bool value)
@@ -751,6 +755,77 @@ public partial class SettingsViewModel : ObservableObject
         ArtistExceptions.Remove(exc);
         await ArtistSplitterService.Instance.SaveSettingsAsync();
         RefreshFilteredExceptions();
+    }
+
+    // Artist Aliases (Combined Artists)
+    public ObservableCollection<ArtistAliasRuleItem> CombinedArtistsList { get; } = new();
+
+    [ObservableProperty]
+    private string _newAliasSourceText = string.Empty;
+
+    [ObservableProperty]
+    private string _newAliasCanonicalText = string.Empty;
+
+    public void RefreshCombinedArtistsList()
+    {
+        CombinedArtistsList.Clear();
+        var all = Services.Library.ArtistAliasService.Instance.GetAllAliases();
+        foreach (var kvp in all.OrderBy(k => k.Key, StringComparer.OrdinalIgnoreCase))
+        {
+            CombinedArtistsList.Add(new ArtistAliasRuleItem
+            {
+                Alias = kvp.Key,
+                Canonical = kvp.Value
+            });
+        }
+    }
+
+    [RelayCommand]
+    public async Task AddCombinedArtistAsync()
+    {
+        string alias = NewAliasSourceText?.Trim() ?? string.Empty;
+        string canonical = NewAliasCanonicalText?.Trim() ?? string.Empty;
+
+        if (string.IsNullOrWhiteSpace(alias) || string.IsNullOrWhiteSpace(canonical)) return;
+        if (string.Equals(alias, canonical, StringComparison.OrdinalIgnoreCase)) return;
+
+        Services.Library.ArtistAliasService.Instance.SetAlias(alias, canonical, saveImmediately: true);
+        NewAliasSourceText = string.Empty;
+        NewAliasCanonicalText = string.Empty;
+        RefreshCombinedArtistsList();
+
+        await Services.Library.LibraryCacheService.Instance.RebuildGroupsAndRefreshAsync();
+        if (Services.Library.OsuLibraryService.Instance.IsLoaded)
+        {
+            Services.Library.OsuLibraryService.Instance.ReindexOsuArtists();
+        }
+
+        MainViewModel.Instance?.ShowToast(
+            "Artistas combinados",
+            $"Las canciones de '{alias}' ahora se muestran agrupadas bajo '{canonical}'.",
+            isWarning: false
+        );
+    }
+
+    [RelayCommand]
+    public async Task RemoveCombinedArtistAsync(ArtistAliasRuleItem? rule)
+    {
+        if (rule == null || string.IsNullOrWhiteSpace(rule.Alias)) return;
+
+        Services.Library.ArtistAliasService.Instance.RemoveAlias(rule.Alias, saveImmediately: true);
+        RefreshCombinedArtistsList();
+
+        await Services.Library.LibraryCacheService.Instance.RebuildGroupsAndRefreshAsync();
+        if (Services.Library.OsuLibraryService.Instance.IsLoaded)
+        {
+            Services.Library.OsuLibraryService.Instance.ReindexOsuArtists();
+        }
+
+        MainViewModel.Instance?.ShowToast(
+            "Combinación eliminada",
+            $"Se han separado '{rule.Alias}' y '{rule.Canonical}'.",
+            isWarning: false
+        );
     }
 
     [ObservableProperty]

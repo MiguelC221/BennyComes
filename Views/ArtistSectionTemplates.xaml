@@ -28,6 +28,14 @@
                 <ui:SymbolIcon Symbol="Person24" />
             </MenuItem.Icon>
         </MenuItem>
+        <Separator />
+        <MenuItem Header="Combinar con otro artista..."
+                  Command="{Binding Source={x:Static vm:MainViewModel.Instance}, Path=MyMusic.OpenCombineArtistDialogCommand}"
+                  CommandParameter="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource AncestorType=ContextMenu}}">
+            <MenuItem.Icon>
+                <ui:SymbolIcon Symbol="PeopleSwap24" />
+            </MenuItem.Icon>
+        </MenuItem>
     </ContextMenu>
 
     <!-- Alpha Group Header Button Style -->

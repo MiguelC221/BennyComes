@@ -1023,6 +1023,300 @@ public partial class MyMusicViewModel : ObservableObject
             }
         }
     }
+
+    // ==========================================
+    // COMBINE / MERGE ARTISTS FEATURE
+    // ==========================================
+    [ObservableProperty]
+    private bool _isCombineArtistDialogOpen;
+
+    [ObservableProperty]
+    private bool _isCombineRulesTabActive;
+
+    [ObservableProperty]
+    private ArtistModel? _combineSourceArtist;
+
+    [ObservableProperty]
+    private ArtistModel? _combineTargetArtist;
+
+    [ObservableProperty]
+    private string _combineSearchText = string.Empty;
+
+    [ObservableProperty]
+    private int _combineKeepNameOption = 0; // 0 = Keep Source, 1 = Keep Target
+
+    public ObservableCollection<ArtistModel> FilteredCombineTargetArtists { get; } = new();
+    public ObservableCollection<ArtistAliasRuleItem> ActiveAliasRules { get; } = new();
+
+    public bool CanExecuteCombine => CombineSourceArtist != null && CombineTargetArtist != null;
+    public string CombineSourceName => CombineSourceArtist?.Name ?? string.Empty;
+    public string CombineTargetName => CombineTargetArtist?.Name ?? string.Empty;
+
+    public bool HasCombineSourceArtist => CombineSourceArtist != null;
+    public bool HasNoCombineSourceArtist => CombineSourceArtist == null;
+    public bool HasCombineTargetArtist => CombineTargetArtist != null;
+    public bool HasNoCombineTargetArtist => CombineTargetArtist == null;
+
+    public bool IsKeepSourceNameChoice
+    {
+        get => CombineKeepNameOption == 0;
+        set
+        {
+            if (value)
+            {
+                CombineKeepNameOption = 0;
+                OnPropertyChanged(nameof(IsKeepSourceNameChoice));
+                OnPropertyChanged(nameof(IsKeepTargetNameChoice));
+                OnPropertyChanged(nameof(ResultingCanonicalName));
+                OnPropertyChanged(nameof(ResultingAliasName));
+            }
+        }
+    }
+
+    public bool IsKeepTargetNameChoice
+    {
+        get => CombineKeepNameOption == 1;
+        set
+        {
+            if (value)
+            {
+                CombineKeepNameOption = 1;
+                OnPropertyChanged(nameof(IsKeepSourceNameChoice));
+                OnPropertyChanged(nameof(IsKeepTargetNameChoice));
+                OnPropertyChanged(nameof(ResultingCanonicalName));
+                OnPropertyChanged(nameof(ResultingAliasName));
+            }
+        }
+    }
+
+    public string ResultingCanonicalName => CombineKeepNameOption == 0 ? CombineSourceName : CombineTargetName;
+    public string ResultingAliasName => CombineKeepNameOption == 0 ? CombineTargetName : CombineSourceName;
+
+    partial void OnCombineSearchTextChanged(string value)
+    {
+        UpdateFilteredCombineTargetArtists();
+    }
+
+    partial void OnCombineSourceArtistChanged(ArtistModel? value)
+    {
+        OnPropertyChanged(nameof(CanExecuteCombine));
+        OnPropertyChanged(nameof(CombineSourceName));
+        OnPropertyChanged(nameof(HasCombineSourceArtist));
+        OnPropertyChanged(nameof(HasNoCombineSourceArtist));
+        OnPropertyChanged(nameof(ResultingCanonicalName));
+        OnPropertyChanged(nameof(ResultingAliasName));
+        UpdateFilteredCombineTargetArtists();
+    }
+
+    partial void OnCombineTargetArtistChanged(ArtistModel? value)
+    {
+        OnPropertyChanged(nameof(CanExecuteCombine));
+        OnPropertyChanged(nameof(CombineTargetName));
+        OnPropertyChanged(nameof(HasCombineTargetArtist));
+        OnPropertyChanged(nameof(HasNoCombineTargetArtist));
+        OnPropertyChanged(nameof(ResultingCanonicalName));
+        OnPropertyChanged(nameof(ResultingAliasName));
+    }
+
+    partial void OnCombineKeepNameOptionChanged(int value)
+    {
+        OnPropertyChanged(nameof(IsKeepSourceNameChoice));
+        OnPropertyChanged(nameof(IsKeepTargetNameChoice));
+        OnPropertyChanged(nameof(ResultingCanonicalName));
+        OnPropertyChanged(nameof(ResultingAliasName));
+    }
+
+    public void UpdateFilteredCombineTargetArtists()
+    {
+        FilteredCombineTargetArtists.Clear();
+        string query = CombineSearchText?.Trim() ?? string.Empty;
+        var source = CombineSourceArtist;
+
+        var candidates = _cache.CachedArtists
+            .Where(a => a != null && (source == null || !string.Equals(a.Name, source.Name, StringComparison.OrdinalIgnoreCase)))
+            .Where(a => string.IsNullOrEmpty(query) ||
+                        a.Name.Contains(query, StringComparison.OrdinalIgnoreCase) ||
+                        a.AltNames.Any(alt => alt.Contains(query, StringComparison.OrdinalIgnoreCase)))
+            .OrderBy(a => a.Name, StringComparer.OrdinalIgnoreCase)
+            .Take(40);
+
+        foreach (var c in candidates)
+        {
+            FilteredCombineTargetArtists.Add(c);
+        }
+    }
+
+    public void RefreshActiveAliasRules()
+    {
+        ActiveAliasRules.Clear();
+        var all = ArtistAliasService.Instance.GetAllAliases();
+        foreach (var kvp in all.OrderBy(k => k.Key, StringComparer.OrdinalIgnoreCase))
+        {
+            ActiveAliasRules.Add(new ArtistAliasRuleItem
+            {
+                Alias = kvp.Key,
+                Canonical = kvp.Value
+            });
+        }
+        OnPropertyChanged(nameof(ActiveAliasRules));
+    }
+
+    [RelayCommand]
+    public void OpenCombineArtistDialog(object? param = null)
+    {
+        ArtistModel? target = null;
+        if (param is ArtistModel am)
+        {
+            target = am;
+        }
+        else if (param is string str && !string.IsNullOrWhiteSpace(str))
+        {
+            target = _cache.CachedArtists.FirstOrDefault(a => string.Equals(a.Name, str.Trim(), StringComparison.OrdinalIgnoreCase))
+                  ?? new ArtistModel { Name = str.Trim() };
+        }
+        else
+        {
+            target = SelectedArtistDetail;
+        }
+
+        IsCombineRulesTabActive = false;
+        CombineSourceArtist = target;
+        CombineTargetArtist = null;
+        CombineSearchText = string.Empty;
+        CombineKeepNameOption = 0;
+        UpdateFilteredCombineTargetArtists();
+        RefreshActiveAliasRules();
+        IsCombineArtistDialogOpen = true;
+    }
+
+    [RelayCommand]
+    public void CloseCombineArtistDialog()
+    {
+        IsCombineArtistDialogOpen = false;
+    }
+
+    [RelayCommand]
+    public void SelectCombineTargetArtist(ArtistModel? artist)
+    {
+        if (artist == null) return;
+        if (CombineSourceArtist == null)
+        {
+            CombineSourceArtist = artist;
+        }
+        else
+        {
+            CombineTargetArtist = artist;
+        }
+    }
+
+    [RelayCommand]
+    public void ClearCombineSourceArtist()
+    {
+        CombineSourceArtist = null;
+        UpdateFilteredCombineTargetArtists();
+    }
+
+    [RelayCommand]
+    public void ClearCombineTargetArtist()
+    {
+        CombineTargetArtist = null;
+        UpdateFilteredCombineTargetArtists();
+    }
+
+    [RelayCommand]
+    public void SetCombineRulesTab(bool showRules)
+    {
+        IsCombineRulesTabActive = showRules;
+        if (showRules)
+        {
+            RefreshActiveAliasRules();
+        }
+    }
+
+    [RelayCommand]
+    public void ShowCombineTab()
+    {
+        IsCombineRulesTabActive = false;
+    }
+
+    [RelayCommand]
+    public void ShowRulesTab()
+    {
+        IsCombineRulesTabActive = true;
+        RefreshActiveAliasRules();
+    }
+
+    [RelayCommand]
+    public async Task ExecuteCombineArtistsAsync()
+    {
+        if (CombineSourceArtist == null || CombineTargetArtist == null) return;
+
+        string nameA = CombineSourceArtist.Name;
+        string nameB = CombineTargetArtist.Name;
+
+        string canonicalName = CombineKeepNameOption == 0 ? nameA : nameB;
+        string aliasName = CombineKeepNameOption == 0 ? nameB : nameA;
+
+        if (string.Equals(aliasName, canonicalName, StringComparison.OrdinalIgnoreCase))
+            return;
+
+        ArtistAliasService.Instance.SetAlias(aliasName, canonicalName, saveImmediately: true);
+
+        await LibraryCacheService.Instance.RebuildGroupsAndRefreshAsync();
+
+        if (OsuLibraryService.Instance.IsLoaded)
+        {
+            OsuLibraryService.Instance.ReindexOsuArtists();
+        }
+
+        if (SelectedArtistDetail != null &&
+            (string.Equals(SelectedArtistDetail.Name, nameA, StringComparison.OrdinalIgnoreCase) ||
+             string.Equals(SelectedArtistDetail.Name, nameB, StringComparison.OrdinalIgnoreCase)))
+        {
+            var unified = _cache.CachedArtists.FirstOrDefault(a => string.Equals(a.Name, canonicalName, StringComparison.OrdinalIgnoreCase));
+            if (unified != null)
+            {
+                SelectedArtistDetail = unified;
+            }
+        }
+
+        RefreshActiveAliasRules();
+        IsCombineArtistDialogOpen = false;
+
+        MainViewModel.Instance?.ShowToast(
+            "Artistas combinados",
+            $"Las canciones de '{aliasName}' ahora se muestran agrupadas bajo '{canonicalName}'.",
+            isWarning: false,
+            durationMs: 3500
+        );
+    }
+
+    [RelayCommand]
+    public async Task RemoveAliasRuleAsync(ArtistAliasRuleItem? rule)
+    {
+        if (rule == null || string.IsNullOrWhiteSpace(rule.Alias)) return;
+
+        string alias = rule.Alias;
+        string canonical = rule.Canonical;
+
+        ArtistAliasService.Instance.RemoveAlias(alias, saveImmediately: true);
+
+        await LibraryCacheService.Instance.RebuildGroupsAndRefreshAsync();
+
+        if (OsuLibraryService.Instance.IsLoaded)
+        {
+            OsuLibraryService.Instance.ReindexOsuArtists();
+        }
+
+        RefreshActiveAliasRules();
+
+        MainViewModel.Instance?.ShowToast(
+            "Combinación eliminada",
+            $"Se han separado '{alias}' y '{canonical}'.",
+            isWarning: false,
+            durationMs: 3500
+        );
+    }
 }
 
 public class JumpListLetterItem : ObservableObject

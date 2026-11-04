@@ -193,12 +193,15 @@ public static class ArtistNavigationHelper
     public static ArtistModel ResolveArtist(string name)
     {
         string trimmed = name.Trim();
+        string canonical = ArtistAliasService.Instance.GetCanonicalName(trimmed);
         var vm = MainViewModel.Instance;
         var osuService = OsuLibraryService.Instance;
 
         bool Matches(ArtistModel a) =>
             string.Equals(a.Name, trimmed, StringComparison.OrdinalIgnoreCase) ||
-            a.AltNames.Any(alt => string.Equals(alt, trimmed, StringComparison.OrdinalIgnoreCase));
+            string.Equals(a.Name, canonical, StringComparison.OrdinalIgnoreCase) ||
+            a.AltNames.Any(alt => string.Equals(alt, trimmed, StringComparison.OrdinalIgnoreCase) ||
+                                  string.Equals(alt, canonical, StringComparison.OrdinalIgnoreCase));
 
         // 1. Si estamos en OsuLibrary o el modo osu! está activo
         if (vm?.CurrentView == "OsuLibrary" || vm?.Settings.IsOsuModeEnabled == true)

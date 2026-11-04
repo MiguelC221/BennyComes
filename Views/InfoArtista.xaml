@@ -490,6 +490,14 @@
                                             <ui:SymbolIcon Symbol="ArrowSync24" />
                                         </MenuItem.Icon>
                                     </MenuItem>
+                                    <Separator />
+                                    <MenuItem Header="Combinar con otro artista..."
+                                              Command="{Binding Source={x:Static vm:MainViewModel.Instance}, Path=MyMusic.OpenCombineArtistDialogCommand}"
+                                              CommandParameter="{Binding Artist, ElementName=RootInfoArtista}">
+                                        <MenuItem.Icon>
+                                            <ui:SymbolIcon Symbol="PeopleSwap24" />
+                                        </MenuItem.Icon>
+                                    </MenuItem>
                                 </ContextMenu>
                             </Button.ContextMenu>
                             <Button.Template>

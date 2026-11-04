@@ -607,4 +607,12 @@ public class DoubtfulArtistPair
     public string Subtitle => $"{TrackCount} canciones • {Reason}";
 }
 
+public class ArtistAliasRuleItem
+{
+    public string Alias { get; set; } = string.Empty;
+    public string Canonical { get; set; } = string.Empty;
+    public string DisplayPair => $"{Alias}  ➔  {Canonical}";
+    public string Subtitle => $"Las canciones de '{Alias}' se agrupan bajo '{Canonical}'";
+}
+
 

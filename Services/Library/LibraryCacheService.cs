@@ -43,6 +43,7 @@ public class LibraryCacheService
     {
         if (IsLoaded) return;
         await ArtistSplitterService.Instance.LoadSettingsAsync();
+        ArtistAliasService.Instance.Load();
 
         // Fast-path: load precomputed Songs, Albums, and Artists concurrently from %LocalAppData%\BenyComes\IndexDB\
         var (hasData, indexedTracks, indexedAlbums, indexedArtists, indexedGenres) =
@@ -62,6 +63,33 @@ public class LibraryCacheService
         }
 
         await ReloadFromDatabaseAsync();
+    }
+
+    /// <summary>
+    /// Reconstruye instantáneamente las agrupaciones de artistas y álbumes en memoria a partir de CachedTracks
+    /// (aplicando alias y separadores actualizados) y actualiza los índices en disco de forma asíncrona.
+    /// </summary>
+    public async Task RebuildGroupsAndRefreshAsync()
+    {
+        if (CachedTracks == null || CachedTracks.Count == 0)
+        {
+            await ReloadFromDatabaseAsync();
+            return;
+        }
+
+        var (albums, artists) = await Task.Run(() =>
+            LibraryIndexDatabase.Instance.BuildGroupsFromTracks(CachedTracks));
+
+        CachedAlbums = albums;
+        CachedArtists = artists;
+
+        _ = Task.Run(async () =>
+        {
+            await LibraryIndexDatabase.Instance.SaveAllParallelAsync(CachedTracks, albums, artists, replaceAll: true);
+            await SaveLegacyGroupedCachesAsync(albums, artists);
+        });
+
+        NotifyLibraryCacheUpdated();
     }
 
     public async Task ReloadFromDatabaseAsync()

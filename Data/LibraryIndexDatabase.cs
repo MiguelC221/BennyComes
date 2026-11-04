@@ -456,10 +456,13 @@ public sealed class LibraryIndexDatabase
         using var r = cmd.ExecuteReader();
         while (r.Read())
         {
+            var artistName = r.GetString(0);
+            var altNames = ArtistAliasService.Instance.GetAliasesFor(artistName);
             var avatarPath = r.GetString(1);
             var artist = new ArtistModel
             {
-                Name = r.GetString(0),
+                Name = artistName,
+                AltNames = altNames,
                 AvatarPath = !string.IsNullOrEmpty(avatarPath) ? avatarPath : null,
                 AlphaGroupKey = r.GetString(2),
                 SortKey = r.GetString(3),
@@ -533,20 +536,21 @@ public sealed class LibraryIndexDatabase
             albumByName.TryAdd(al.Name, al);
         }
 
-        // Build artists with smart splitter
+        // Build artists with smart splitter and alias unification
         var artistTracksMap = new Dictionary<string, List<Track>>(StringComparer.OrdinalIgnoreCase);
         var artistCanonicalName = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var t in tracks)
         {
             var splitNames = ArtistSplitterService.Instance.SplitArtists(t.Artist);
-            foreach (var name in splitNames)
+            foreach (var rawName in splitNames)
             {
-                if (!artistTracksMap.TryGetValue(name, out var list))
+                string canonical = ArtistAliasService.Instance.GetCanonicalName(rawName);
+                if (!artistTracksMap.TryGetValue(canonical, out var list))
                 {
                     list = new List<Track>();
-                    artistTracksMap[name] = list;
-                    artistCanonicalName[name] = name;
+                    artistTracksMap[canonical] = list;
+                    artistCanonicalName[canonical] = canonical;
                 }
                 list.Add(t);
             }
@@ -556,6 +560,7 @@ public sealed class LibraryIndexDatabase
         foreach (var kvp in artistTracksMap)
         {
             string artistName = artistCanonicalName[kvp.Key];
+            var altNames = ArtistAliasService.Instance.GetAliasesFor(artistName);
             var rawTracks = kvp.Value;
 
             // Deduplicate tracks by Id or FilePath while preserving order
@@ -594,6 +599,7 @@ public sealed class LibraryIndexDatabase
             artistList.Add(new ArtistModel
             {
                 Name = artistName,
+                AltNames = altNames,
                 AvatarPath = hasArt ? artPath : null,
                 Tracks = uniqueTracks,
                 Albums = artistAlbums,
@@ -602,7 +608,8 @@ public sealed class LibraryIndexDatabase
                 AlphaGroupKey = alphaKey,
                 SortKey = sortK,
                 GroupRank = rank,
-                SearchText = AlphaGroupHelper.NormalizeForSearch(artistName)
+                SearchText = AlphaGroupHelper.NormalizeForSearch(
+                    altNames.Count > 0 ? $"{artistName} {string.Join(' ', altNames)}" : artistName)
             });
         }
 

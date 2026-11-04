@@ -331,6 +331,16 @@
                     </StackPanel>
                 </Border>
 
+                <!-- Botón Combinar artistas -->
+                <ui:Button Appearance="Secondary" Padding="10,5" Margin="0,0,10,0" VerticalAlignment="Center"
+                           Command="{Binding MyMusic.OpenCombineArtistDialogCommand}"
+                           ToolTip="Combinar artistas que tengan el mismo nombre (ej. Camellia y かめりあ)">
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <ui:SymbolIcon Symbol="PeopleSwap24" FontSize="14" Foreground="{Binding Theme.CurrentAccentBrush}" Margin="0,0,6,0" VerticalAlignment="Center" />
+                        <TextBlock Text="Combinar artistas..." FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" />
+                    </StackPanel>
+                </ui:Button>
+
                 <!-- Non-blocking Download notification chip -->
                 <Border Background="{DynamicResource SurfaceCardHoverBrush}" BorderBrush="{DynamicResource SurfaceCardBorderBrush}" BorderThickness="1" CornerRadius="8" Padding="8,4"
                         Visibility="{Binding MyMusic.IsDownloadingArtistImages, Converter={StaticResource BoolToVisConverter}}">
@@ -1221,6 +1231,315 @@
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
                 </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- ============================================================== -->
+        <!-- MODAL OVERLAY: COMBINAR ARTISTAS                               -->
+        <!-- ============================================================== -->
+        <Grid Background="#88000000"
+              Visibility="{Binding MyMusic.IsCombineArtistDialogOpen, Converter={StaticResource BoolToVisConverter}}"
+              Panel.ZIndex="130">
+            <!-- Click outside to close -->
+            <Grid.InputBindings>
+                <MouseBinding MouseAction="LeftClick" Command="{Binding MyMusic.CloseCombineArtistDialogCommand}" />
+            </Grid.InputBindings>
+
+            <Border Background="{DynamicResource SurfaceCardBrush}"
+                    BorderBrush="{DynamicResource SurfaceCardBorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="14"
+                    Padding="24"
+                    Width="560"
+                    MaxHeight="650"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center">
+                <Border.InputBindings>
+                    <!-- Stop click through -->
+                    <MouseBinding MouseAction="LeftClick" Command="{x:Null}" />
+                </Border.InputBindings>
+
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <!-- Header -->
+                    <Grid Grid.Row="0" Margin="0,0,0,12">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <ui:SymbolIcon Symbol="PeopleSwap24" FontSize="20" Foreground="{Binding Theme.CurrentAccentBrush}" Margin="0,0,10,0" />
+                            <TextBlock Text="Combinar artistas" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" />
+                        </StackPanel>
+                        <ui:Button Appearance="Transparent" HorizontalAlignment="Right" Padding="6"
+                                   Command="{Binding MyMusic.CloseCombineArtistDialogCommand}"
+                                   ToolTip="Cerrar">
+                            <ui:SymbolIcon Symbol="Dismiss24" FontSize="16" Foreground="{DynamicResource TextSecondaryBrush}" />
+                        </ui:Button>
+                    </Grid>
+
+                    <!-- Tab Switcher -->
+                    <Border Grid.Row="1" Background="{DynamicResource SurfaceCardSubtleBrush}"
+                            BorderBrush="{DynamicResource SurfaceCardBorderBrush}" BorderThickness="1"
+                            CornerRadius="8" Padding="3" HorizontalAlignment="Left" Margin="0,0,0,16">
+                        <StackPanel Orientation="Horizontal">
+                            <Button Padding="14,6" Cursor="Hand"
+                                    Command="{Binding MyMusic.ShowCombineTabCommand}">
+                                <Button.Style>
+                                    <Style TargetType="Button">
+                                        <Setter Property="Background" Value="Transparent" />
+                                        <Setter Property="BorderThickness" Value="0" />
+                                        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding MyMusic.IsCombineRulesTabActive}" Value="False">
+                                                <Setter Property="Background" Value="{DynamicResource SurfaceCardHoverBrush}" />
+                                                <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border Background="{TemplateBinding Background}" CornerRadius="6" Padding="{TemplateBinding Padding}">
+                                            <StackPanel Orientation="Horizontal">
+                                                <ui:SymbolIcon Symbol="Add24" FontSize="14" Margin="0,0,6,0" />
+                                                <TextBlock Text="Combinar artistas" FontSize="12" FontWeight="SemiBold" Foreground="{TemplateBinding Foreground}" />
+                                            </StackPanel>
+                                        </Border>
+                                    </ControlTemplate>
+                                </Button.Template>
+                            </Button>
+
+                            <Button Padding="14,6" Cursor="Hand"
+                                    Command="{Binding MyMusic.ShowRulesTabCommand}">
+                                <Button.Style>
+                                    <Style TargetType="Button">
+                                        <Setter Property="Background" Value="Transparent" />
+                                        <Setter Property="BorderThickness" Value="0" />
+                                        <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding MyMusic.IsCombineRulesTabActive}" Value="True">
+                                                <Setter Property="Background" Value="{DynamicResource SurfaceCardHoverBrush}" />
+                                                <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border Background="{TemplateBinding Background}" CornerRadius="6" Padding="{TemplateBinding Padding}">
+                                            <StackPanel Orientation="Horizontal">
+                                                <ui:SymbolIcon Symbol="PeopleList24" FontSize="14" Margin="0,0,6,0" />
+                                                <TextBlock Text="{Binding MyMusic.ActiveAliasRules.Count, StringFormat='Combinaciones activas ({0})'}" FontSize="12" FontWeight="SemiBold" Foreground="{TemplateBinding Foreground}" />
+                                            </StackPanel>
+                                        </Border>
+                                    </ControlTemplate>
+                                </Button.Template>
+                            </Button>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- TAB 1: COMBINAR NUEVO -->
+                    <Grid Grid.Row="2" Visibility="{Binding MyMusic.IsCombineRulesTabActive, Converter={StaticResource InverseBoolToVisConverter}}">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <!-- Panel de selección de Artista 1 y Artista 2 -->
+                        <Grid Grid.Row="0" Margin="0,0,0,12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Artista 1 -->
+                            <Border Grid.Column="0" Background="{DynamicResource SurfaceCardSubtleBrush}"
+                                    BorderBrush="{DynamicResource SurfaceCardBorderBrush}" BorderThickness="1"
+                                    CornerRadius="10" Padding="12,10">
+                                <Grid>
+                                    <StackPanel Visibility="{Binding MyMusic.HasCombineSourceArtist, Converter={StaticResource BoolToVisConverter}}">
+                                        <TextBlock Text="Primer artista:" FontSize="11" Foreground="{DynamicResource TextTertiaryBrush}" Margin="0,0,0,4" />
+                                        <TextBlock Text="{Binding MyMusic.CombineSourceName}" FontSize="14" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Text="{Binding MyMusic.CombineSourceArtist.TrackCount, StringFormat='{}{0} canciones'}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,2,0,4" />
+                                        <ui:Button Appearance="Transparent" Padding="0" HorizontalAlignment="Left" Cursor="Hand"
+                                                   Command="{Binding MyMusic.ClearCombineSourceArtistCommand}">
+                                            <TextBlock Text="Cambiar..." FontSize="11" Foreground="{Binding Theme.CurrentAccentBrush}" />
+                                        </ui:Button>
+                                    </StackPanel>
+                                    <StackPanel VerticalAlignment="Center" Visibility="{Binding MyMusic.HasNoCombineSourceArtist, Converter={StaticResource BoolToVisConverter}}">
+                                        <TextBlock Text="Paso 1: Elige un artista de la lista de abajo" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" />
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+
+                            <!-- Flecha central -->
+                            <Border Grid.Column="1" Width="32" Height="32" CornerRadius="16"
+                                    Background="{DynamicResource SurfaceCardHoverBrush}"
+                                    Margin="8,0" VerticalAlignment="Center" HorizontalAlignment="Center">
+                                <ui:SymbolIcon Symbol="ArrowRight24" FontSize="14" Foreground="{Binding Theme.CurrentAccentBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+
+                            <!-- Artista 2 -->
+                            <Border Grid.Column="2" Background="{DynamicResource SurfaceCardSubtleBrush}"
+                                    BorderBrush="{DynamicResource SurfaceCardBorderBrush}" BorderThickness="1"
+                                    CornerRadius="10" Padding="12,10">
+                                <Grid>
+                                    <StackPanel Visibility="{Binding MyMusic.HasCombineTargetArtist, Converter={StaticResource BoolToVisConverter}}">
+                                        <TextBlock Text="Combinar con:" FontSize="11" Foreground="{DynamicResource TextTertiaryBrush}" Margin="0,0,0,4" />
+                                        <TextBlock Text="{Binding MyMusic.CombineTargetName}" FontSize="14" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Text="{Binding MyMusic.CombineTargetArtist.TrackCount, StringFormat='{}{0} canciones'}" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,2,0,4" />
+                                        <ui:Button Appearance="Transparent" Padding="0" HorizontalAlignment="Left" Cursor="Hand"
+                                                   Command="{Binding MyMusic.ClearCombineTargetArtistCommand}">
+                                            <TextBlock Text="Cambiar..." FontSize="11" Foreground="{Binding Theme.CurrentAccentBrush}" />
+                                        </ui:Button>
+                                    </StackPanel>
+                                    <StackPanel VerticalAlignment="Center" Visibility="{Binding MyMusic.HasNoCombineTargetArtist, Converter={StaticResource BoolToVisConverter}}">
+                                        <TextBlock Text="Paso 2: Elige el artista con el que deseas combinar" FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" />
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+                        </Grid>
+
+                        <!-- Selector del nombre principal cuando ambos están elegidos -->
+                        <Border Grid.Row="1" Background="{DynamicResource SurfaceCardSubtleBrush}"
+                                BorderBrush="{DynamicResource SurfaceCardBorderBrush}" BorderThickness="1"
+                                CornerRadius="10" Padding="12,10" Margin="0,0,0,12"
+                                Visibility="{Binding MyMusic.CanExecuteCombine, Converter={StaticResource BoolToVisConverter}}">
+                            <StackPanel>
+                                <TextBlock Text="¿Qué nombre deseas mostrar como principal en la biblioteca?" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,6" />
+                                <RadioButton Content="{Binding MyMusic.CombineSourceName}" Margin="0,2,0,4"
+                                             IsChecked="{Binding MyMusic.IsKeepSourceNameChoice, Mode=TwoWay}" />
+                                <RadioButton Content="{Binding MyMusic.CombineTargetName}" Margin="0,2,0,4"
+                                             IsChecked="{Binding MyMusic.IsKeepTargetNameChoice, Mode=TwoWay}" />
+                                <TextBlock Text="Todas las canciones y álbumes aparecerán bajo el nombre elegido. Los archivos de música en disco no se modificarán."
+                                           FontSize="11" Foreground="{DynamicResource TextTertiaryBrush}" TextWrapping="Wrap" Margin="0,4,0,0" />
+                            </StackPanel>
+                        </Border>
+
+                        <!-- Buscador y lista de selección de artista -->
+                        <Grid Grid.Row="2" Margin="0,0,0,14" MinHeight="140" MaxHeight="210">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
+
+                            <ui:TextBox Grid.Row="0"
+                                        Text="{Binding MyMusic.CombineSearchText, UpdateSourceTrigger=PropertyChanged}"
+                                        PlaceholderText="Buscar artista por nombre o alias (ej. Camellia, かめりあ)..."
+                                        Icon="Search24" Margin="0,0,0,8" />
+
+                            <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                                <ItemsControl ItemsSource="{Binding MyMusic.FilteredCombineTargetArtists}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate DataType="{x:Type models:ArtistModel}">
+                                            <Border Background="Transparent" Padding="8,6" CornerRadius="6" Cursor="Hand" Margin="0,0,0,2">
+                                                <Border.InputBindings>
+                                                    <MouseBinding MouseAction="LeftClick"
+                                                                  Command="{Binding DataContext.MyMusic.SelectCombineTargetArtistCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                                  CommandParameter="{Binding}" />
+                                                </Border.InputBindings>
+                                                <Border.Style>
+                                                    <Style TargetType="Border">
+                                                        <Style.Triggers>
+                                                            <Trigger Property="IsMouseOver" Value="True">
+                                                                <Setter Property="Background" Value="{DynamicResource SurfaceCardHoverBrush}" />
+                                                            </Trigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Border.Style>
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto" />
+                                                        <ColumnDefinition Width="*" />
+                                                        <ColumnDefinition Width="Auto" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <ui:SymbolIcon Grid.Column="0" Symbol="Person24" FontSize="16" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,0,10,0" VerticalAlignment="Center" />
+                                                    <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                                        <TextBlock Text="{Binding Name}" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis" />
+                                                        <TextBlock Text="{Binding AltNamesDisplay, StringFormat='Alias: {0}'}" FontSize="11" Foreground="{DynamicResource TextTertiaryBrush}"
+                                                                   Visibility="{Binding HasAltNames, Converter={StaticResource BoolToVisConverter}}" TextTrimming="CharacterEllipsis" />
+                                                    </StackPanel>
+                                                    <TextBlock Grid.Column="2" Text="{Binding TrackCount, StringFormat='{}{0} canciones'}" FontSize="11" Foreground="{DynamicResource TextTertiaryBrush}" VerticalAlignment="Center" Margin="8,0,0,0" />
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </Grid>
+
+                        <!-- Botones de Acción -->
+                        <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right">
+                            <ui:Button Appearance="Secondary" Content="Cancelar" Padding="14,6" Margin="0,0,8,0"
+                                       Command="{Binding MyMusic.CloseCombineArtistDialogCommand}" />
+                            <ui:Button Appearance="Primary" Padding="16,6"
+                                       Background="{Binding Theme.CurrentAccentBrush}"
+                                       IsEnabled="{Binding MyMusic.CanExecuteCombine}"
+                                       Command="{Binding MyMusic.ExecuteCombineArtistsCommand}">
+                                <StackPanel Orientation="Horizontal">
+                                    <ui:SymbolIcon Symbol="Checkmark24" FontSize="14" Foreground="{Binding Theme.AccentForegroundBrush}" Margin="0,0,6,0" />
+                                    <TextBlock Text="Combinar artistas" FontSize="12" FontWeight="Bold" Foreground="{Binding Theme.AccentForegroundBrush}" />
+                                </StackPanel>
+                            </ui:Button>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- TAB 2: COMBINACIONES ACTIVAS -->
+                    <Grid Grid.Row="2" Visibility="{Binding MyMusic.IsCombineRulesTabActive, Converter={StaticResource BoolToVisConverter}}" MinHeight="250" MaxHeight="400">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Grid.Row="0" Text="Lista de artistas combinados. Puedes separar cualquier artista en cualquier momento haciendo clic en 'Separar':"
+                                   FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" TextWrapping="Wrap" Margin="0,0,0,10" />
+
+                        <!-- Estado vacío -->
+                        <StackPanel Grid.Row="1" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="0,20"
+                                    Visibility="{Binding MyMusic.ActiveAliasRules.Count, Converter={StaticResource InverseBoolToVisConverter}}">
+                            <ui:SymbolIcon Symbol="People24" FontSize="36" Foreground="{DynamicResource TextTertiaryBrush}" HorizontalAlignment="Center" Margin="0,0,0,8" />
+                            <TextBlock Text="No hay artistas combinados actualmente" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource TextSecondaryBrush}" HorizontalAlignment="Center" />
+                        </StackPanel>
+
+                        <!-- Lista de reglas -->
+                        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                            <ItemsControl ItemsSource="{Binding MyMusic.ActiveAliasRules}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate DataType="{x:Type models:ArtistAliasRuleItem}">
+                                        <Border Background="{DynamicResource SurfaceCardSubtleBrush}"
+                                                BorderBrush="{DynamicResource SurfaceCardBorderBrush}" BorderThickness="1"
+                                                CornerRadius="8" Padding="12,8" Margin="0,0,0,8">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,10,0">
+                                                    <TextBlock Text="{Binding DisplayPair}" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis" />
+                                                    <TextBlock Text="{Binding Subtitle}" FontSize="11" Foreground="{DynamicResource TextTertiaryBrush}" TextTrimming="CharacterEllipsis" Margin="0,2,0,0" />
+                                                </StackPanel>
+                                                <ui:Button Grid.Column="1" Appearance="Secondary" Padding="8,4"
+                                                           ToolTip="Separar artistas (deshacer combinación)"
+                                                           Command="{Binding DataContext.MyMusic.RemoveAliasRuleCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                           CommandParameter="{Binding}">
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <ui:SymbolIcon Symbol="Dismiss24" FontSize="12" Margin="0,0,4,0" />
+                                                        <TextBlock Text="Separar" FontSize="11" />
+                                                    </StackPanel>
+                                                </ui:Button>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </Grid>
+                </Grid>
             </Border>
         </Grid>
     </Grid>
