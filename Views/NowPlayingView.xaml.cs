@@ -51,12 +51,19 @@ public partial class NowPlayingView : UserControl
     {
         if (IsVisible)
         {
-            _hudInactivityTimer.Start();
             StartBackgroundCinematicMotion();
             if (DataContext is MainViewModel vm)
             {
                 AnimateQueueState(vm.IsNowPlayingQueueExpanded, immediate: true);
+                if (vm.NowPlaying?.CurrentTrack != null)
+                {
+                    UpdateOsuVideoState(vm.NowPlaying.CurrentTrack);
+                }
             }
+            FadeInHud();
+            _hudInactivityTimer.Stop();
+            _hudInactivityTimer.Interval = _isCinemaMode ? TimeSpan.FromSeconds(10) : TimeSpan.FromSeconds(3.5);
+            _hudInactivityTimer.Start();
         }
         else
         {
@@ -296,6 +303,11 @@ public partial class NowPlayingView : UserControl
             System.IO.File.Exists(track.VideoPath))
         {
             _isVideoActive = true;
+            if (!_isCinemaMode)
+            {
+                _isCinemaMode = true;
+                UpdateCinemaModeVisualState(showToast: false);
+            }
             if (OsuBackgroundVideoPlayer != null)
             {
                 OsuBackgroundVideoPlayer.Source = new Uri(track.VideoPath, UriKind.Absolute);
@@ -314,6 +326,11 @@ public partial class NowPlayingView : UserControl
         else
         {
             _isVideoActive = false;
+            if (_isCinemaMode)
+            {
+                _isCinemaMode = false;
+                UpdateCinemaModeVisualState(showToast: false);
+            }
             RestoreArtworkBackground();
         }
     }
@@ -460,6 +477,11 @@ public partial class NowPlayingView : UserControl
 
         // Si LibVLC tampoco pudo reproducirlo
         _incompatibleVideos.Add(failedPath);
+        if (_isCinemaMode)
+        {
+            _isCinemaMode = false;
+            UpdateCinemaModeVisualState(showToast: false);
+        }
         RestoreArtworkBackground();
         ShowIncompatibleVideoToast(failedPath);
     }
@@ -477,6 +499,11 @@ public partial class NowPlayingView : UserControl
             _currentVlcVideoPath = videoPath;
             _isVlcActive = true;
             _isVideoActive = true;
+            if (!_isCinemaMode)
+            {
+                _isCinemaMode = true;
+                UpdateCinemaModeVisualState(showToast: false);
+            }
 
             if (OsuVlcVideoImage != null)
             {
@@ -533,6 +560,11 @@ public partial class NowPlayingView : UserControl
         }
 
         StopVlcPlayback();
+        if (_isCinemaMode)
+        {
+            _isCinemaMode = false;
+            UpdateCinemaModeVisualState(showToast: false);
+        }
         RestoreArtworkBackground();
         ShowIncompatibleVideoToast(failedPath);
     }
@@ -630,6 +662,10 @@ public partial class NowPlayingView : UserControl
 
             _ = vm.NowPlaying.RefreshArtistBackgroundAsync(vm.NowPlaying.Artist);
             AnimateQueueState(vm.IsNowPlayingQueueExpanded, immediate: true);
+            if (vm.NowPlaying.CurrentTrack != null)
+            {
+                UpdateOsuVideoState(vm.NowPlaying.CurrentTrack);
+            }
         }
 
         StartBackgroundCinematicMotion();
@@ -651,10 +687,10 @@ public partial class NowPlayingView : UserControl
     private void OnCinemaModeButtonClick(object sender, RoutedEventArgs e)
     {
         _isCinemaMode = !_isCinemaMode;
-        UpdateCinemaModeVisualState();
+        UpdateCinemaModeVisualState(showToast: true);
     }
 
-    private void UpdateCinemaModeVisualState()
+    private void UpdateCinemaModeVisualState(bool showToast = false)
     {
         if (CinemaModeIcon != null && CinemaModeButton != null)
         {
@@ -666,12 +702,15 @@ public partial class NowPlayingView : UserControl
                     CinemaModeIcon.Foreground = vm.Theme.CurrentAccentBrush;
                 }
                 CinemaModeButton.ToolTip = "Modo cine activado (Clic para desactivar)";
-                (DataContext as MainViewModel ?? MainViewModel.Instance)?.ShowToast(
-                    "Modo Cine",
-                    "El HUD completo se ocultará automáticamente al dejar el cursor",
-                    isWarning: false,
-                    durationMs: 3000
-                );
+                if (showToast)
+                {
+                    (DataContext as MainViewModel ?? MainViewModel.Instance)?.ShowToast(
+                        "Modo Cine",
+                        "El HUD completo se ocultará automáticamente al dejar el cursor",
+                        isWarning: false,
+                        durationMs: 3000
+                    );
+                }
             }
             else
             {
