@@ -92,6 +92,15 @@ public partial class InfoArtista : UserControl
     public InfoArtista()
     {
         InitializeComponent();
+        IsVisibleChanged += OnIsVisibleChanged;
+    }
+
+    private void OnIsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
+    {
+        if (IsVisible)
+        {
+            _artistOpenedTick = Environment.TickCount64;
+        }
     }
 
     private static void OnArtistPropertyChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
@@ -456,8 +465,8 @@ public partial class InfoArtista : UserControl
 
     private void OnOpenAlbumDetailClick(object sender, MouseButtonEventArgs e)
     {
-        // Debounce: Evitar clicks accidentales durante la transición de entrada hacia InfoArtista (bloquear los primeros 500ms)
-        if (Environment.TickCount64 - _artistOpenedTick < 500)
+        // Debounce: Evitar clicks accidentales o dobles clicks provenientes de la vista anterior (bloquear los primeros 900ms o click múltiple)
+        if (Environment.TickCount64 - _artistOpenedTick < 900 || e.ClickCount > 1)
         {
             e.Handled = true;
             return;

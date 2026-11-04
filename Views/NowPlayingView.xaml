@@ -42,23 +42,25 @@
                 </Image>
             </Grid>
 
-            <!-- osu! Video Background Player Layer (placed outside BackgroundTransformContainer so video does NOT zoom/pan) -->
+            <!-- osu! Video Background Player Layer (MediaElement nativo) -->
             <MediaElement x:Name="OsuBackgroundVideoPlayer"
                           LoadedBehavior="Manual"
                           UnloadedBehavior="Stop"
                           Stretch="{Binding NowPlaying.OsuVideoStretch}"
                           HorizontalAlignment="Center"
                           VerticalAlignment="Center"
+                          IsHitTestVisible="False"
                           IsMuted="True"
                           ScrubbingEnabled="True"
                           Opacity="0.0" />
 
-            <!-- LibVLC Fallback Video Player Layer -->
-            <vlc:VideoView x:Name="OsuVlcVideoPlayer"
-                           HorizontalAlignment="Stretch"
-                           VerticalAlignment="Stretch"
-                           Visibility="Collapsed"
-                           Opacity="0.0" />
+            <!-- LibVLC Fallback Video Player Layer (Memoria / WriteableBitmap nativa sin Airspace) -->
+            <Image x:Name="OsuVlcVideoImage"
+                   Stretch="{Binding NowPlaying.OsuVideoStretch}"
+                   HorizontalAlignment="Center"
+                   VerticalAlignment="Center"
+                   IsHitTestVisible="False"
+                   Opacity="0.0" />
 
             <!-- Darkening overlay with user-adjustable opacity -->
             <Border x:Name="BackgroundDarknessOverlay" Background="#000000" Opacity="{Binding NowPlaying.BackgroundDarkness}" />
@@ -149,8 +151,16 @@
                 </StackPanel>
             </Grid>
 
-            <!-- Top Right Action Buttons: Personalización (...) & Output Mode Badge -->
+            <!-- Top Right Action Buttons: Modo Cine (Ojo), Personalización (...) & Output Mode Badge -->
             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                <!-- Modo Cine / Vista Limpia (Ojo) -->
+                <ui:Button x:Name="CinemaModeButton"
+                           Appearance="Transparent" Padding="8,6" Margin="0,0,6,0"
+                           Click="OnCinemaModeButtonClick"
+                           ToolTip="Modo cine: ocultar todo el HUD al estar inactivo el cursor">
+                    <ui:SymbolIcon x:Name="CinemaModeIcon" Symbol="Eye24" FontSize="20" Foreground="#FFFFFF" />
+                </ui:Button>
+
                 <!-- Personalización Button (...) -->
                 <ui:Button x:Name="CustomizationButton"
                            Appearance="Transparent" Padding="8,6" Margin="0,0,8,0"

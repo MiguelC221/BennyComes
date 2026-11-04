@@ -1,5 +1,6 @@
 using System;
 using System.ComponentModel;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -69,6 +70,15 @@ public partial class NowPlayingView : UserControl
         StartBackgroundCinematicMotion();
         PlayTrackChangedSlideAnimation();
         UpdateOsuVideoState(track);
+
+        FadeInHud();
+        if (_isCinemaMode)
+        {
+            _hudInactivityTimer.Stop();
+            _hudInactivityTimer.Interval = TimeSpan.FromSeconds(10);
+            _hudInactivityTimer.Start();
+        }
+
         if (DataContext is MainViewModel vm && vm.IsNowPlayingQueueExpanded)
         {
             Dispatcher.BeginInvoke(new Action(() => ScrollToCurrentTrack()),
@@ -120,8 +130,21 @@ public partial class NowPlayingView : UserControl
     private static bool _isLibVlcInitialized = false;
     private static NowPlayingView? _currentInstance;
 
+    private static readonly LibVLCSharp.Shared.MediaPlayer.LibVLCVideoFormatCb _videoFormatCb = VideoFormatCallback;
+    private static readonly LibVLCSharp.Shared.MediaPlayer.LibVLCVideoCleanupCb _videoCleanupCb = VideoCleanupCallback;
+    private static readonly LibVLCSharp.Shared.MediaPlayer.LibVLCVideoLockCb _videoLockCb = VideoLockCallback;
+    private static readonly LibVLCSharp.Shared.MediaPlayer.LibVLCVideoUnlockCb _videoUnlockCb = VideoUnlockCallback;
+    private static readonly LibVLCSharp.Shared.MediaPlayer.LibVLCVideoDisplayCb _videoDisplayCb = VideoDisplayCallback;
+
+    private static IntPtr _vlcBuffer = IntPtr.Zero;
+    private static int _vlcBufferSize = 0;
+    private static uint _vlcVideoWidth = 0;
+    private static uint _vlcVideoHeight = 0;
+    private WriteableBitmap? _vlcBitmap;
+
     private bool _isVlcActive = false;
     private string? _currentVlcVideoPath = null;
+    private bool _isCinemaMode = false;
 
     private static void EnsureLibVlcInitialized()
     {
@@ -132,12 +155,95 @@ public partial class NowPlayingView : UserControl
             _libVlc = new VlcInstance("--no-audio");
             _libVlcPlayer = new VlcPlayer(_libVlc);
             _libVlcPlayer.EncounteredError += OnVlcPlayerEncounteredError;
+            _libVlcPlayer.SetVideoFormatCallbacks(_videoFormatCb, _videoCleanupCb);
+            _libVlcPlayer.SetVideoCallbacks(_videoLockCb, _videoUnlockCb, _videoDisplayCb);
             _isLibVlcInitialized = true;
         }
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"[LibVLC] Init failed: {ex.Message}");
         }
+    }
+
+    private static uint VideoFormatCallback(ref IntPtr opaque, IntPtr chroma, ref uint width, ref uint height, ref uint pitches, ref uint lines)
+    {
+        byte[] fourcc = new byte[] { (byte)'R', (byte)'V', (byte)'3', (byte)'2' };
+        Marshal.Copy(fourcc, 0, chroma, 4);
+
+        pitches = width * 4;
+        lines = height;
+
+        _vlcVideoWidth = width;
+        _vlcVideoHeight = height;
+
+        int newSize = (int)(pitches * lines);
+        if (_vlcBuffer == IntPtr.Zero || _vlcBufferSize < newSize)
+        {
+            if (_vlcBuffer != IntPtr.Zero)
+            {
+                Marshal.FreeHGlobal(_vlcBuffer);
+            }
+            _vlcBuffer = Marshal.AllocHGlobal(newSize);
+            _vlcBufferSize = newSize;
+        }
+
+        int w = (int)width;
+        int h = (int)height;
+        Application.Current?.Dispatcher.BeginInvoke(new Action(() =>
+        {
+            _currentInstance?.SetupVlcBitmap(w, h);
+        }));
+
+        return 1;
+    }
+
+    private static void VideoCleanupCallback(ref IntPtr opaque)
+    {
+    }
+
+    private static IntPtr VideoLockCallback(IntPtr opaque, IntPtr planes)
+    {
+        if (_vlcBuffer != IntPtr.Zero)
+        {
+            Marshal.WriteIntPtr(planes, _vlcBuffer);
+        }
+        return IntPtr.Zero;
+    }
+
+    private static void VideoUnlockCallback(IntPtr opaque, IntPtr picture, IntPtr planes)
+    {
+    }
+
+    private static void VideoDisplayCallback(IntPtr opaque, IntPtr picture)
+    {
+        Application.Current?.Dispatcher.BeginInvoke(new Action(() =>
+        {
+            _currentInstance?.RenderVlcFrame();
+        }), System.Windows.Threading.DispatcherPriority.Render);
+    }
+
+    private void SetupVlcBitmap(int width, int height)
+    {
+        if (width <= 0 || height <= 0) return;
+        if (_vlcBitmap == null || _vlcBitmap.PixelWidth != width || _vlcBitmap.PixelHeight != height)
+        {
+            _vlcBitmap = new WriteableBitmap(width, height, 96, 96, PixelFormats.Bgra32, null);
+            if (OsuVlcVideoImage != null)
+            {
+                OsuVlcVideoImage.Source = _vlcBitmap;
+            }
+        }
+    }
+
+    private void RenderVlcFrame()
+    {
+        if (!_isVlcActive || _vlcBitmap == null || _vlcBuffer == IntPtr.Zero || _vlcVideoWidth <= 0 || _vlcVideoHeight <= 0) return;
+        try
+        {
+            int stride = (int)(_vlcVideoWidth * 4);
+            _vlcBitmap.WritePixels(new Int32Rect(0, 0, _vlcBitmap.PixelWidth, _vlcBitmap.PixelHeight), _vlcBuffer, _vlcBufferSize, stride);
+        }
+        catch { }
     }
 
     private static void OnApplicationExit(object? sender, ExitEventArgs e)
@@ -162,6 +268,13 @@ public partial class NowPlayingView : UserControl
             _libVlc?.Dispose();
             _libVlc = null;
             _isLibVlcInitialized = false;
+
+            if (_vlcBuffer != IntPtr.Zero)
+            {
+                Marshal.FreeHGlobal(_vlcBuffer);
+                _vlcBuffer = IntPtr.Zero;
+                _vlcBufferSize = 0;
+            }
         }
         catch { }
     }
@@ -208,11 +321,12 @@ public partial class NowPlayingView : UserControl
             _libVlcPlayer.Media = null;
             oldMedia?.Dispose();
         }
-        if (OsuVlcVideoPlayer != null)
+        if (OsuVlcVideoImage != null)
         {
-            OsuVlcVideoPlayer.Opacity = 0.0;
-            OsuVlcVideoPlayer.Visibility = Visibility.Collapsed;
+            OsuVlcVideoImage.Opacity = 0.0;
+            OsuVlcVideoImage.Source = null;
         }
+        _vlcBitmap = null;
     }
 
     private void SyncOsuVideoPlayback()
@@ -330,14 +444,9 @@ public partial class NowPlayingView : UserControl
             _currentVlcVideoPath = videoPath;
             _isVlcActive = true;
 
-            if (OsuVlcVideoPlayer != null)
+            if (OsuVlcVideoImage != null)
             {
-                if (OsuVlcVideoPlayer.MediaPlayer != _libVlcPlayer)
-                {
-                    OsuVlcVideoPlayer.MediaPlayer = _libVlcPlayer;
-                }
-                OsuVlcVideoPlayer.Visibility = Visibility.Visible;
-                OsuVlcVideoPlayer.Opacity = 1.0;
+                OsuVlcVideoImage.Opacity = 1.0;
             }
 
             _libVlcPlayer.Play(media);
@@ -421,10 +530,6 @@ public partial class NowPlayingView : UserControl
     {
         _currentInstance = this;
         EnsureLibVlcInitialized();
-        if (OsuVlcVideoPlayer != null && _libVlcPlayer != null)
-        {
-            OsuVlcVideoPlayer.MediaPlayer = _libVlcPlayer;
-        }
 
         _hudInactivityTimer.Start();
         SizeChanged -= OnNowPlayingViewSizeChanged;
@@ -476,9 +581,45 @@ public partial class NowPlayingView : UserControl
         }
     }
 
+    private void OnCinemaModeButtonClick(object sender, RoutedEventArgs e)
+    {
+        _isCinemaMode = !_isCinemaMode;
+        UpdateCinemaModeVisualState();
+    }
+
+    private void UpdateCinemaModeVisualState()
+    {
+        if (CinemaModeIcon != null && CinemaModeButton != null)
+        {
+            if (_isCinemaMode)
+            {
+                CinemaModeIcon.Symbol = Wpf.Ui.Controls.SymbolRegular.EyeOff24;
+                if (DataContext is MainViewModel vm)
+                {
+                    CinemaModeIcon.Foreground = vm.Theme.CurrentAccentBrush;
+                }
+                CinemaModeButton.ToolTip = "Modo cine activado (Clic para desactivar)";
+                (DataContext as MainViewModel ?? MainViewModel.Instance)?.ShowToast(
+                    "Modo Cine",
+                    "El HUD completo se ocultará automáticamente al dejar el cursor",
+                    isWarning: false,
+                    durationMs: 3000
+                );
+            }
+            else
+            {
+                CinemaModeIcon.Symbol = Wpf.Ui.Controls.SymbolRegular.Eye24;
+                CinemaModeIcon.Foreground = Brushes.White;
+                CinemaModeButton.ToolTip = "Modo cine: ocultar todo el HUD al estar inactivo el cursor";
+                FadeInHud();
+            }
+        }
+    }
+
     private void OnUserActivity(object? sender, EventArgs e)
     {
         _hudInactivityTimer.Stop();
+        _hudInactivityTimer.Interval = TimeSpan.FromSeconds(3.5);
         if (!_isHudVisible)
         {
             FadeInHud();
@@ -488,6 +629,7 @@ public partial class NowPlayingView : UserControl
 
     private void OnInactivityTimerTick(object? sender, EventArgs e)
     {
+        _hudInactivityTimer.Interval = TimeSpan.FromSeconds(3.5);
         if (_isDraggingSeek || _isDraggingVolume) return;
         if (DataContext is MainViewModel vm)
         {
@@ -531,33 +673,60 @@ public partial class NowPlayingView : UserControl
             TechBadgesPanel.IsHitTestVisible = false;
         }
 
-        // Al estar inactivo el mouse, acomodar suavemente hacia abajo el bloque único y los visualizadores alternativos
-        double hudRowHeight = 0;
-        if (StandardImmersiveLayout != null && StandardImmersiveLayout.RowDefinitions.Count > 1)
+        if (_isCinemaMode)
         {
-            hudRowHeight = StandardImmersiveLayout.RowDefinitions[1].ActualHeight;
+            // Ocultar TODO el HUD completamente en Modo Cine
+            if (TrackInfoContainer != null)
+            {
+                TrackInfoContainer.BeginAnimation(OpacityProperty, fadeOut);
+                TrackInfoContainer.IsHitTestVisible = false;
+            }
+            if (VisualizerCenterContainer != null)
+            {
+                VisualizerCenterContainer.BeginAnimation(OpacityProperty, fadeOut);
+                VisualizerCenterContainer.IsHitTestVisible = false;
+            }
+            if (VisualizerRightContainer != null)
+            {
+                VisualizerRightContainer.BeginAnimation(OpacityProperty, fadeOut);
+                VisualizerRightContainer.IsHitTestVisible = false;
+            }
+            if (NormalImmersiveContainer != null)
+            {
+                NormalImmersiveContainer.BeginAnimation(OpacityProperty, fadeOut);
+                NormalImmersiveContainer.IsHitTestVisible = false;
+            }
         }
-        else if (BottomHudControlsContainer != null)
+        else
         {
-            hudRowHeight = BottomHudControlsContainer.ActualHeight;
-        }
+            // Al estar inactivo el mouse, acomodar suavemente hacia abajo el bloque único y los visualizadores alternativos
+            double hudRowHeight = 0;
+            if (StandardImmersiveLayout != null && StandardImmersiveLayout.RowDefinitions.Count > 1)
+            {
+                hudRowHeight = StandardImmersiveLayout.RowDefinitions[1].ActualHeight;
+            }
+            else if (BottomHudControlsContainer != null)
+            {
+                hudRowHeight = BottomHudControlsContainer.ActualHeight;
+            }
 
-        double trackLift = Math.Max(0, hudRowHeight - 28.0);
-        if (TrackInfoTranslate != null)
-        {
-            TrackInfoTranslate.BeginAnimation(TranslateTransform.YProperty,
-                new DoubleAnimation(TrackInfoTranslate.Y, trackLift, moveDuration) { EasingFunction = easeInOut });
-        }
+            double trackLift = Math.Max(0, hudRowHeight - 28.0);
+            if (TrackInfoTranslate != null)
+            {
+                TrackInfoTranslate.BeginAnimation(TranslateTransform.YProperty,
+                    new DoubleAnimation(TrackInfoTranslate.Y, trackLift, moveDuration) { EasingFunction = easeInOut });
+            }
 
-        if (VisualizerCenterTranslate != null)
-        {
-            VisualizerCenterTranslate.BeginAnimation(TranslateTransform.YProperty,
-                new DoubleAnimation(VisualizerCenterTranslate.Y, trackLift, moveDuration) { EasingFunction = easeInOut });
-        }
-        if (VisualizerRightTranslate != null)
-        {
-            VisualizerRightTranslate.BeginAnimation(TranslateTransform.YProperty,
-                new DoubleAnimation(VisualizerRightTranslate.Y, trackLift, moveDuration) { EasingFunction = easeInOut });
+            if (VisualizerCenterTranslate != null)
+            {
+                VisualizerCenterTranslate.BeginAnimation(TranslateTransform.YProperty,
+                    new DoubleAnimation(VisualizerCenterTranslate.Y, trackLift, moveDuration) { EasingFunction = easeInOut });
+            }
+            if (VisualizerRightTranslate != null)
+            {
+                VisualizerRightTranslate.BeginAnimation(TranslateTransform.YProperty,
+                    new DoubleAnimation(VisualizerRightTranslate.Y, trackLift, moveDuration) { EasingFunction = easeInOut });
+            }
         }
     }
 
@@ -583,6 +752,27 @@ public partial class NowPlayingView : UserControl
         {
             TechBadgesPanel.BeginAnimation(OpacityProperty, fadeIn);
             TechBadgesPanel.IsHitTestVisible = true;
+        }
+
+        if (TrackInfoContainer != null)
+        {
+            TrackInfoContainer.BeginAnimation(OpacityProperty, fadeIn);
+            TrackInfoContainer.IsHitTestVisible = true;
+        }
+        if (VisualizerCenterContainer != null)
+        {
+            VisualizerCenterContainer.BeginAnimation(OpacityProperty, fadeIn);
+            VisualizerCenterContainer.IsHitTestVisible = true;
+        }
+        if (VisualizerRightContainer != null)
+        {
+            VisualizerRightContainer.BeginAnimation(OpacityProperty, fadeIn);
+            VisualizerRightContainer.IsHitTestVisible = true;
+        }
+        if (NormalImmersiveContainer != null)
+        {
+            NormalImmersiveContainer.BeginAnimation(OpacityProperty, fadeIn);
+            NormalImmersiveContainer.IsHitTestVisible = true;
         }
 
         // Restore track info container smoothly to original position
