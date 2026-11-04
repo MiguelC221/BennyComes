@@ -1618,79 +1618,73 @@
                 </Grid.ColumnDefinitions>
 
                 <!-- ====================================================== -->
-                <!-- COLUMNA 0: CARÁTULA CUADRADA + TÍTULO Y ARTISTA        -->
+                <!-- COLUMNA 0: CARÁTULA CUADRADA + TÍTULO Y ARTISTA + CORAZÓN -->
                 <!-- ====================================================== -->
-                <Button x:Name="MiniPlayerBigButton" Grid.Column="0" Command="{Binding OpenNowPlayingCommand}"
-                        HorizontalAlignment="Left" MaxWidth="445"
-                        HorizontalContentAlignment="Left" VerticalContentAlignment="Stretch"
-                        VerticalAlignment="Stretch" Padding="0" Margin="0" BorderThickness="0" Background="Transparent"
-                        Cursor="Hand" ToolTip="Clic izquierdo: Abrir vista inmersiva | Clic derecho: Opciones de pista">
-                    <Button.ContextMenu>
-                        <ContextMenu Opened="OnMiniPlayerContextMenuOpened">
-                            <MenuItem Header="Ir a artista"
-                                      Command="{Binding ViewCurrentArtistCommand, Source={x:Static vm:MainViewModel.Instance}}">
-                                <MenuItem.Icon>
-                                    <ui:SymbolIcon Symbol="Person24" />
-                                </MenuItem.Icon>
-                            </MenuItem>
-                            <MenuItem Header="Ir a álbum"
-                                      Command="{Binding ViewCurrentAlbumCommand, Source={x:Static vm:MainViewModel.Instance}}">
-                                <MenuItem.Icon>
-                                    <ui:SymbolIcon Symbol="Album24" />
-                                </MenuItem.Icon>
-                            </MenuItem>
-                            <Separator />
-                            <MenuItem Header="Añadir a lista de reproducción" SubmenuOpened="OnAddToPlaylistSubmenuOpened">
-                                <MenuItem.Icon>
-                                    <ui:SymbolIcon Symbol="List24" />
-                                </MenuItem.Icon>
-                                <MenuItem Header="+ Nueva lista de reproducción..." />
-                            </MenuItem>
-                            <Separator />
-                            <MenuItem Header="Marcar / Desmarcar Favorito ♥"
-                                      Command="{Binding ToggleCurrentTrackFavoriteCommand, Source={x:Static vm:MainViewModel.Instance}}">
-                                <MenuItem.Icon>
-                                    <ui:SymbolIcon Symbol="Heart24" Foreground="#E81123" />
-                                </MenuItem.Icon>
-                            </MenuItem>
-                            <MenuItem Header="Ver información de la pista (Propiedades)"
-                                      Command="{Binding ShowCurrentTrackPropertiesCommand, Source={x:Static vm:MainViewModel.Instance}}">
-                                <MenuItem.Icon>
-                                    <ui:SymbolIcon Symbol="Info24" />
-                                </MenuItem.Icon>
-                            </MenuItem>
-                        </ContextMenu>
-                    </Button.ContextMenu>
-                    <Button.Template>
-                        <ControlTemplate TargetType="Button">
-                            <Border x:Name="BigButtonBorder" Background="Transparent" VerticalAlignment="Stretch" Padding="0,0,12,0">
-                                <Grid x:Name="MiniPlayerTrackInfoContainer" VerticalAlignment="Stretch">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="100" />
-                                        <ColumnDefinition Width="*" />
-                                    </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Left">
+                    <Button x:Name="MiniPlayerBigButton" Command="{Binding OpenNowPlayingCommand}"
+                            HorizontalAlignment="Left" MaxWidth="380"
+                            HorizontalContentAlignment="Left" VerticalContentAlignment="Stretch"
+                            VerticalAlignment="Stretch" Padding="0" Margin="0" BorderThickness="0" Background="Transparent"
+                            Cursor="Hand" ToolTip="Clic izquierdo: Abrir vista inmersiva | Clic derecho: Opciones de pista">
+                        <Button.ContextMenu>
+                            <ContextMenu Opened="OnMiniPlayerContextMenuOpened">
+                                <MenuItem Header="Ir a artista"
+                                          Command="{Binding ViewCurrentArtistCommand, Source={x:Static vm:MainViewModel.Instance}}">
+                                    <MenuItem.Icon>
+                                        <ui:SymbolIcon Symbol="Person24" />
+                                    </MenuItem.Icon>
+                                </MenuItem>
+                                <MenuItem Header="Ir a álbum"
+                                          Command="{Binding ViewCurrentAlbumCommand, Source={x:Static vm:MainViewModel.Instance}}">
+                                    <MenuItem.Icon>
+                                        <ui:SymbolIcon Symbol="Album24" />
+                                    </MenuItem.Icon>
+                                </MenuItem>
+                                <Separator />
+                                <MenuItem Header="Añadir a lista de reproducción" SubmenuOpened="OnAddToPlaylistSubmenuOpened">
+                                    <MenuItem.Icon>
+                                        <ui:SymbolIcon Symbol="List24" />
+                                    </MenuItem.Icon>
+                                    <MenuItem Header="+ Nueva lista de reproducción..." />
+                                </MenuItem>
+                                <Separator />
+                                <MenuItem Header="Marcar / Desmarcar Favorito ♥"
+                                          Command="{Binding ToggleCurrentTrackFavoriteCommand, Source={x:Static vm:MainViewModel.Instance}}">
+                                    <MenuItem.Icon>
+                                        <ui:SymbolIcon Symbol="Heart24" Foreground="#E81123" />
+                                    </MenuItem.Icon>
+                                </MenuItem>
+                                <MenuItem Header="Ver información de la pista (Propiedades)"
+                                          Command="{Binding ShowCurrentTrackPropertiesCommand, Source={x:Static vm:MainViewModel.Instance}}">
+                                    <MenuItem.Icon>
+                                        <ui:SymbolIcon Symbol="Info24" />
+                                    </MenuItem.Icon>
+                                </MenuItem>
+                            </ContextMenu>
+                        </Button.ContextMenu>
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border x:Name="BigButtonBorder" Background="Transparent" VerticalAlignment="Stretch" Padding="0,0,12,0">
+                                    <Grid x:Name="MiniPlayerTrackInfoContainer" VerticalAlignment="Stretch">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="100" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
 
-                                    <!-- Carátula cuadrada a ras de la barra (100x100 ocupando todo el alto) -->
-                                    <Border Grid.Column="0" Width="100" Height="100" Background="#26FFFFFF"
-                                            VerticalAlignment="Stretch" HorizontalAlignment="Left" SnapsToDevicePixels="True">
-                                        <Image Source="{Binding NowPlaying.AlbumArt}" Stretch="UniformToFill" RenderOptions.BitmapScalingMode="HighQuality" />
-                                    </Border>
+                                        <!-- Carátula cuadrada a ras de la barra (100x100 ocupando todo el alto) -->
+                                        <Border Grid.Column="0" Width="100" Height="100" Background="#26FFFFFF"
+                                                VerticalAlignment="Stretch" HorizontalAlignment="Left" SnapsToDevicePixels="True">
+                                            <Image Source="{Binding NowPlaying.AlbumArt}" Stretch="UniformToFill" RenderOptions.BitmapScalingMode="HighQuality" />
+                                        </Border>
 
-                                    <!-- Título + Corazón (arriba) y Artista (abajo) -->
-                                    <StackPanel x:Name="MiniTrackInfoPanel" Grid.Column="1" VerticalAlignment="Center" Margin="16,0,10,0" ClipToBounds="True">
-                                        <StackPanel.RenderTransform>
-                                            <TranslateTransform x:Name="MiniTrackInfoTranslate" X="0" />
-                                        </StackPanel.RenderTransform>
+                                        <!-- Título (arriba) y Artista (abajo) -->
+                                        <StackPanel x:Name="MiniTrackInfoPanel" Grid.Column="1" VerticalAlignment="Center" Margin="16,0,10,0" ClipToBounds="True">
+                                            <StackPanel.RenderTransform>
+                                                <TranslateTransform x:Name="MiniTrackInfoTranslate" X="0" />
+                                            </StackPanel.RenderTransform>
 
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="Auto" />
-                                                <ColumnDefinition Width="Auto" />
-                                                <ColumnDefinition Width="*" />
-                                            </Grid.ColumnDefinitions>
-
-                                            <!-- Viewport del título: si es corto se ajusta al texto; si supera 265px hace marquesina suave sin esconder el corazón -->
-                                            <ScrollViewer x:Name="MiniTitleViewport" Grid.Column="0"
+                                            <!-- Viewport del título -->
+                                            <ScrollViewer x:Name="MiniTitleViewport"
                                                           MaxWidth="265"
                                                           HorizontalScrollBarVisibility="Hidden"
                                                           VerticalScrollBarVisibility="Disabled"
@@ -1711,49 +1705,48 @@
                                                 </TextBlock>
                                             </ScrollViewer>
 
-                                            <!-- Corazón ♥ junto al título (siempre visible) -->
-                                            <Button Grid.Column="1"
-                                                    Command="{Binding ToggleCurrentTrackFavoriteCommand}"
-                                                    Cursor="Hand" Padding="0" Margin="6,0,0,0"
-                                                    VerticalAlignment="Center"
-                                                    ToolTip="Marcar o quitar de Favoritos">
-                                                <Button.Template>
-                                                    <ControlTemplate TargetType="Button">
-                                                        <Border x:Name="MiniTitleFavBdr" CornerRadius="6" Padding="5,3" Background="Transparent">
-                                                            <ui:SymbolIcon x:Name="MiniTitleFavIcon" Symbol="Heart24" FontSize="15"
-                                                                           Foreground="#D9FFFFFF" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                                        </Border>
-                                                        <ControlTemplate.Triggers>
-                                                            <DataTrigger Binding="{Binding CurrentTrack.IsFavorite}" Value="True">
-                                                                <Setter TargetName="MiniTitleFavIcon" Property="Filled" Value="True" />
-                                                                <Setter TargetName="MiniTitleFavIcon" Property="Foreground" Value="#FFE81123" />
-                                                            </DataTrigger>
-                                                            <DataTrigger Binding="{Binding NowPlaying.CurrentTrack.IsFavorite}" Value="True">
-                                                                <Setter TargetName="MiniTitleFavIcon" Property="Filled" Value="True" />
-                                                                <Setter TargetName="MiniTitleFavIcon" Property="Foreground" Value="#FFE81123" />
-                                                            </DataTrigger>
-                                                            <Trigger Property="IsMouseOver" Value="True">
-                                                                <Setter TargetName="MiniTitleFavBdr" Property="Background" Value="#33FFFFFF" />
-                                                            </Trigger>
-                                                        </ControlTemplate.Triggers>
-                                                    </ControlTemplate>
-                                                </Button.Template>
-                                            </Button>
-                                        </Grid>
+                                            <TextBlock Text="{Binding NowPlaying.Artist}" FontSize="13" FontWeight="Normal"
+                                                       Foreground="#D0FFFFFF" TextTrimming="CharacterEllipsis" Margin="0,4,0,0" />
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="BigButtonBorder" Property="Background" Value="#1AFFFFFF" />
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Button.Template>
+                    </Button>
 
-                                        <TextBlock Text="{Binding NowPlaying.Artist}" FontSize="13" FontWeight="Normal"
-                                                   Foreground="#D0FFFFFF" TextTrimming="CharacterEllipsis" Margin="0,4,0,0" />
-                                    </StackPanel>
-                                </Grid>
-                            </Border>
-                            <ControlTemplate.Triggers>
-                                <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter TargetName="BigButtonBorder" Property="Background" Value="#1AFFFFFF" />
-                                </Trigger>
-                            </ControlTemplate.Triggers>
-                        </ControlTemplate>
-                    </Button.Template>
-                </Button>
+                    <!-- Botón Corazón ♥ independiente, fuera de la caja de información de la pista -->
+                    <Button Command="{Binding ToggleCurrentTrackFavoriteCommand}"
+                            Cursor="Hand" Padding="0" Margin="4,0,0,0"
+                            VerticalAlignment="Center"
+                            ToolTip="Marcar o quitar de Favoritos">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border x:Name="MiniTitleFavBdr" CornerRadius="6" Padding="6,6" Background="Transparent">
+                                    <ui:SymbolIcon x:Name="MiniTitleFavIcon" Symbol="Heart24" FontSize="17"
+                                                   Foreground="#D9FFFFFF" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <DataTrigger Binding="{Binding CurrentTrack.IsFavorite}" Value="True">
+                                        <Setter TargetName="MiniTitleFavIcon" Property="Filled" Value="True" />
+                                        <Setter TargetName="MiniTitleFavIcon" Property="Foreground" Value="#FFE81123" />
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding NowPlaying.CurrentTrack.IsFavorite}" Value="True">
+                                        <Setter TargetName="MiniTitleFavIcon" Property="Filled" Value="True" />
+                                        <Setter TargetName="MiniTitleFavIcon" Property="Foreground" Value="#FFE81123" />
+                                    </DataTrigger>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter TargetName="MiniTitleFavBdr" Property="Background" Value="#33FFFFFF" />
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Button.Template>
+                    </Button>
+                </StackPanel>
 
                 <!-- ====================================================== -->
                 <!-- COLUMNA 1: CONTROLES DE TRANSPORTE Y SEEKBAR ALINEADA  -->
@@ -1896,12 +1889,9 @@
                 <!-- COLUMNA 2: VOLUMEN VISIBLE, SELECTOR DAC (PARLANTE) Y MÁS -->
                 <!-- ====================================================== -->
                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Right">
-                    <!-- Icono / Botón de Volumen (En <= 900px abre el popup flotante con el slider) -->
-                    <Button x:Name="MiniPlayerVolumeButton"
-                            Click="OnMiniPlayerVolumeButtonClick"
-                            Cursor="Hand" Width="34" Height="34" Padding="0"
-                            Background="Transparent" BorderThickness="0"
-                            ToolTip="Volumen" Margin="0,0,4,0">
+                    <!-- Icono de Volumen -->
+                    <Button Command="{Binding NowPlaying.ToggleMuteCommand}" Cursor="Hand" Width="34" Height="34" Padding="0"
+                            Background="Transparent" BorderThickness="0" ToolTip="Silenciar / Activar sonido" Margin="0,0,4,0">
                         <ui:SymbolIcon FontSize="18" Foreground="#E0FFFFFF" HorizontalAlignment="Center">
                             <ui:SymbolIcon.Symbol>
                                 <MultiBinding Converter="{StaticResource VolumeToSymbolConverter}">
@@ -1912,18 +1902,8 @@
                         </ui:SymbolIcon>
                     </Button>
 
-                    <!-- Slider de Volumen con riel relleno estilo NowPlayingView (Se oculta automáticamente a <= 900px) -->
+                    <!-- Slider de Volumen con riel relleno estilo NowPlayingView -->
                     <Border Background="Transparent" Padding="0" Margin="0,0,14,0" Cursor="Hand" VerticalAlignment="Center">
-                        <Border.Style>
-                            <Style TargetType="Border">
-                                <Setter Property="Visibility" Value="Visible" />
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding IsMiniPlayerVolumeSliderCollapsed}" Value="True">
-                                        <Setter Property="Visibility" Value="Collapsed" />
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </Border.Style>
                         <Slider Width="105" Height="30" Minimum="0" Maximum="1"
                                 IsMoveToPointEnabled="True"
                                 Value="{Binding NowPlaying.Volume, Mode=TwoWay}"
@@ -1952,76 +1932,6 @@
                             </Slider.Template>
                         </Slider>
                     </Border>
-
-                    <!-- Popup flotante de volumen encima del cursor / botón cuando el slider está oculto (<= 900px) -->
-                    <Popup x:Name="MiniPlayerVolumePopup"
-                           IsOpen="{Binding IsMiniPlayerVolumePopupOpen, Mode=TwoWay}"
-                           PlacementTarget="{Binding ElementName=MiniPlayerVolumeButton}"
-                           Placement="Top"
-                           VerticalOffset="-8"
-                           HorizontalOffset="-90"
-                           StaysOpen="False"
-                           AllowsTransparency="True"
-                           Closed="OnMiniPlayerVolumePopupClosed">
-                        <Border Background="#F0181920"
-                                BorderBrush="#35FFFFFF"
-                                BorderThickness="1"
-                                CornerRadius="10"
-                                Padding="12,8"
-                                PreviewMouseWheel="OnMiniPlayerBarPreviewMouseWheel">
-                            <Border.Effect>
-                                <DropShadowEffect BlurRadius="20" ShadowDepth="4" Opacity="0.60" Color="#000000" />
-                            </Border.Effect>
-                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                <!-- Botón Silenciar / Activar sonido -->
-                                <Button Command="{Binding NowPlaying.ToggleMuteCommand}" Cursor="Hand" Width="32" Height="32" Padding="0"
-                                        Background="Transparent" BorderThickness="0" ToolTip="Silenciar / Activar sonido" Margin="0,0,6,0">
-                                    <ui:SymbolIcon FontSize="17" Foreground="#E0FFFFFF" HorizontalAlignment="Center">
-                                        <ui:SymbolIcon.Symbol>
-                                            <MultiBinding Converter="{StaticResource VolumeToSymbolConverter}">
-                                                <Binding Path="NowPlaying.Volume" />
-                                                <Binding Path="NowPlaying.IsMuted" />
-                                            </MultiBinding>
-                                        </ui:SymbolIcon.Symbol>
-                                    </ui:SymbolIcon>
-                                </Button>
-
-                                <!-- Slider de Volumen con riel relleno -->
-                                <Slider Width="120" Height="30" Minimum="0" Maximum="1"
-                                        IsMoveToPointEnabled="True"
-                                        Value="{Binding NowPlaying.Volume, Mode=TwoWay}"
-                                        PreviewMouseLeftButtonDown="OnVolumeSliderPreviewMouseDown"
-                                        PreviewMouseMove="OnVolumeSliderPreviewMouseMove"
-                                        PreviewMouseLeftButtonUp="OnVolumeSliderPreviewMouseUp"
-                                        VerticalAlignment="Center">
-                                    <Slider.Template>
-                                        <ControlTemplate TargetType="Slider">
-                                            <Border Background="Transparent" VerticalAlignment="Center" Height="30">
-                                                <Grid Background="Transparent" Height="30" VerticalAlignment="Center">
-                                                    <Track x:Name="PART_Track" Height="30" VerticalAlignment="Center">
-                                                        <Track.DecreaseRepeatButton>
-                                                            <RepeatButton Command="{x:Static Slider.DecreaseLarge}" Style="{StaticResource ModernSliderDecreaseRepeatButtonStyle}" />
-                                                        </Track.DecreaseRepeatButton>
-                                                        <Track.Thumb>
-                                                            <Thumb Style="{StaticResource ModernSliderThumbStyle}" VerticalAlignment="Center" />
-                                                        </Track.Thumb>
-                                                        <Track.IncreaseRepeatButton>
-                                                            <RepeatButton Command="{x:Static Slider.IncreaseLarge}" Style="{StaticResource ModernSliderIncreaseRepeatButtonStyle}" />
-                                                        </Track.IncreaseRepeatButton>
-                                                    </Track>
-                                                </Grid>
-                                            </Border>
-                                        </ControlTemplate>
-                                    </Slider.Template>
-                                </Slider>
-
-                                <!-- Porcentaje de volumen (ej: 85%) -->
-                                <TextBlock Text="{Binding NowPlaying.Volume, StringFormat={}{0:P0}}"
-                                           FontSize="12" FontWeight="SemiBold" Foreground="#D0D8E4"
-                                           VerticalAlignment="Center" Margin="8,0,2,0" Width="36" TextAlignment="Right" />
-                            </StackPanel>
-                        </Border>
-                    </Popup>
 
                     <!-- Selector DAC con icono vectorial de parlante/bafle idéntico al de NowPlayingView -->
                     <Button Command="{Binding ToggleDeviceSelectorCommand}" Cursor="Hand" Padding="0" Margin="0,0,8,0"
@@ -2213,17 +2123,6 @@
                             Command="{Binding NowPlaying.PlayPauseCommand}" Margin="2,0" />
                     <ui:Button Appearance="Transparent" Padding="8" Command="{Binding NowPlaying.NextCommand}" ToolTip="Siguiente">
                         <ui:SymbolIcon Symbol="Next24" FontSize="18" Foreground="#E0FFFFFF" />
-                    </ui:Button>
-                    <ui:Button x:Name="MiniCompactVolumeButton" Appearance="Transparent" Padding="7"
-                               Click="OnMiniPlayerVolumeButtonClick" ToolTip="Volumen">
-                        <ui:SymbolIcon FontSize="17" Foreground="#E0FFFFFF">
-                            <ui:SymbolIcon.Symbol>
-                                <MultiBinding Converter="{StaticResource VolumeToSymbolConverter}">
-                                    <Binding Path="NowPlaying.Volume" />
-                                    <Binding Path="NowPlaying.IsMuted" />
-                                </MultiBinding>
-                            </ui:SymbolIcon.Symbol>
-                        </ui:SymbolIcon>
                     </ui:Button>
                     <ui:Button Appearance="Transparent" Padding="6" Click="OnMoreOptionsButtonClick" ToolTip="Más opciones">
                         <ui:Button.ContextMenu>

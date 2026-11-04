@@ -45,8 +45,7 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
             Services.ThemeService.Instance.ThemeChanged += () => Dispatcher.InvokeAsync(EnsureTitleBarButtonsWhite);
             if (DataContext is MainViewModel vm)
             {
-                vm.IsMiniPlayerVolumeSliderCollapsed = ActualWidth > 0 ? ActualWidth <= 900 : Width <= 900;
-                vm.IsMiniPlayerCompact = ActualWidth > 0 ? ActualWidth < 620 : Width < 620;
+                vm.IsMiniPlayerCompact = ActualWidth > 0 ? ActualWidth <= 1040 : Width <= 1040;
 
                 vm.PropertyChanged += (sender, args) =>
                 {
@@ -335,14 +334,13 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
     {
         if (DataContext is not MainViewModel vm) return;
 
-        vm.IsMiniPlayerVolumeSliderCollapsed = e.NewSize.Width <= 900;
-        vm.IsMiniPlayerCompact = e.NewSize.Width < 620;
+        vm.IsMiniPlayerCompact = e.NewSize.Width <= 1040;
         if (vm.NowPlaying != null)
         {
             vm.NowPlaying.IsCompactMode = e.NewSize.Width <= 750;
         }
 
-        bool isNarrow = e.NewSize.Width < 1080;
+        bool isNarrow = e.NewSize.Width <= 1040;
         if (isNarrow && !_wasNarrowWindow)
         {
             _wasNarrowWindow = true;
@@ -361,8 +359,8 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
     {
         if (NavPaneBackdrop == null || SidebarBorder == null || SidebarColumn == null) return;
 
-        // Se considera modo móvil / estrecho cuando el ancho de la ventana es menor a 1080 px
-        bool isMobile = windowWidth < 1080;
+        // Se considera modo móvil / estrecho cuando el ancho de la ventana es menor o igual a 1040 px
+        bool isMobile = windowWidth <= 1040;
         ViewModel.IsMobileLayout = isMobile;
 
         if (isMobile)
@@ -627,33 +625,6 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
             float newVol = Math.Clamp(ViewModel.NowPlaying.Volume + step, 0.0f, 1.0f);
             ViewModel.NowPlaying.Volume = newVol;
             e.Handled = true;
-        }
-    }
-
-    private void OnMiniPlayerVolumeButtonClick(object sender, RoutedEventArgs e)
-    {
-        if (DataContext is not MainViewModel vm) return;
-
-        if (sender is FrameworkElement targetElement && MiniPlayerVolumePopup != null)
-        {
-            MiniPlayerVolumePopup.PlacementTarget = targetElement;
-        }
-
-        if (vm.IsMiniPlayerVolumeSliderCollapsed || (sender is FrameworkElement fe && fe.Name == "MiniCompactVolumeButton"))
-        {
-            vm.IsMiniPlayerVolumePopupOpen = !vm.IsMiniPlayerVolumePopupOpen;
-        }
-        else
-        {
-            vm.NowPlaying?.ToggleMuteCommand?.Execute(null);
-        }
-    }
-
-    private void OnMiniPlayerVolumePopupClosed(object? sender, EventArgs e)
-    {
-        if (DataContext is MainViewModel vm)
-        {
-            vm.IsMiniPlayerVolumePopupOpen = false;
         }
     }
 

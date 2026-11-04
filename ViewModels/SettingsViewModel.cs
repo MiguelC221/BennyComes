@@ -134,9 +134,9 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     private int _artistImageIntervalSeconds = 35;
 
-    public const string CurrentVersionTag = "1.3.0";
+    public const string CurrentVersionTag = "1.3.5";
     public const string GitHubReleasesUrl = "https://github.com/MiguelC221/BennyComes/releases";
-    public string AppVersion => "v1.3.0 (osu! Edition) - Build x64 Native (.NET 8.0)";
+    public string AppVersion => "v1.3.5 (osu! Edition) - Build x64 Native (.NET 8.0)";
     public string AudioEngineInfo => "NAudio CoreAudioApi (WASAPI Shared / Exclusive Bit-Perfect low-latency event-sync)";
     public string TechnologiesInfo => ".NET 8.0 • WPF-UI (Fluent Design 2) • TagLibSharp • Microsoft.Data.Sqlite (WAL)";
 
