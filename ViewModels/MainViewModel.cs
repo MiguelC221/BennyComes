@@ -128,13 +128,33 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     public void OpenOnboardingOsuModal()
     {
+        if (string.IsNullOrWhiteSpace(Settings.OsuFolderPath))
+        {
+            var detected = Services.Library.OsuLibraryService.DetectOsuDirectory();
+            if (!string.IsNullOrWhiteSpace(detected))
+            {
+                Settings.OsuFolderPath = detected;
+            }
+        }
         IsOnboardingOsuModalOpen = true;
     }
 
     [RelayCommand]
-    public void CloseOnboardingOsuModal()
+    public async Task CloseOnboardingOsuModalAsync()
     {
         IsOnboardingOsuModalOpen = false;
+
+        await _libraryDao.SetSettingAsync("osu_mode_enabled", Settings.IsOsuModeEnabled.ToString());
+        if (!string.IsNullOrWhiteSpace(Settings.OsuFolderPath))
+        {
+            await _libraryDao.SetSettingAsync("osu_folder_path", Settings.OsuFolderPath);
+        }
+        await _libraryDao.SetSettingAsync("osu_prefer_unicode", Settings.PreferOsuUnicodeMetadata.ToString());
+
+        if (Settings.IsOsuModeEnabled && !string.IsNullOrWhiteSpace(Settings.OsuFolderPath))
+        {
+            _ = Settings.ReloadOsuLibraryAsync();
+        }
     }
 
     [RelayCommand]
@@ -1639,6 +1659,11 @@ public partial class MainViewModel : ObservableObject
 
     public async Task CheckAndAddTrackToPlaylistAsync(Track track, Playlist playlist)
     {
+        if (Services.Library.ExtractorOsu.IsOsuTrack(track))
+        {
+            track = await Services.Library.ExtractorOsu.ExtractTrackAsync(track, playlist.Name);
+        }
+
         if (track.Id <= 0)
         {
             await _libraryDao.InsertOrUpdateTrackAsync(track);
@@ -1764,101 +1789,146 @@ public partial class MainViewModel : ObservableObject
         IsNewPlaylistDialogVisible = false;
 
         var trackToInclude = PendingTrackForNewPlaylist;
-        var tracksToAdd = trackToInclude != null ? new[] { trackToInclude } : null;
-        var created = await PlaylistDao.Instance.CreatePlaylistAsync(name, tracksToAdd);
-        Playlists.Playlists.Add(created);
 
-        if (trackToInclude != null)
+        try
         {
-            ShowToast("Lista de reproducción", $"Lista \"{name}\" creada con \"{trackToInclude.Title}\".", false, 3000);
+            Track[]? tracksToAdd = null;
+            if (trackToInclude != null)
+            {
+                if (Services.Library.ExtractorOsu.IsOsuTrack(trackToInclude))
+                {
+                    ShowToast("Extrayendo de osu!", $"Exportando \"{trackToInclude.Title}\" a Música...", false, 2500);
+                    trackToInclude = await Services.Library.ExtractorOsu.ExtractTrackAsync(trackToInclude, name);
+                }
+                tracksToAdd = new[] { trackToInclude };
+            }
+
+            var created = await PlaylistDao.Instance.CreatePlaylistAsync(name, tracksToAdd);
+            Playlists.Playlists.Add(created);
+
+            if (trackToInclude != null)
+            {
+                ShowToast("Lista de reproducción", $"Lista \"{name}\" creada con \"{trackToInclude.Title}\".", false, 3000);
+            }
+            else
+            {
+                ShowToast("Lista de reproducción", $"Lista \"{name}\" creada.", false, 3000);
+            }
+            PendingTrackForNewPlaylist = null;
+            await OpenPlaylistDetailAsync(created);
         }
-        else
+        catch (Exception ex)
         {
-            ShowToast("Lista de reproducción", $"Lista \"{name}\" creada.", false, 3000);
+            ShowToast("Error", $"No se pudo crear la lista: {ex.Message}", true, 4000);
         }
-        PendingTrackForNewPlaylist = null;
-        await OpenPlaylistDetailAsync(created);
     }
 
     [RelayCommand]
     public async Task CreateSuggestedPlaylistAsync(string? suggestionType)
     {
-        string name;
-        var allPool = new List<Track>();
-        if (_cache.CachedTracks.Count > 0)
-            allPool.AddRange(_cache.CachedTracks);
-        if (OsuLibrary.Songs.Count > 0)
-            allPool.AddRange(OsuLibrary.Songs);
-
-        List<Track> tracks;
-
-        if (suggestionType == "Favorites")
+        try
         {
-            name = "Mis Favoritas";
-            tracks = Favoritos.Instance.GetAllFavoriteTracks();
-            if (tracks.Count == 0)
+            string name;
+            var allPool = new List<Track>();
+            if (_cache.CachedTracks.Count > 0)
+                allPool.AddRange(_cache.CachedTracks);
+            else
             {
-                tracks = await _libraryDao.GetFavoriteTracksAsync();
+                var dbTracks = await _libraryDao.GetAllTracksAsync();
+                if (dbTracks.Count > 0) allPool.AddRange(dbTracks);
             }
-            if (tracks.Count == 0)
+
+            if (OsuLibrary.Songs.Count > 0)
+                allPool.AddRange(OsuLibrary.Songs);
+
+            List<Track> tracks;
+
+            if (suggestionType == "Favorites")
             {
-                tracks = allPool.OrderBy(_ => Guid.NewGuid()).Take(15).ToList();
+                int existingFavLists = Playlists.Playlists.Count(p => p.Name.StartsWith("Mis Favoritas", StringComparison.OrdinalIgnoreCase));
+                name = existingFavLists == 0 ? "Mis Favoritas" : $"Mis Favoritas {existingFavLists + 1}";
+                tracks = Favoritos.Instance.GetAllFavoriteTracks();
+                if (tracks.Count == 0)
+                {
+                    tracks = await _libraryDao.GetFavoriteTracksAsync();
+                }
+                if (tracks.Count == 0 && allPool.Count > 0)
+                {
+                    tracks = allPool.OrderBy(_ => Guid.NewGuid()).Take(15).ToList();
+                }
             }
-        }
-        else if (suggestionType == "CurrentTrackMix")
-        {
-            var cur = CurrentTrack;
-            if (cur != null)
+            else if (suggestionType == "CurrentTrackMix")
             {
-                name = $"Radio: {cur.Title}";
-                var related = allPool
-                    .Where(t => !string.Equals(t.FilePath, cur.FilePath, StringComparison.OrdinalIgnoreCase))
-                    .OrderByDescending(t =>
-                        (string.Equals(t.Artist, cur.Artist, StringComparison.OrdinalIgnoreCase) ? 3 : 0) +
-                        (!string.IsNullOrWhiteSpace(cur.Genre) && string.Equals(t.Genre, cur.Genre, StringComparison.OrdinalIgnoreCase) ? 1 : 0))
+                var cur = CurrentTrack;
+                if (cur != null)
+                {
+                    name = $"Radio: {cur.Title}";
+                    var related = allPool
+                        .Where(t => !string.Equals(t.FilePath, cur.FilePath, StringComparison.OrdinalIgnoreCase))
+                        .OrderByDescending(t =>
+                            (string.Equals(t.Artist, cur.Artist, StringComparison.OrdinalIgnoreCase) ? 3 : 0) +
+                            (!string.IsNullOrWhiteSpace(cur.Genre) && string.Equals(t.Genre, cur.Genre, StringComparison.OrdinalIgnoreCase) ? 1 : 0))
+                        .ThenBy(_ => Guid.NewGuid())
+                        .Take(14)
+                        .ToList();
+                    tracks = new List<Track> { cur };
+                    tracks.AddRange(related);
+                }
+                else
+                {
+                    name = $"Mix Recomendado {Playlists.Playlists.Count + 1}";
+                    tracks = allPool.OrderBy(_ => Guid.NewGuid()).Take(15).ToList();
+                }
+            }
+            else if (suggestionType == "Recommended")
+            {
+                name = $"Mix Recomendado {Playlists.Playlists.Count + 1}";
+                var favs = Favoritos.Instance.GetAllFavoriteTracks();
+                var favArtists = favs
+                    .Where(t => !string.IsNullOrWhiteSpace(t.Artist))
+                    .Select(t => t.Artist)
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+                tracks = allPool
+                    .OrderByDescending(t => (favArtists.Contains(t.Artist) ? 2 : 0) + (t.PlayCount > 0 ? 1 : 0))
                     .ThenBy(_ => Guid.NewGuid())
-                    .Take(14)
+                    .Take(20)
                     .ToList();
-                tracks = new List<Track> { cur };
-                tracks.AddRange(related);
+            }
+            else if (suggestionType == "Chill")
+            {
+                name = "Relax & Chill";
+                tracks = allPool.OrderBy(_ => Guid.NewGuid()).Take(12).ToList();
             }
             else
             {
-                name = $"Mix Recomendado {Playlists.Playlists.Count + 1}";
-                tracks = allPool.OrderBy(_ => Guid.NewGuid()).Take(15).ToList();
+                name = $"Mi Lista {Playlists.Playlists.Count + 1}";
+                tracks = allPool.OrderBy(_ => Guid.NewGuid()).Take(12).ToList();
             }
-        }
-        else if (suggestionType == "Recommended")
-        {
-            name = $"Mix Recomendado {Playlists.Playlists.Count + 1}";
-            var favs = Favoritos.Instance.GetAllFavoriteTracks();
-            var favArtists = favs
-                .Where(t => !string.IsNullOrWhiteSpace(t.Artist))
-                .Select(t => t.Artist)
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-            tracks = allPool
-                .OrderByDescending(t => (favArtists.Contains(t.Artist) ? 2 : 0) + (t.PlayCount > 0 ? 1 : 0))
-                .ThenBy(_ => Guid.NewGuid())
-                .Take(20)
-                .ToList();
-        }
-        else if (suggestionType == "Chill")
-        {
-            name = "Relax & Chill";
-            tracks = allPool.OrderBy(_ => Guid.NewGuid()).Take(12).ToList();
-        }
-        else
-        {
-            name = $"Mi Lista {Playlists.Playlists.Count + 1}";
-            tracks = allPool.OrderBy(_ => Guid.NewGuid()).Take(12).ToList();
-        }
+            if (tracks.Count == 0)
+            {
+                ShowToast("Lista de reproducción", "No hay canciones disponibles en la biblioteca para generar esta lista.", true, 3000);
+                return;
+            }
 
-        var created = await PlaylistDao.Instance.CreatePlaylistAsync(name, tracks);
-        Playlists.Playlists.Add(created);
-        ShowToast("Lista de reproducción", $"Lista recomendada \"{name}\" creada ({tracks.Count} pistas).", false, 3000);
-        await OpenPlaylistDetailAsync(created);
+            // Si contiene pistas procedentes de osu!, extraerlas a Música > [Nombre Playlist]
+            if (tracks.Any(Services.Library.ExtractorOsu.IsOsuTrack))
+            {
+                ShowToast("Extrayendo de osu!", "Exportando pistas de osu! a tu carpeta Música...", false, 3000);
+                tracks = await Services.Library.ExtractorOsu.ProcessAndExtractTracksAsync(tracks, name);
+            }
+
+            var created = await PlaylistDao.Instance.CreatePlaylistAsync(name, tracks);
+            Playlists.Playlists.Add(created);
+            ShowToast("Lista de reproducción", $"Lista recomendada \"{name}\" creada ({tracks.Count} pistas).", false, 3000);
+            await OpenPlaylistDetailAsync(created);
+        }
+        catch (Exception ex)
+        {
+            ShowToast("Error", $"No se pudo crear la lista: {ex.Message}", true, 4000);
+        }
     }
 
     [RelayCommand]
@@ -2010,7 +2080,10 @@ public partial class MainViewModel : ObservableObject
     {
         if (SelectedPlaylistForDetail == null || string.IsNullOrWhiteSpace(EditPlaylistName)) return;
 
-        SelectedPlaylistForDetail.Name = EditPlaylistName.Trim();
+        string oldName = SelectedPlaylistForDetail.Name;
+        string newName = EditPlaylistName.Trim();
+
+        SelectedPlaylistForDetail.Name = newName;
         SelectedPlaylistForDetail.Description = EditPlaylistDescription?.Trim() ?? "";
         SelectedPlaylistForDetail.CustomCoverPath = EditPlaylistCoverPath;
         SelectedPlaylistForDetail.RefreshCoverImage();
@@ -2021,6 +2094,11 @@ public partial class MainViewModel : ObservableObject
             SelectedPlaylistForDetail.Description,
             SelectedPlaylistForDetail.CustomCoverPath
         );
+
+        if (!string.Equals(oldName, newName, StringComparison.OrdinalIgnoreCase))
+        {
+            await Services.Library.ExtractorOsu.RenamePlaylistFolderAsync(oldName, newName, SelectedPlaylistForDetail.Id);
+        }
 
         IsEditPlaylistDialogVisible = false;
         ShowToast("Lista de reproducción", "Lista actualizada correctamente.", false, 2500);
@@ -2292,6 +2370,17 @@ public partial class MainViewModel : ObservableObject
         await _libraryDao.SetSettingAsync("onboarding_completed", "true");
         IsOnboardingVisible = false;
 
+        if (Settings.IsOsuModeEnabled && !string.IsNullOrWhiteSpace(Settings.OsuFolderPath))
+        {
+            await _libraryDao.SetSettingAsync("osu_mode_enabled", "true");
+            await _libraryDao.SetSettingAsync("osu_folder_path", Settings.OsuFolderPath);
+            await _libraryDao.SetSettingAsync("osu_prefer_unicode", Settings.PreferOsuUnicodeMetadata.ToString());
+            if (!Services.Library.OsuLibraryService.Instance.IsLoaded && !Settings.IsLoadingOsu)
+            {
+                _ = Settings.ReloadOsuLibraryAsync();
+            }
+        }
+
         if (OnboardingFolders.Count > 0)
         {
             await ScanDirectoriesOrFilesAsync(OnboardingFolders.ToList());
@@ -2306,6 +2395,17 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     public async Task SkipOnboardingAsync()
     {
+        if (Settings.IsOsuModeEnabled && !string.IsNullOrWhiteSpace(Settings.OsuFolderPath))
+        {
+            await _libraryDao.SetSettingAsync("osu_mode_enabled", "true");
+            await _libraryDao.SetSettingAsync("osu_folder_path", Settings.OsuFolderPath);
+            await _libraryDao.SetSettingAsync("osu_prefer_unicode", Settings.PreferOsuUnicodeMetadata.ToString());
+            if (!Services.Library.OsuLibraryService.Instance.IsLoaded && !Settings.IsLoadingOsu)
+            {
+                _ = Settings.ReloadOsuLibraryAsync();
+            }
+        }
+
         await _libraryDao.SetSettingAsync("onboarding_completed", "true");
         IsOnboardingVisible = false;
         ShowToast("BenyComes", "Puedes agregar carpetas en cualquier momento desde Ajustes.", false, 3000);

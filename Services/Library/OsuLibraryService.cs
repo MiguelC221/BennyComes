@@ -119,18 +119,20 @@ public class OsuLibraryService
                 }
             }
 
-            var result = new List<Track>();
-            long trackId = 1000000; // Offset to keep independent from normal library
+            var distinctList = distinctGroups.Values.ToList();
+            var bag = new System.Collections.Concurrent.ConcurrentBag<Track>();
+            int total = distinctList.Count;
+            int processed = 0;
 
-            foreach (var kv in distinctGroups)
+            Parallel.ForEach(distinctList, new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount }, bm =>
             {
-                var bm = kv.Value;
                 string folderPath = Path.Combine(songsDirectory, bm.FolderName);
                 string audioPath = Path.Combine(folderPath, bm.AudioFilename);
 
                 if (!File.Exists(audioPath))
                 {
-                    continue;
+                    Interlocked.Increment(ref processed);
+                    return;
                 }
 
                 string displayArtist;
@@ -152,7 +154,6 @@ public class OsuLibraryService
 
                 var track = new Track
                 {
-                    Id = ++trackId,
                     FilePath = audioPath,
                     Title = displayTitle,
                     Artist = displayArtist,
@@ -177,7 +178,20 @@ public class OsuLibraryService
                     ? char.ToUpperInvariant(displayTitle[0]).ToString()
                     : "#";
 
-                result.Add(track);
+                bag.Add(track);
+
+                int done = Interlocked.Increment(ref processed);
+                if (done % 500 == 0 || done == total)
+                {
+                    progress?.Report($"Indexando canciones de osu!: {done}/{total}...");
+                }
+            });
+
+            var result = bag.ToList();
+            long trackId = 1000000; // Offset to keep independent from normal library
+            foreach (var t in result)
+            {
+                t.Id = ++trackId;
             }
 
             result.Sort((a, b) => string.Compare(a.Title, b.Title, StringComparison.CurrentCultureIgnoreCase));
@@ -541,14 +555,17 @@ public class OsuLibraryService
     }
 
     /// <summary>
-    /// Analiza un archivo .osu específico para extraer el nombre del fondo declarado en [Events].
-    /// Sintaxis común: 0,0,"BG.jpg",0,0 o 0,0,"BG.jpg" o 0,0,BG.jpg
+    /// Analiza un archivo .osu específico para extraer portada y vídeo en una sola pasada de lectura.
     /// </summary>
-    public static string? ExtractBackgroundFromSingleOsuFile(string osuFilePath, string folderPath)
+    private static (string? ArtworkPath, string? VideoPath, int VideoOffsetMs) ExtractMediaFromSingleOsuFile(string osuFilePath, string folderPath)
     {
+        string? artwork = null;
+        string? video = null;
+        int videoOffset = 0;
+
         try
         {
-            if (!File.Exists(osuFilePath)) return null;
+            if (!File.Exists(osuFilePath)) return (null, null, 0);
 
             using var sr = new StreamReader(osuFilePath, Encoding.UTF8);
             string? line;
@@ -569,13 +586,10 @@ public class OsuLibraryService
                 if (inEvents)
                 {
                     if (line.StartsWith("[") && line.EndsWith("]"))
-                        break; // Salida de la sección [Events]
+                        break; // Salida rápida al terminar [Events] (evita leer miles de HitObjects)
 
                     // Evento 0 es Background: 0,0,"bg.jpg" o 0, 0, "bg.jpg" o Background,0,"bg.jpg"
-                    bool isBgLine = line.StartsWith("0,") || line.StartsWith("0 ,") ||
-                                    line.StartsWith("Background,", StringComparison.OrdinalIgnoreCase);
-
-                    if (isBgLine)
+                    if (artwork == null && (line.StartsWith("0,") || line.StartsWith("0 ,") || line.StartsWith("Background,", StringComparison.OrdinalIgnoreCase)))
                     {
                         string filename = string.Empty;
                         int firstQuote = line.IndexOf('"');
@@ -601,46 +615,13 @@ public class OsuLibraryService
                             string full = Path.Combine(folderPath, rel);
                             if (File.Exists(full) && IsImageFile(full))
                             {
-                                return full;
+                                artwork = full;
                             }
                         }
                     }
-                }
-            }
-        }
-        catch { }
 
-        return null;
-    }
-
-    private static (string? VideoPath, int VideoOffsetMs) ExtractVideoFromSingleOsuFile(string osuFilePath, string folderPath)
-    {
-        try
-        {
-            if (!File.Exists(osuFilePath)) return (null, 0);
-
-            using var sr = new StreamReader(osuFilePath, Encoding.UTF8);
-            string? line;
-            bool inEvents = false;
-
-            while ((line = sr.ReadLine()) != null)
-            {
-                line = line.Trim();
-                if (string.IsNullOrEmpty(line) || line.StartsWith("//"))
-                    continue;
-
-                if (line.StartsWith("[Events]", StringComparison.OrdinalIgnoreCase))
-                {
-                    inEvents = true;
-                    continue;
-                }
-
-                if (inEvents)
-                {
-                    if (line.StartsWith("[") && line.EndsWith("]"))
-                        break;
-
-                    if (line.StartsWith("Video,", StringComparison.OrdinalIgnoreCase) || line.StartsWith("1,") || line.StartsWith("1 ,"))
+                    // Evento 1 es Video: 1,offset,"video.avi" o Video,offset,"video.avi"
+                    if (video == null && (line.StartsWith("Video,", StringComparison.OrdinalIgnoreCase) || line.StartsWith("1,") || line.StartsWith("1 ,")))
                     {
                         int firstQuote = line.IndexOf('"');
                         int lastQuote = line.LastIndexOf('"');
@@ -657,16 +638,25 @@ public class OsuLibraryService
                                 {
                                     offset = parsedOffset;
                                 }
-                                return (vidFull, offset);
+                                video = vidFull;
+                                videoOffset = offset;
                             }
                         }
                     }
+
+                    if (artwork != null && video != null)
+                        break;
                 }
             }
         }
         catch { }
 
-        return (null, 0);
+        return (artwork, video, videoOffset);
+    }
+
+    public static string? ExtractBackgroundFromSingleOsuFile(string osuFilePath, string folderPath)
+    {
+        return ExtractMediaFromSingleOsuFile(osuFilePath, folderPath).ArtworkPath;
     }
 
     private static (string ArtworkPath, string VideoPath, int VideoOffsetMs) FindMediaAssets(string folderPath, string osuFilename)
@@ -677,53 +667,42 @@ public class OsuLibraryService
 
         try
         {
-            // 1. Extraer fondo y vídeo del archivo .osu del beatmap
+            // 1. Extraer fondo y vídeo en una sola pasada del archivo .osu del beatmap
             if (!string.IsNullOrWhiteSpace(osuFilename))
             {
                 string osuFilePath = Path.Combine(folderPath, osuFilename);
-                if (File.Exists(osuFilePath))
+                var (art, vid, off) = ExtractMediaFromSingleOsuFile(osuFilePath, folderPath);
+                if (!string.IsNullOrEmpty(art)) artwork = art;
+                if (!string.IsNullOrEmpty(vid))
                 {
-                    artwork = ExtractBackgroundFromSingleOsuFile(osuFilePath, folderPath) ?? string.Empty;
-                    var (foundVid, foundOffset) = ExtractVideoFromSingleOsuFile(osuFilePath, folderPath);
-                    if (!string.IsNullOrEmpty(foundVid))
-                    {
-                        video = foundVid;
-                        videoOffset = foundOffset;
-                    }
+                    video = vid;
+                    videoOffset = off;
                 }
             }
 
-            // 2. Si no se encontró en ese .osu particular, buscar en cualquier otro archivo .osu de la carpeta
-            if (string.IsNullOrEmpty(artwork) || string.IsNullOrEmpty(video))
+            // 2. Si no se encontró portada en ese archivo, buscar en otros archivos .osu de la carpeta
+            if (string.IsNullOrEmpty(artwork))
             {
                 var dir = new DirectoryInfo(folderPath);
                 if (dir.Exists)
                 {
                     foreach (var osuFile in dir.EnumerateFiles("*.osu"))
                     {
-                        if (string.IsNullOrEmpty(artwork))
+                        var (art, vid, off) = ExtractMediaFromSingleOsuFile(osuFile.FullName, folderPath);
+                        if (!string.IsNullOrEmpty(art)) artwork = art;
+                        if (!string.IsNullOrEmpty(vid) && string.IsNullOrEmpty(video))
                         {
-                            var bg = ExtractBackgroundFromSingleOsuFile(osuFile.FullName, folderPath);
-                            if (!string.IsNullOrEmpty(bg)) artwork = bg;
+                            video = vid;
+                            videoOffset = off;
                         }
 
-                        if (string.IsNullOrEmpty(video))
-                        {
-                            var (v, off) = ExtractVideoFromSingleOsuFile(osuFile.FullName, folderPath);
-                            if (!string.IsNullOrEmpty(v))
-                            {
-                                video = v;
-                                videoOffset = off;
-                            }
-                        }
-
-                        if (!string.IsNullOrEmpty(artwork) && !string.IsNullOrEmpty(video))
+                        if (!string.IsNullOrEmpty(artwork))
                             break;
                     }
                 }
             }
 
-            // 3. Fallbacks seguros si no se encontró en ningún archivo .osu
+            // 3. Fallbacks seguros de portada si no se encontró en ningún archivo .osu
             if (string.IsNullOrEmpty(artwork))
             {
                 string[] standardNames = { "bg.jpg", "bg.png", "bg.jpeg", "background.jpg", "background.png", "background.jpeg" };
@@ -734,6 +713,7 @@ public class OsuLibraryService
                 }
             }
 
+            // Fallback de vídeo si no se encontró en .osu
             if (string.IsNullOrEmpty(video))
             {
                 var dir = new DirectoryInfo(folderPath);

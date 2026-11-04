@@ -54,6 +54,29 @@ public class PlaylistDao
 
     public async Task<Playlist> CreatePlaylistAsync(string name, IEnumerable<Track>? tracks = null)
     {
+        var trackList = tracks?.ToList();
+        if (trackList != null && trackList.Count > 0)
+        {
+            foreach (var t in trackList)
+            {
+                if (t.Id <= 0)
+                {
+                    try
+                    {
+                        var id = await LibraryDao.Instance.InsertOrUpdateTrackAsync(t);
+                        if (t.Id <= 0 && id > 0)
+                        {
+                            t.Id = id;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"[PlaylistDao] Error saving track before playlist insertion: {ex.Message}");
+                    }
+                }
+            }
+        }
+
         using var conn = await _db.CreateConnectionAsync();
         using var tx = conn.BeginTransaction();
         try
@@ -74,15 +97,12 @@ public class PlaylistDao
                 CreatedAt = DateTime.UtcNow
             };
 
-            if (tracks != null)
+            if (trackList != null)
             {
                 int pos = 0;
-                foreach (var t in tracks)
+                foreach (var t in trackList)
                 {
-                    if (t.Id <= 0)
-                    {
-                        await LibraryDao.Instance.InsertOrUpdateTrackAsync(t);
-                    }
+                    if (t.Id <= 0) continue;
 
                     using var trackCmd = conn.CreateCommand();
                     trackCmd.Transaction = tx;

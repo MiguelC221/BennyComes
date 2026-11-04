@@ -3532,6 +3532,11 @@
                                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                     <ui:SymbolIcon Symbol="Games24" FontSize="14" Foreground="{Binding Theme.CurrentAccentBrush}" Margin="0,0,6,0" />
                                     <TextBlock Text="¿Tienes osu! instalado?" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" />
+                                    <Border CornerRadius="6" Padding="6,2" Margin="8,0,0,0"
+                                            Background="{Binding Theme.CurrentAccentBrush}"
+                                            Visibility="{Binding Settings.IsOsuModeEnabled, Converter={StaticResource BoolToVisConverter}}">
+                                        <TextBlock Text="Activado" FontSize="10" FontWeight="Bold" Foreground="{Binding Theme.AccentForegroundBrush}" />
+                                    </Border>
                                 </StackPanel>
                             </ui:Button>
                         </StackPanel>
@@ -3636,6 +3641,8 @@
                                         </ui:Button>
                                     </Grid>
                                     <TextBlock Text="{Binding Settings.OsuStatusMessage}" FontSize="11" Foreground="{DynamicResource TextTertiaryBrush}" Margin="0,6,0,0" TextTrimming="CharacterEllipsis" />
+                                    <ProgressBar Height="3" IsIndeterminate="True" Margin="0,8,0,0"
+                                                 Visibility="{Binding Settings.IsLoadingOsu, Converter={StaticResource BoolToVisConverter}}" />
                                 </StackPanel>
                             </Border>
 

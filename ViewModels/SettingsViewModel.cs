@@ -239,6 +239,14 @@ public partial class SettingsViewModel : ObservableObject
         }
     }
 
+    partial void OnOsuFolderPathChanged(string value)
+    {
+        if (!string.IsNullOrWhiteSpace(value))
+        {
+            _ = _libraryDao.SetSettingAsync("osu_folder_path", value);
+        }
+    }
+
     partial void OnIsOsuModeEnabledChanged(bool value)
     {
         _ = _libraryDao.SetSettingAsync("osu_mode_enabled", value.ToString());
