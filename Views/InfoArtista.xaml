@@ -31,6 +31,7 @@
                 Grid.Row="0"
                 CornerRadius="12"
                 ClipToBounds="True"
+                MaxHeight="192"
                 Background="{Binding Artist.DominantHeaderBrush, ElementName=RootInfoArtista, FallbackValue='#242632', TargetNullValue='#242632'}"
                 BorderBrush="#26FFFFFF"
                 BorderThickness="1">
@@ -46,9 +47,50 @@
             </Border.Style>
 
             <Grid>
-                <!-- Lateral Mini-Backdrop: Portada duplicada lateral con difuminado hacia el centro y clic para visor -->
-                <Border HorizontalAlignment="Right" VerticalAlignment="Stretch" Width="380" ClipToBounds="True"
+                <!-- Lateral Mini-Backdrop: Portada duplicada lateral con difuminado hacia el centro y reducción fluida al hacer scroll -->
+                <Border x:Name="LateralCoverBorder"
+                        HorizontalAlignment="Right" VerticalAlignment="Stretch" Width="380" ClipToBounds="True"
                         Cursor="Hand" MouseLeftButtonUp="OnLateralCoverImageClick" ToolTip="Clic para ver foto completa del artista">
+                    <Border.Style>
+                        <Style TargetType="Border">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsCompactHeader, ElementName=RootInfoArtista}" Value="True">
+                                    <DataTrigger.EnterActions>
+                                        <BeginStoryboard>
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetProperty="Width" To="220" Duration="0:0:0.26">
+                                                    <DoubleAnimation.EasingFunction>
+                                                        <CubicEase EasingMode="EaseOut" />
+                                                    </DoubleAnimation.EasingFunction>
+                                                </DoubleAnimation>
+                                                <DoubleAnimation Storyboard.TargetProperty="Opacity" To="0.75" Duration="0:0:0.26">
+                                                    <DoubleAnimation.EasingFunction>
+                                                        <CubicEase EasingMode="EaseOut" />
+                                                    </DoubleAnimation.EasingFunction>
+                                                </DoubleAnimation>
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </DataTrigger.EnterActions>
+                                    <DataTrigger.ExitActions>
+                                        <BeginStoryboard>
+                                            <Storyboard>
+                                                <DoubleAnimation Storyboard.TargetProperty="Width" To="380" Duration="0:0:0.26">
+                                                    <DoubleAnimation.EasingFunction>
+                                                        <CubicEase EasingMode="EaseOut" />
+                                                    </DoubleAnimation.EasingFunction>
+                                                </DoubleAnimation>
+                                                <DoubleAnimation Storyboard.TargetProperty="Opacity" To="1.0" Duration="0:0:0.26">
+                                                    <DoubleAnimation.EasingFunction>
+                                                        <CubicEase EasingMode="EaseOut" />
+                                                    </DoubleAnimation.EasingFunction>
+                                                </DoubleAnimation>
+                                            </Storyboard>
+                                        </BeginStoryboard>
+                                    </DataTrigger.ExitActions>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Border.Style>
                     <Image Source="{Binding Artist.CoverImageSource, ElementName=RootInfoArtista}"
                            Stretch="UniformToFill" HorizontalAlignment="Right" VerticalAlignment="Center"
                            RenderOptions.BitmapScalingMode="HighQuality">

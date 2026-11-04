@@ -593,6 +593,17 @@ public partial class InfoArtista : UserControl
         if (Math.Abs(e.ViewportHeightChange) > 0.5 && Math.Abs(e.VerticalChange) < 0.5)
             return;
 
+        // Si volvemos arriba del todo, restablecemos de inmediato el encabezado expandido
+        if (e.VerticalOffset <= 6.0)
+        {
+            if (IsCompactHeader)
+            {
+                _lastHeaderToggleTick = Environment.TickCount64;
+                IsCompactHeader = false;
+            }
+            return;
+        }
+
         if (Environment.TickCount64 - _lastHeaderToggleTick < 180)
             return;
 
@@ -600,11 +611,6 @@ public partial class InfoArtista : UserControl
         {
             _lastHeaderToggleTick = Environment.TickCount64;
             IsCompactHeader = true;
-        }
-        else if (IsCompactHeader && e.VerticalOffset <= 6.0 && e.VerticalChange <= 0)
-        {
-            _lastHeaderToggleTick = Environment.TickCount64;
-            IsCompactHeader = false;
         }
     }
 
