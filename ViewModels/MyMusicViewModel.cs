@@ -693,6 +693,24 @@ public partial class MyMusicViewModel : ObservableObject
     public async Task OpenArtistDetailAsync(ArtistModel? artist)
     {
         if (artist == null) return;
+
+        // Resolve canonical artist if this artist is an alias
+        string canonicalName = Services.Library.ArtistAliasService.Instance.GetCanonicalName(artist.Name);
+        if (!string.Equals(canonicalName, artist.Name, StringComparison.OrdinalIgnoreCase))
+        {
+            var canonicalArtist = _cache.CachedArtists.FirstOrDefault(a =>
+                string.Equals(a.Name, canonicalName, StringComparison.OrdinalIgnoreCase));
+            if (canonicalArtist != null)
+            {
+                artist = canonicalArtist;
+            }
+            else
+            {
+                artist.Name = canonicalName;
+                artist.AltNames = Services.Library.ArtistAliasService.Instance.GetAliasesFor(canonicalName);
+            }
+        }
+
         MainViewModel.Instance?.PushCurrentNavigationState();
         SelectedAlbumDetail = null;
 
@@ -735,47 +753,7 @@ public partial class MyMusicViewModel : ObservableObject
 
     private void EnsureArtistAlbumsPopulated(ArtistModel artist)
     {
-        if (artist.Tracks.Count == 0)
-        {
-            artist.Tracks = _cache.CachedTracks
-                .Where(t => !string.IsNullOrWhiteSpace(t.Artist) &&
-                            t.Artist.Contains(artist.Name, StringComparison.OrdinalIgnoreCase))
-                .OrderBy(t => t.Album, StringComparer.OrdinalIgnoreCase)
-                .ThenBy(t => t.TrackNumber == 0 ? uint.MaxValue : t.TrackNumber)
-                .ThenBy(t => t.Title, StringComparer.OrdinalIgnoreCase)
-                .ToList();
-        }
-
-        // Always build/refresh the grouped Albums list for the Artist Detail view (List grouped by album & Grid covers)
-        var albumGroups = artist.Tracks
-            .GroupBy(t => string.IsNullOrWhiteSpace(t.Album) ? "Single" : t.Album.Trim(), StringComparer.OrdinalIgnoreCase)
-            .Select(g =>
-            {
-                var orderedTracks = g
-                    .OrderBy(t => t.TrackNumber == 0 ? uint.MaxValue : t.TrackNumber)
-                    .ThenBy(t => t.Title, StringComparer.OrdinalIgnoreCase)
-                    .ToList();
-                var first = orderedTracks[0];
-                var existingAlbum = _cache.CachedAlbums.FirstOrDefault(a =>
-                    string.Equals(a.Name, g.Key, StringComparison.OrdinalIgnoreCase) &&
-                    (string.Equals(a.Artist, artist.Name, StringComparison.OrdinalIgnoreCase) || a.Artist.Contains(artist.Name, StringComparison.OrdinalIgnoreCase)));
-
-                return new AlbumModel
-                {
-                    Name = g.Key,
-                    Artist = !string.IsNullOrWhiteSpace(first.AlbumArtist) ? first.AlbumArtist : artist.Name,
-                    Year = orderedTracks.Max(t => t.Year),
-                    Genre = first.Genre,
-                    ArtworkPath = existingAlbum?.ArtworkPath ?? first.ArtworkPath,
-                    Tracks = orderedTracks,
-                    PersistedTrackCount = orderedTracks.Count
-                };
-            })
-            .OrderByDescending(a => a.Year)
-            .ThenBy(a => a.Name, StringComparer.OrdinalIgnoreCase)
-            .ToList();
-
-        artist.Albums = albumGroups;
+        artist.EnsureAlbumsAndStats();
     }
 
     public void OpenArtistDetail(ArtistModel? artist) => _ = OpenArtistDetailAsync(artist);

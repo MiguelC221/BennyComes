@@ -389,17 +389,165 @@ public partial class ArtistModel : ObservableObject
         }
     }
 
+    public HashSet<string> GetAllNames()
+    {
+        var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (!string.IsNullOrWhiteSpace(Name))
+        {
+            string trimmed = Name.Trim();
+            set.Add(trimmed);
+            string canonical = Services.Library.ArtistAliasService.Instance.GetCanonicalName(trimmed);
+            if (!string.IsNullOrWhiteSpace(canonical))
+            {
+                set.Add(canonical);
+                foreach (var a in Services.Library.ArtistAliasService.Instance.GetAliasesFor(canonical))
+                {
+                    if (!string.IsNullOrWhiteSpace(a)) set.Add(a.Trim());
+                }
+            }
+            foreach (var a in Services.Library.ArtistAliasService.Instance.GetAliasesFor(trimmed))
+            {
+                if (!string.IsNullOrWhiteSpace(a)) set.Add(a.Trim());
+            }
+        }
+        if (AltNames != null)
+        {
+            foreach (var alt in AltNames)
+            {
+                if (!string.IsNullOrWhiteSpace(alt))
+                {
+                    string altTrim = alt.Trim();
+                    set.Add(altTrim);
+                    string altCanonical = Services.Library.ArtistAliasService.Instance.GetCanonicalName(altTrim);
+                    if (!string.IsNullOrWhiteSpace(altCanonical)) set.Add(altCanonical);
+                    foreach (var a in Services.Library.ArtistAliasService.Instance.GetAliasesFor(altTrim))
+                    {
+                        if (!string.IsNullOrWhiteSpace(a)) set.Add(a.Trim());
+                    }
+                }
+            }
+        }
+        return set;
+    }
+
+    public bool MatchesTrack(Track? track)
+    {
+        if (track == null) return false;
+        var names = GetAllNames();
+        return MatchesArtistString(track.Artist, names) ||
+               MatchesArtistString(track.OsuArtistUnicode, names) ||
+               MatchesArtistString(track.OsuArtistRoumaji, names) ||
+               MatchesArtistString(track.AlbumArtist, names);
+    }
+
+    public bool MatchesArtistName(string? artistName)
+    {
+        if (string.IsNullOrWhiteSpace(artistName)) return false;
+        var names = GetAllNames();
+        return MatchesArtistString(artistName, names);
+    }
+
+    private static bool MatchesArtistString(string? raw, HashSet<string> targetNames)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return false;
+        string trimmed = raw.Trim();
+
+        // 1. Exact match
+        if (targetNames.Contains(trimmed)) return true;
+
+        // 2. Canonical of raw
+        string canonical = Services.Library.ArtistAliasService.Instance.GetCanonicalName(trimmed);
+        if (targetNames.Contains(canonical)) return true;
+
+        // 3. Split parts
+        var splits = Services.Library.ArtistSplitterService.Instance.SplitArtists(trimmed);
+        foreach (var s in splits)
+        {
+            string sTrim = s.Trim();
+            if (targetNames.Contains(sTrim)) return true;
+            string sCanonical = Services.Library.ArtistAliasService.Instance.GetCanonicalName(sTrim);
+            if (targetNames.Contains(sCanonical)) return true;
+        }
+
+        // 4. Substring / contains
+        foreach (var target in targetNames)
+        {
+            if (trimmed.IndexOf(target, StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     public void EnsureAlbumsAndStats()
     {
-        if (Tracks.Count == 0)
+        // 1. Ensure AltNames is populated from ArtistAliasService
+        if (AltNames == null || AltNames.Count == 0)
         {
-            Tracks = Services.Library.LibraryCacheService.Instance.CachedTracks
-                .Where(t => !string.IsNullOrWhiteSpace(t.Artist) &&
-                            t.Artist.Contains(Name, StringComparison.OrdinalIgnoreCase))
+            var alts = Services.Library.ArtistAliasService.Instance.GetAliasesFor(Name);
+            if (alts.Count > 0)
+            {
+                AltNames = alts;
+            }
+        }
+
+        var localCache = Services.Library.LibraryCacheService.Instance;
+        var osuService = Services.Library.OsuLibraryService.Instance;
+
+        // 2. Gather all tracks for this artist and all its aliases
+        var allTracks = new List<Track>();
+        var seenKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        // Check local cached tracks
+        if (localCache.CachedTracks != null && localCache.CachedTracks.Count > 0)
+        {
+            foreach (var t in localCache.CachedTracks)
+            {
+                if (MatchesTrack(t))
+                {
+                    string key = !string.IsNullOrEmpty(t.FilePath) ? t.FilePath : t.Id.ToString();
+                    if (seenKeys.Add(key))
+                    {
+                        allTracks.Add(t);
+                    }
+                }
+            }
+        }
+
+        // Check osu tracks if loaded
+        if (osuService.IsLoaded && osuService.Tracks != null && osuService.Tracks.Count > 0)
+        {
+            foreach (var t in osuService.Tracks)
+            {
+                if (MatchesTrack(t))
+                {
+                    string key = !string.IsNullOrEmpty(t.FilePath) ? t.FilePath : t.Id.ToString();
+                    if (seenKeys.Add(key))
+                    {
+                        allTracks.Add(t);
+                    }
+                }
+            }
+        }
+
+        // 3. Fallback: if global caches had no matches, check existing Tracks or keep what was passed
+        if (allTracks.Count > 0)
+        {
+            Tracks = allTracks
                 .OrderBy(t => t.Album, StringComparer.OrdinalIgnoreCase)
                 .ThenBy(t => t.TrackNumber == 0 ? uint.MaxValue : t.TrackNumber)
                 .ThenBy(t => t.Title, StringComparer.OrdinalIgnoreCase)
                 .ToList();
+        }
+        else if (Tracks != null && Tracks.Count > 0)
+        {
+            // Already has tracks assigned directly (e.g. from a custom playlist or mock)
+        }
+        else
+        {
+            Tracks = new List<Track>();
         }
 
         var albumGroups = Tracks
@@ -419,9 +567,9 @@ public partial class ArtistModel : ObservableObject
                 }
 
                 var first = orderedTracks[0];
-                var existingAlbum = Services.Library.LibraryCacheService.Instance.CachedAlbums.FirstOrDefault(a =>
+                var existingAlbum = localCache.CachedAlbums.FirstOrDefault(a =>
                     string.Equals(a.Name, g.Key, StringComparison.OrdinalIgnoreCase) &&
-                    (string.Equals(a.Artist, Name, StringComparison.OrdinalIgnoreCase) || a.Artist.Contains(Name, StringComparison.OrdinalIgnoreCase)));
+                    (MatchesArtistName(a.Artist) || (!string.IsNullOrWhiteSpace(a.Artist) && a.Artist.Contains(Name, StringComparison.OrdinalIgnoreCase))));
 
                 return new AlbumModel
                 {
@@ -440,6 +588,9 @@ public partial class ArtistModel : ObservableObject
             .ToList();
 
         Albums = albumGroups;
+        PersistedTrackCount = Tracks.Count;
+        PersistedAlbumCount = Albums.Count;
+
         OnPropertyChanged(nameof(Albums));
         OnPropertyChanged(nameof(AlbumCount));
         OnPropertyChanged(nameof(TrackCount));
@@ -447,6 +598,8 @@ public partial class ArtistModel : ObservableObject
         OnPropertyChanged(nameof(PrimaryStatsText));
         OnPropertyChanged(nameof(DurationStatsText));
         OnPropertyChanged(nameof(MainGenreDisplay));
+        OnPropertyChanged(nameof(HasAltNames));
+        OnPropertyChanged(nameof(AltNamesDisplay));
     }
 
     public string AlphaGroup => !string.IsNullOrWhiteSpace(AlphaGroupKey)

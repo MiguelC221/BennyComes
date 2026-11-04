@@ -411,7 +411,9 @@ public class OsuLibraryService
 
             foreach (var (u, r) in pairs)
             {
-                // Check persisted alias even for tracks where u == r (e.g. track only had Unicode in both fields)
+                string canonicalU = aliasService.GetCanonicalName(u);
+                string canonicalR = aliasService.GetCanonicalName(r);
+
                 if (activeAliases.TryGetValue(u, out var mappedFromU))
                 {
                     AddTrackToArtist(mappedFromU, t);
@@ -420,6 +422,21 @@ public class OsuLibraryService
                 {
                     RegisterAlias(u, savedFromU);
                     AddTrackToArtist(savedFromU, t);
+                }
+                else if (aliasService.TryGetCanonical(r, out var savedFromR))
+                {
+                    RegisterAlias(r, savedFromR);
+                    AddTrackToArtist(savedFromR, t);
+                }
+                else if (!string.Equals(canonicalU, u, StringComparison.OrdinalIgnoreCase))
+                {
+                    RegisterAlias(u, canonicalU);
+                    AddTrackToArtist(canonicalU, t);
+                }
+                else if (!string.Equals(canonicalR, r, StringComparison.OrdinalIgnoreCase))
+                {
+                    RegisterAlias(r, canonicalR);
+                    AddTrackToArtist(canonicalR, t);
                 }
                 else if (string.Equals(u, r, StringComparison.OrdinalIgnoreCase))
                 {
@@ -443,6 +460,15 @@ public class OsuLibraryService
             var altNames = canonicalAltNames.TryGetValue(artistName, out var alts)
                 ? alts.OrderBy(a => a, StringComparer.CurrentCultureIgnoreCase).ToList()
                 : new List<string>();
+
+            foreach (var a in aliasService.GetAliasesFor(artistName))
+            {
+                if (!altNames.Contains(a, StringComparer.OrdinalIgnoreCase) &&
+                    !string.Equals(a, artistName, StringComparison.OrdinalIgnoreCase))
+                {
+                    altNames.Add(a);
+                }
+            }
 
             artistGroups.Add(new ArtistModel
             {

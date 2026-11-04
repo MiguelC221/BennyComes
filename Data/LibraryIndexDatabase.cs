@@ -330,6 +330,55 @@ public sealed class LibraryIndexDatabase
                 artists.Add(artist);
             }
 
+            // Unify artists across aliases so that combined artists are merged into canonical models
+            var unifiedMap = new Dictionary<string, ArtistModel>(StringComparer.OrdinalIgnoreCase);
+            foreach (var ar in artists)
+            {
+                string canonical = ArtistAliasService.Instance.GetCanonicalName(ar.Name);
+                if (!unifiedMap.TryGetValue(canonical, out var target))
+                {
+                    target = new ArtistModel
+                    {
+                        Name = canonical,
+                        AltNames = ArtistAliasService.Instance.GetAliasesFor(canonical),
+                        AvatarPath = ar.AvatarPath,
+                        AlphaGroupKey = AlphaGroupHelper.GetAlphaGroupKey(canonical),
+                        SortKey = AlphaGroupHelper.GetSortKey(canonical),
+                        GroupRank = AlphaGroupHelper.GetGroupRank(AlphaGroupHelper.GetAlphaGroupKey(canonical)),
+                        Tracks = new List<Track>(),
+                        Albums = new List<AlbumModel>()
+                    };
+                    unifiedMap[canonical] = target;
+                }
+
+                if (ar.Tracks != null && ar.Tracks.Count > 0)
+                {
+                    target.Tracks.AddRange(ar.Tracks);
+                }
+                if (ar.Albums != null && ar.Albums.Count > 0)
+                {
+                    target.Albums.AddRange(ar.Albums);
+                }
+                if (string.IsNullOrEmpty(target.AvatarPath) && !string.IsNullOrEmpty(ar.AvatarPath))
+                {
+                    target.AvatarPath = ar.AvatarPath;
+                }
+            }
+
+            var mergedArtists = new List<ArtistModel>(unifiedMap.Count);
+            foreach (var ar in unifiedMap.Values)
+            {
+                // Deduplicate tracks and albums
+                ar.Tracks = ar.Tracks.DistinctBy(t => t.Id > 0 ? t.Id.ToString() : t.FilePath).ToList();
+                ar.Albums = ar.Albums.DistinctBy(al => al.Name, StringComparer.OrdinalIgnoreCase).ToList();
+                ar.PersistedTrackCount = ar.Tracks.Count;
+                ar.PersistedAlbumCount = ar.Albums.Count;
+                ar.SearchText = AlphaGroupHelper.NormalizeForSearch(
+                    ar.AltNames.Count > 0 ? $"{ar.Name} {string.Join(' ', ar.AltNames)}" : ar.Name);
+                mergedArtists.Add(ar);
+            }
+            artists = mergedArtists;
+
             // If albums or artists were somehow empty while tracks exist, trigger rebuild
             if (albums.Count == 0 || artists.Count == 0)
             {

@@ -438,11 +438,31 @@ public partial class OsuLibraryViewModel : ObservableObject
     public void OpenArtistDetail(ArtistModel? artist, bool skipPush = false)
     {
         if (artist == null) return;
+
+        // Resolve canonical artist if this artist is an alias
+        string canonicalName = Services.Library.ArtistAliasService.Instance.GetCanonicalName(artist.Name);
+        if (!string.Equals(canonicalName, artist.Name, StringComparison.OrdinalIgnoreCase))
+        {
+            var canonicalArtist = Artists.FirstOrDefault(a => string.Equals(a.Name, canonicalName, StringComparison.OrdinalIgnoreCase))
+                               ?? _osuService.Artists.FirstOrDefault(a => string.Equals(a.Name, canonicalName, StringComparison.OrdinalIgnoreCase))
+                               ?? Services.Library.LibraryCacheService.Instance.CachedArtists.FirstOrDefault(a => string.Equals(a.Name, canonicalName, StringComparison.OrdinalIgnoreCase));
+            if (canonicalArtist != null)
+            {
+                artist = canonicalArtist;
+            }
+            else
+            {
+                artist.Name = canonicalName;
+                artist.AltNames = Services.Library.ArtistAliasService.Instance.GetAliasesFor(canonicalName);
+            }
+        }
+
         if (!skipPush)
         {
             MainViewModel.Instance?.PushCurrentNavigationState();
         }
         SelectedAlbumDetail = null;
+        artist.EnsureAlbumsAndStats();
         SelectedArtistDetail = artist;
     }
 
@@ -462,9 +482,13 @@ public partial class OsuLibraryViewModel : ObservableObject
     public void OpenArtistByName(string? artistName)
     {
         if (string.IsNullOrWhiteSpace(artistName)) return;
+        string canonical = Services.Library.ArtistAliasService.Instance.GetCanonicalName(artistName.Trim());
+
         bool MatchesArtist(ArtistModel a, string name) =>
             string.Equals(a.Name, name, StringComparison.OrdinalIgnoreCase) ||
-            a.AltNames.Any(alt => string.Equals(alt, name, StringComparison.OrdinalIgnoreCase));
+            string.Equals(a.Name, canonical, StringComparison.OrdinalIgnoreCase) ||
+            a.AltNames.Any(alt => string.Equals(alt, name, StringComparison.OrdinalIgnoreCase) ||
+                                  string.Equals(alt, canonical, StringComparison.OrdinalIgnoreCase));
 
         var artist = Artists.FirstOrDefault(a => MatchesArtist(a, artistName))
                   ?? _osuService.Artists.FirstOrDefault(a => MatchesArtist(a, artistName));
@@ -475,15 +499,19 @@ public partial class OsuLibraryViewModel : ObservableObject
             if (split.Count > 0)
             {
                 var first = split[0];
-                artist = Artists.FirstOrDefault(a => MatchesArtist(a, first))
-                      ?? _osuService.Artists.FirstOrDefault(a => MatchesArtist(a, first));
+                string firstCanonical = Services.Library.ArtistAliasService.Instance.GetCanonicalName(first.Trim());
+                artist = Artists.FirstOrDefault(a => MatchesArtist(a, first) || MatchesArtist(a, firstCanonical))
+                      ?? _osuService.Artists.FirstOrDefault(a => MatchesArtist(a, first) || MatchesArtist(a, firstCanonical));
             }
         }
 
-        if (artist != null)
+        artist ??= new ArtistModel
         {
-            OpenArtistDetail(artist);
-        }
+            Name = canonical,
+            AltNames = Services.Library.ArtistAliasService.Instance.GetAliasesFor(canonical)
+        };
+
+        OpenArtistDetail(artist);
     }
 
     [RelayCommand]

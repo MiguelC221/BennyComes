@@ -198,29 +198,37 @@ public static class ArtistNavigationHelper
         var osuService = OsuLibraryService.Instance;
 
         bool Matches(ArtistModel a) =>
-            string.Equals(a.Name, trimmed, StringComparison.OrdinalIgnoreCase) ||
             string.Equals(a.Name, canonical, StringComparison.OrdinalIgnoreCase) ||
-            a.AltNames.Any(alt => string.Equals(alt, trimmed, StringComparison.OrdinalIgnoreCase) ||
-                                  string.Equals(alt, canonical, StringComparison.OrdinalIgnoreCase));
+            string.Equals(a.Name, trimmed, StringComparison.OrdinalIgnoreCase) ||
+            a.AltNames.Any(alt => string.Equals(alt, canonical, StringComparison.OrdinalIgnoreCase) ||
+                                  string.Equals(alt, trimmed, StringComparison.OrdinalIgnoreCase));
 
         // 1. Si estamos en OsuLibrary o el modo osu! está activo
         if (vm?.CurrentView == "OsuLibrary" || vm?.Settings.IsOsuModeEnabled == true)
         {
-            var osuArt = vm?.OsuLibrary.Artists.FirstOrDefault(Matches)
+            var osuArt = vm?.OsuLibrary.Artists.FirstOrDefault(a => string.Equals(a.Name, canonical, StringComparison.OrdinalIgnoreCase))
+                      ?? osuService.Artists.FirstOrDefault(a => string.Equals(a.Name, canonical, StringComparison.OrdinalIgnoreCase))
+                      ?? vm?.OsuLibrary.Artists.FirstOrDefault(Matches)
                       ?? osuService.Artists.FirstOrDefault(Matches);
             if (osuArt != null) return osuArt;
         }
 
         // 2. Caché general / MyMusic
-        var cached = LibraryCacheService.Instance.CachedArtists.FirstOrDefault(Matches);
+        var cached = LibraryCacheService.Instance.CachedArtists.FirstOrDefault(a => string.Equals(a.Name, canonical, StringComparison.OrdinalIgnoreCase))
+                  ?? LibraryCacheService.Instance.CachedArtists.FirstOrDefault(Matches);
         if (cached != null) return cached;
 
         // 3. Fallback a OsuLibrary
-        var fallbackOsu = osuService.Artists.FirstOrDefault(Matches);
+        var fallbackOsu = osuService.Artists.FirstOrDefault(a => string.Equals(a.Name, canonical, StringComparison.OrdinalIgnoreCase))
+                       ?? osuService.Artists.FirstOrDefault(Matches);
         if (fallbackOsu != null) return fallbackOsu;
 
         // 4. Nuevo modelo si aún no existe en colecciones
-        return new ArtistModel { Name = trimmed };
+        return new ArtistModel
+        {
+            Name = canonical,
+            AltNames = ArtistAliasService.Instance.GetAliasesFor(canonical)
+        };
     }
 
     public static void NavigateToArtistModel(ArtistModel artist)

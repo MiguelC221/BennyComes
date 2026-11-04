@@ -20,6 +20,12 @@ public class OsuArtistAliasService
 
     public void Save() => _service.Save();
 
+    public string GetCanonicalName(string name)
+        => _service.GetCanonicalName(name);
+
+    public List<string> GetAliasesFor(string canonicalName)
+        => _service.GetAliasesFor(canonicalName);
+
     public bool TryGetCanonical(string alias, out string canonicalName)
         => _service.TryGetCanonical(alias, out canonicalName);
 

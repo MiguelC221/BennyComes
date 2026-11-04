@@ -1536,9 +1536,14 @@ public partial class MainViewModel : ObservableObject
                                   string.Equals(alt, primaryName, StringComparison.OrdinalIgnoreCase) ||
                                   string.Equals(alt, canonical, StringComparison.OrdinalIgnoreCase));
 
-        var artist = _cache.CachedArtists.FirstOrDefault(Matches)
+        var artist = _cache.CachedArtists.FirstOrDefault(a => string.Equals(a.Name, canonical, StringComparison.OrdinalIgnoreCase))
+                  ?? _cache.CachedArtists.FirstOrDefault(Matches)
                   ?? _cache.CachedArtists.FirstOrDefault(a => a.Name.Contains(primaryName, StringComparison.OrdinalIgnoreCase))
-                  ?? new ArtistModel { Name = canonical };
+                  ?? new ArtistModel
+                  {
+                      Name = canonical,
+                      AltNames = Services.Library.ArtistAliasService.Instance.GetAliasesFor(canonical)
+                  };
 
         _isRestoringNavigation = true;
         try
