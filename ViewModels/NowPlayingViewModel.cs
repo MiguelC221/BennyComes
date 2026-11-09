@@ -137,9 +137,17 @@ public partial class NowPlayingViewModel : ObservableObject
     [ObservableProperty]
     private bool _isArtistPhotoActive;
 
-    // osu! Background Video playback
+    // osu! Background Video & Storyboard playback
     [ObservableProperty]
     private bool _playOsuBackgroundVideo = true;
+
+    [ObservableProperty]
+    private bool _playOsuStoryboard = true;
+
+    partial void OnPlayOsuStoryboardChanged(bool value)
+    {
+        _ = Data.LibraryDao.Instance.SetSettingAsync("osu_play_storyboard", value.ToString());
+    }
 
     [ObservableProperty]
     private string _osuVideoStretchMode = "Ajustar (proporción original)"; // "Ajustar (proporción original)" (Uniform) por default o "Rellenar pantalla" (UniformToFill)
@@ -162,6 +170,13 @@ public partial class NowPlayingViewModel : ObservableObject
     };
 
     public bool HasOsuVideo => CurrentTrack != null && CurrentTrack.HasVideo && (MainViewModel.Instance?.Settings.IsOsuModeEnabled == true || CurrentTrack.Genre == "osu!");
+
+    private bool _hasOsuStoryboard;
+    public bool HasOsuStoryboard
+    {
+        get => _hasOsuStoryboard;
+        private set => SetProperty(ref _hasOsuStoryboard, value);
+    }
 
     public System.Collections.ObjectModel.ObservableCollection<string> AvailableArtistImages { get; } = new();
     private int _currentArtistImageIndex = 0;
@@ -348,6 +363,9 @@ public partial class NowPlayingViewModel : ObservableObject
 
             string videoStretchVal = await Data.LibraryDao.Instance.GetSettingAsync("osu_video_stretch", "Ajustar (proporción original)");
             OsuVideoStretchMode = videoStretchVal;
+
+            string playSbVal = await Data.LibraryDao.Instance.GetSettingAsync("osu_play_storyboard", "true");
+            PlayOsuStoryboard = bool.TryParse(playSbVal, out var psb) ? psb : true;
         }
         catch { }
     }
@@ -451,6 +469,7 @@ public partial class NowPlayingViewModel : ObservableObject
             TotalTimeText = "0:00";
             CurrentPositionSeconds = 0;
             TotalDurationSeconds = 1;
+            HasOsuStoryboard = false;
             UpdateTechnicalBadges();
             return;
         }
@@ -509,6 +528,10 @@ public partial class NowPlayingViewModel : ObservableObject
         CurrentTimeText = "0:00";
 
         UpdateTechnicalBadges();
+
+        bool isOsuContext = track.IsOsuTrack ||
+                            (!string.IsNullOrEmpty(track.FilePath) && track.FilePath.IndexOf("Songs", StringComparison.OrdinalIgnoreCase) >= 0);
+        HasOsuStoryboard = isOsuContext && Services.Storyboard.OsuStoryboardParser.HasStoryboardInFolder(track.FilePath);
 
         OnPropertyChanged(nameof(HasOsuVideo));
         OnPropertyChanged(nameof(QueuePositionText));

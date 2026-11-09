@@ -5,6 +5,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
              xmlns:vlc="clr-namespace:LibVLCSharp.WPF;assembly=LibVLCSharp.WPF"
+             xmlns:controls="clr-namespace:BenyComes.Views.Controls"
              xmlns:models="clr-namespace:BenyComes.Models"
              xmlns:vm="clr-namespace:BenyComes.ViewModels"
              mc:Ignorable="d" 
@@ -97,6 +98,13 @@
                    IsHitTestVisible="False"
                    RenderOptions.BitmapScalingMode="LowQuality"
                    Opacity="0.0" />
+
+            <!-- osu! Storyboard Layer (SkiaSharp 2D Render Engine - Nivel 1 Básico / Ambiental) -->
+            <controls:OsuStoryboardControl x:Name="OsuStoryboardLayer"
+                                           HorizontalAlignment="Stretch"
+                                           VerticalAlignment="Stretch"
+                                           Visibility="Collapsed"
+                                           Opacity="0.0" />
 
             <!-- Darkening overlay with user-adjustable opacity -->
             <Border x:Name="BackgroundDarknessOverlay" Background="#000000" Opacity="{Binding NowPlaying.BackgroundDarkness}" />
@@ -321,6 +329,25 @@
                                                       SelectedItem="{Binding NowPlaying.OsuVideoStretchMode, Mode=TwoWay}"
                                                       HorizontalAlignment="Stretch" />
                                         </StackPanel>
+                                    </StackPanel>
+
+                                    <!-- OSU! STORYBOARD PLAYBACK TOGGLE (Visible when current track has an osu! storyboard) -->
+                                    <StackPanel Margin="0,0,0,14" Visibility="{Binding NowPlaying.HasOsuStoryboard, Converter={StaticResource BoolToVisConverter}}">
+                                        <Grid Margin="0,0,0,6">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,10,0">
+                                                <StackPanel Orientation="Horizontal">
+                                                    <ui:SymbolIcon Symbol="Sparkle24" FontSize="14" Foreground="{Binding Theme.CurrentAccentBrush}" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                                    <TextBlock Text="Reproducir Storyboard (osu!)" FontWeight="SemiBold" FontSize="12" Foreground="#FFFFFF" />
+                                                </StackPanel>
+                                                <TextBlock Text="Renderiza los sprites y efectos ambientales (.osb / .osu) en tiempo real" FontSize="11" Foreground="#99FFFFFF" TextWrapping="Wrap" />
+                                            </StackPanel>
+                                            <ui:ToggleSwitch Grid.Column="1" IsChecked="{Binding NowPlaying.PlayOsuStoryboard, Mode=TwoWay}"
+                                                             OffContent="" OnContent="" VerticalAlignment="Center" />
+                                        </Grid>
                                     </StackPanel>
 
                                     <!-- 2. Seleccionar imagen de artista -->

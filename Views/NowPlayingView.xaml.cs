@@ -158,6 +158,8 @@ public partial class NowPlayingView : UserControl
     private string? _currentVlcVideoPath = null;
     private bool _isCinemaMode = false;
     private bool _isVideoActive = false;
+    private bool _isStoryboardActive = false;
+    private int _storyboardLoadGeneration = 0;
 
     private static void EnsureLibVlcInitialized()
     {
@@ -360,12 +362,73 @@ public partial class NowPlayingView : UserControl
         else
         {
             _isVideoActive = false;
-            if (_isCinemaMode)
+            if (_isCinemaMode && !_isStoryboardActive)
             {
                 _isCinemaMode = false;
                 UpdateCinemaModeVisualState(showToast: false);
             }
             RestoreArtworkBackground();
+        }
+
+        UpdateOsuStoryboardState(track);
+    }
+
+    private async void UpdateOsuStoryboardState(Track? track)
+    {
+        int gen = System.Threading.Interlocked.Increment(ref _storyboardLoadGeneration);
+        StopOsuStoryboardPlayback();
+
+        if (DataContext is not MainViewModel vm ||
+            !vm.NowPlaying.PlayOsuStoryboard ||
+            track == null ||
+            string.IsNullOrWhiteSpace(track.FilePath))
+        {
+            if (!_isVideoActive && _isCinemaMode)
+            {
+                _isCinemaMode = false;
+                UpdateCinemaModeVisualState(showToast: false);
+            }
+            return;
+        }
+
+        bool isOsuContext = track.IsOsuTrack ||
+                            track.FilePath.IndexOf("Songs", StringComparison.OrdinalIgnoreCase) >= 0;
+        if (!isOsuContext)
+            return;
+
+        string audioPath = track.FilePath;
+        var parsedStoryboard = await System.Threading.Tasks.Task.Run(() =>
+            Services.Storyboard.OsuStoryboardParser.ParseFromTrackAudioPath(audioPath)).ConfigureAwait(true);
+
+        if (gen != _storyboardLoadGeneration || !IsLoaded)
+            return;
+
+        if (parsedStoryboard != null && parsedStoryboard.HasRenderableSprites && OsuStoryboardLayer != null)
+        {
+            _isStoryboardActive = true;
+            StopBackgroundCinematicMotion();
+
+            OsuStoryboardLayer.StretchMode = vm.NowPlaying.OsuVideoStretch;
+            OsuStoryboardLayer.Visibility = Visibility.Visible;
+            OsuStoryboardLayer.Opacity = 1.0;
+            OsuStoryboardLayer.LoadStoryboard(parsedStoryboard, vm.NowPlaying.CurrentPositionSeconds, vm.NowPlaying.IsPlaying);
+
+            if (!_isCinemaMode)
+            {
+                _isCinemaMode = true;
+                UpdateCinemaModeVisualState(showToast: false);
+            }
+        }
+    }
+
+    private void StopOsuStoryboardPlayback()
+    {
+        _isStoryboardActive = false;
+        if (OsuStoryboardLayer != null)
+        {
+            OsuStoryboardLayer.UnloadStoryboard();
+            OsuStoryboardLayer.Opacity = 0.0;
+            OsuStoryboardLayer.Visibility = Visibility.Collapsed;
         }
     }
 
@@ -441,8 +504,14 @@ public partial class NowPlayingView : UserControl
 
     private void SyncOsuVideoPlayback()
     {
-        if (!_isVideoActive) return;
         if (DataContext is not MainViewModel vm || vm.NowPlaying.CurrentTrack == null) return;
+
+        if (_isStoryboardActive && OsuStoryboardLayer != null)
+        {
+            OsuStoryboardLayer.SyncPlayback(vm.NowPlaying.CurrentPositionSeconds, vm.NowPlaying.IsPlaying);
+        }
+
+        if (!_isVideoActive) return;
 
         var currentTrack = vm.NowPlaying.CurrentTrack;
         if (_incompatibleVideos.Contains(currentTrack.VideoPath))
@@ -750,6 +819,7 @@ public partial class NowPlayingView : UserControl
         {
             OsuBackgroundVideoPlayer.MediaFailed -= OnOsuVideoMediaFailed;
         }
+        StopOsuStoryboardPlayback();
         StopVlcPlayback();
         if (ReferenceEquals(_currentInstance, this))
         {
@@ -939,7 +1009,7 @@ public partial class NowPlayingView : UserControl
             }
         }
 
-        if (_isVideoActive)
+        if (_isVideoActive || _isStoryboardActive)
         {
             var fadeDarkness = new DoubleAnimation(0.0, duration) { EasingFunction = ease };
             if (BackgroundDarknessOverlay != null)
@@ -961,7 +1031,7 @@ public partial class NowPlayingView : UserControl
         var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
         var fadeIn = new DoubleAnimation(0.0, 1.0, duration) { EasingFunction = ease };
 
-        if (_isVideoActive)
+        if (_isVideoActive || _isStoryboardActive)
         {
             double targetDarkness = (DataContext is MainViewModel vmDark) ? vmDark.NowPlaying.BackgroundDarkness : 0.4;
             var restoreDarkness = new DoubleAnimation(targetDarkness, duration) { EasingFunction = ease };
@@ -1223,9 +1293,17 @@ public partial class NowPlayingView : UserControl
         {
             UpdateOsuVideoState(vmVideo.NowPlaying.CurrentTrack);
         }
+        else if (e.PropertyName == nameof(NowPlayingViewModel.PlayOsuStoryboard) && DataContext is MainViewModel vmSb)
+        {
+            UpdateOsuStoryboardState(vmSb.NowPlaying.CurrentTrack);
+        }
         else if (e.PropertyName == nameof(NowPlayingViewModel.OsuVideoStretch))
         {
             UpdateVideoBlurBackdropVisibility();
+            if (OsuStoryboardLayer != null && DataContext is MainViewModel vmStretch)
+            {
+                OsuStoryboardLayer.StretchMode = vmStretch.NowPlaying.OsuVideoStretch;
+            }
         }
         else if (e.PropertyName == nameof(NowPlayingViewModel.CurrentPositionSeconds) ||
                  e.PropertyName == nameof(NowPlayingViewModel.IsPlaying))
@@ -1241,9 +1319,9 @@ public partial class NowPlayingView : UserControl
 
     private void CrossfadeBackgroundWithKenBurns(BitmapImage newImage, bool isArtistPhoto)
     {
-        if (_isVideoActive && isArtistPhoto)
+        if ((_isVideoActive || _isStoryboardActive) && isArtistPhoto)
         {
-            // Cuando hay un vídeo de osu! activo, desactiva automáticamente la imagen del artista
+            // Cuando hay un vídeo o storyboard de osu! activo, desactiva automáticamente la imagen del artista
             return;
         }
 
@@ -1308,7 +1386,7 @@ public partial class NowPlayingView : UserControl
 
     private void StartBackgroundCinematicMotion()
     {
-        if (_isVideoActive) return;
+        if (_isVideoActive || _isStoryboardActive) return;
         if (BackgroundScale == null || BackgroundTranslate == null) return;
 
         // Alternar entre los 4 modos cinemáticos direccionales tipo documental (Pan & Scan)
