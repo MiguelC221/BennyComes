@@ -73,9 +73,9 @@ public partial class AudioVisualizerService : ObservableObject
 
         InitDefaultWaveform();
 
-        _timer = new DispatcherTimer(DispatcherPriority.Background)
+        _timer = new DispatcherTimer(DispatcherPriority.Render)
         {
-            Interval = TimeSpan.FromMilliseconds(28) // ~35 FPS
+            Interval = TimeSpan.FromMilliseconds(25) // ~40 FPS
         };
         _timer.Tick += OnTimerTick;
         _timer.Start();
@@ -143,7 +143,7 @@ public partial class AudioVisualizerService : ObservableObject
     private void OnTimerTick(object? sender, EventArgs e)
     {
         if (Application.Current?.MainWindow?.WindowState == WindowState.Minimized ||
-            (ViewModels.MainViewModel.Instance != null && ViewModels.MainViewModel.Instance.CurrentView != "NowPlaying"))
+            (ViewModels.MainViewModel.Instance != null && !ViewModels.MainViewModel.Instance.IsNowPlayingActive))
         {
             return;
         }

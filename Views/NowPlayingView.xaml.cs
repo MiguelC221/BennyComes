@@ -1599,13 +1599,13 @@ public partial class NowPlayingView : UserControl
         if (width <= 0 || height <= 0) return;
 
         // 1. Visualizador Central y Visualizador Inferior Derecha (modo escritorio > 750px):
-        //    - Ocultar cuando el ancho es menor a 940px o el alto es menor a 580px (para que no invada la carátula/título).
-        //    - Reducir progresivamente de escala entre 940px y 1240px (de 0.60x a 1.0x).
-        bool hideLargeVisualizers = width < 940 || height < 580;
-        double largeScale = Math.Clamp((width - 940.0) / 300.0, 0.0, 1.0) * 0.40 + 0.60;
-        if (height < 700)
+        //    - Ocultar cuando el ancho es menor a 820px o el alto es menor a 530px (para que no invada la carátula/título).
+        //    - Reducir progresivamente de escala entre 820px y 1180px (de 0.55x a 1.0x).
+        bool hideLargeVisualizers = width < 820 || height < 530;
+        double largeScale = Math.Clamp((width - 820.0) / 360.0, 0.0, 1.0) * 0.45 + 0.55;
+        if (height < 680)
         {
-            double heightFactor = Math.Clamp((height - 580.0) / 120.0, 0.65, 1.0);
+            double heightFactor = Math.Clamp((height - 530.0) / 150.0, 0.60, 1.0);
             largeScale = Math.Min(largeScale, heightFactor);
         }
 
@@ -1630,10 +1630,10 @@ public partial class NowPlayingView : UserControl
         }
 
         // 2. Visualizador en InfoCancion (debajo de título/artista en modo escritorio):
-        //    - Ocultar cuando el ancho < 830px o el alto < 540px.
-        //    - Escalar entre 830px y 1080px (de 0.72x a 1.0x).
-        bool hideInfoVisualizer = width < 830 || height < 540;
-        double infoScale = Math.Clamp((width - 830.0) / 250.0, 0.0, 1.0) * 0.28 + 0.72;
+        //    - Ocultar solo si el alto es muy reducido (< 490px).
+        //    - Escalar suavemente entre 750px y 1020px (de 0.75x a 1.0x).
+        bool hideInfoVisualizer = height < 490;
+        double infoScale = Math.Clamp((width - 750.0) / 270.0, 0.0, 1.0) * 0.25 + 0.75;
         if (VisualizerInfoInner != null)
         {
             VisualizerInfoInner.Visibility = hideInfoVisualizer ? Visibility.Collapsed : Visibility.Visible;
@@ -1645,15 +1645,15 @@ public partial class NowPlayingView : UserControl
         }
 
         // 3. Visualizador en Modo Compacto / Móvil (<= 750px):
-        //    - Ocultar si el ancho < 520px o el alto < 600px para no ensuciar el texto de la canción.
-        //    - Reducir su escala (de 0.55x a 0.82x) para que se mantenga compacto y estético.
+        //    - Ocultar si el alto < 530px para no saturar cuando la ventana es muy baja.
+        //    - Reducir su escala (de 0.52x a 0.80x) según el ancho disponible.
         if (CompactVisualizerContainer != null)
         {
-            bool hideCompactVisualizer = width < 520 || height < 600;
+            bool hideCompactVisualizer = height < 530;
             CompactVisualizerContainer.Visibility = hideCompactVisualizer ? Visibility.Collapsed : Visibility.Visible;
             if (CompactVisualizerScale != null && !hideCompactVisualizer)
             {
-                double compactScale = Math.Clamp((width - 520.0) / 230.0, 0.0, 1.0) * 0.27 + 0.55;
+                double compactScale = Math.Clamp((width - 480.0) / 270.0, 0.0, 1.0) * 0.28 + 0.52;
                 CompactVisualizerScale.ScaleX = compactScale;
                 CompactVisualizerScale.ScaleY = compactScale;
             }
