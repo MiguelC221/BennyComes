@@ -309,7 +309,7 @@
                 </StackPanel>
             </ui:Button>
 
-            <!-- Artists Tab Quick Setting: Buscar artistas con Last.fm & Download Status -->
+            <!-- Artists Tab Quick Actions: Combinar artistas & Download Status -->
             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="16,0,16,0">
                 <StackPanel.Style>
                     <Style TargetType="StackPanel">
@@ -321,15 +321,6 @@
                         </Style.Triggers>
                     </Style>
                 </StackPanel.Style>
-
-                <Border Background="{DynamicResource SurfaceCardBrush}" BorderBrush="{DynamicResource SurfaceCardBorderBrush}" BorderThickness="1" CornerRadius="8" Padding="8,4" Margin="0,0,10,0">
-                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                        <ui:SymbolIcon Symbol="Globe24" FontSize="14" Foreground="{Binding Theme.CurrentAccentBrush}" Margin="0,0,6,0" VerticalAlignment="Center" />
-                        <TextBlock Text="Buscar artistas con Last.fm" FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" Margin="0,0,8,0" />
-                        <ui:ToggleSwitch IsChecked="{Binding MyMusic.IsLastFmArtistSyncEnabled, Mode=TwoWay}"
-                                         OffContent="" OnContent="" VerticalAlignment="Center" />
-                    </StackPanel>
-                </Border>
 
                 <!-- Botón Combinar artistas -->
                 <ui:Button Appearance="Secondary" Padding="10,5" Margin="0,0,10,0" VerticalAlignment="Center"
