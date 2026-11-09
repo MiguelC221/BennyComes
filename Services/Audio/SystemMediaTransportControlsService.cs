@@ -75,6 +75,8 @@ public class SystemMediaTransportControlsService
     private bool _isBoundToWindow;
     private bool _audioEventsSubscribed;
     private IntPtr _hwnd = IntPtr.Zero;
+    private DateTime _lastTimelineUpdateUtc = DateTime.MinValue;
+    private TimeSpan _lastReportedPosition = TimeSpan.Zero;
 
     public void Initialize(AudioPlayerService audio)
     {
@@ -148,7 +150,12 @@ public class SystemMediaTransportControlsService
                         {
                             if (_smtc != null)
                             {
-                                try { _smtc.ButtonPressed -= OnSmtcButtonPressed; } catch { }
+                                try
+                                {
+                                    _smtc.ButtonPressed -= OnSmtcButtonPressed;
+                                    _smtc.PlaybackPositionChangeRequested -= OnSmtcPlaybackPositionChangeRequested;
+                                }
+                                catch { }
                             }
                             if (_mediaPlayerHolder != null)
                             {
@@ -196,11 +203,14 @@ public class SystemMediaTransportControlsService
 
                 _smtc.ButtonPressed -= OnSmtcButtonPressed;
                 _smtc.ButtonPressed += OnSmtcButtonPressed;
+                _smtc.PlaybackPositionChangeRequested -= OnSmtcPlaybackPositionChangeRequested;
+                _smtc.PlaybackPositionChangeRequested += OnSmtcPlaybackPositionChangeRequested;
 
                 if (_audio != null && !_audioEventsSubscribed)
                 {
                     _audio.TrackChanged += OnTrackChanged;
                     _audio.OnPlaybackStateChanged += OnPlaybackStateChanged;
+                    _audio.PositionChanged += OnPositionChanged;
                     _audioEventsSubscribed = true;
                 }
 
@@ -209,6 +219,7 @@ public class SystemMediaTransportControlsService
                 if (_audio?.CurrentTrack != null)
                 {
                     _ = UpdateMetadataAsync(_audio.CurrentTrack);
+                    UpdateTimelineProperties(_audio.CurrentPosition, _audio.TotalDuration, force: true);
                 }
             }
         }
@@ -248,10 +259,81 @@ public class SystemMediaTransportControlsService
         });
     }
 
+    private void OnSmtcPlaybackPositionChangeRequested(SystemMediaTransportControls sender, PlaybackPositionChangeRequestedEventArgs args)
+    {
+        if (_audio == null) return;
+
+        var app = Application.Current;
+        if (app?.Dispatcher == null) return;
+
+        app.Dispatcher.Invoke(() =>
+        {
+            _audio.Seek(args.RequestedPlaybackPosition);
+            UpdateTimelineProperties(_audio.CurrentPosition, _audio.TotalDuration, force: true);
+        });
+    }
+
     private void OnTrackChanged(object? sender, Track? track)
     {
         if (_smtc == null) return;
         _ = UpdateMetadataAsync(track);
+        if (track != null && _audio != null)
+        {
+            UpdateTimelineProperties(_audio.CurrentPosition, _audio.TotalDuration, force: true);
+        }
+        else
+        {
+            UpdateTimelineProperties(TimeSpan.Zero, TimeSpan.Zero, force: true);
+        }
+    }
+
+    private void OnPositionChanged(object? sender, TimeSpan position)
+    {
+        if (_smtc == null || _audio == null) return;
+
+        // Actualizar inmediatamente si hubo un salto/seek (> 1.5s respecto a lo esperado) o cada ~1 segundo
+        var now = DateTime.UtcNow;
+        double elapsedWallSec = (now - _lastTimelineUpdateUtc).TotalSeconds;
+        double posDeltaSec = Math.Abs((position - _lastReportedPosition).TotalSeconds);
+        bool isSeekJump = Math.Abs(posDeltaSec - elapsedWallSec) > 1.25;
+
+        if (isSeekJump || elapsedWallSec >= 1.0)
+        {
+            UpdateTimelineProperties(position, _audio.TotalDuration, force: true);
+        }
+    }
+
+    public void UpdateTimelineProperties(TimeSpan position, TimeSpan duration, bool force = false)
+    {
+        if (_smtc == null) return;
+
+        var now = DateTime.UtcNow;
+        if (!force && (now - _lastTimelineUpdateUtc).TotalMilliseconds < 800)
+            return;
+
+        try
+        {
+            if (position < TimeSpan.Zero) position = TimeSpan.Zero;
+            if (duration < TimeSpan.Zero) duration = TimeSpan.Zero;
+            if (duration > TimeSpan.Zero && position > duration) position = duration;
+
+            var timeline = new SystemMediaTransportControlsTimelineProperties
+            {
+                StartTime = TimeSpan.Zero,
+                MinSeekTime = TimeSpan.Zero,
+                Position = position,
+                MaxSeekTime = duration,
+                EndTime = duration
+            };
+
+            _smtc.UpdateTimelineProperties(timeline);
+            _lastTimelineUpdateUtc = now;
+            _lastReportedPosition = position;
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Failed to update SMTC timeline: {ex.Message}");
+        }
     }
 
     private void OnPlaybackStateChanged(Track? track, bool isPlaying)
@@ -274,7 +356,18 @@ public class SystemMediaTransportControlsService
         if (_smtc == null) return;
         try
         {
+            if (_audio?.CurrentTrack == null && !isPlaying)
+            {
+                _smtc.PlaybackStatus = MediaPlaybackStatus.Stopped;
+                UpdateTimelineProperties(TimeSpan.Zero, TimeSpan.Zero, force: true);
+                return;
+            }
+
             _smtc.PlaybackStatus = isPlaying ? MediaPlaybackStatus.Playing : MediaPlaybackStatus.Paused;
+            if (_audio != null)
+            {
+                UpdateTimelineProperties(_audio.CurrentPosition, _audio.TotalDuration, force: true);
+            }
         }
         catch { }
     }
@@ -327,6 +420,11 @@ public class SystemMediaTransportControlsService
 
             updater.Update();
             _smtc.PlaybackStatus = _audio != null && _audio.IsPlaying ? MediaPlaybackStatus.Playing : MediaPlaybackStatus.Paused;
+            if (_audio != null)
+            {
+                var duration = _audio.TotalDuration > TimeSpan.Zero ? _audio.TotalDuration : track.Duration;
+                UpdateTimelineProperties(_audio.CurrentPosition, duration, force: true);
+            }
         }
         catch (Exception ex)
         {
