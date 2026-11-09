@@ -205,6 +205,7 @@ public partial class AlbumModel : ObservableObject
 public partial class ArtistModel : ObservableObject
 {
     public static bool IsLastFmArtistSyncActive { get; set; } = false;
+    public static bool ShowOsuTracksInArtistDetail { get; set; } = true;
 
     public string Name { get; set; } = "Unknown Artist";
     public List<string> AltNames { get; set; } = new();
@@ -481,8 +482,10 @@ public partial class ArtistModel : ObservableObject
         return false;
     }
 
-    public void EnsureAlbumsAndStats()
+    public void EnsureAlbumsAndStats(bool? includeOsuTracks = null)
     {
+        bool showOsu = includeOsuTracks ?? ShowOsuTracksInArtistDetail;
+
         // 1. Ensure AltNames is populated from ArtistAliasService
         if (AltNames == null || AltNames.Count == 0)
         {
@@ -505,6 +508,7 @@ public partial class ArtistModel : ObservableObject
         {
             foreach (var t in localCache.CachedTracks)
             {
+                if (!showOsu && t.IsOsuTrack) continue;
                 if (MatchesTrack(t))
                 {
                     string key = !string.IsNullOrEmpty(t.FilePath) ? t.FilePath : t.Id.ToString();
@@ -516,8 +520,8 @@ public partial class ArtistModel : ObservableObject
             }
         }
 
-        // Check osu tracks if loaded
-        if (osuService.IsLoaded && osuService.Tracks != null && osuService.Tracks.Count > 0)
+        // Check osu tracks if loaded and enabled
+        if (showOsu && osuService.IsLoaded && osuService.Tracks != null && osuService.Tracks.Count > 0)
         {
             foreach (var t in osuService.Tracks)
             {
@@ -544,6 +548,10 @@ public partial class ArtistModel : ObservableObject
         else if (Tracks != null && Tracks.Count > 0)
         {
             // Already has tracks assigned directly (e.g. from a custom playlist or mock)
+            if (!showOsu)
+            {
+                Tracks = Tracks.Where(t => !t.IsOsuTrack).ToList();
+            }
         }
         else
         {

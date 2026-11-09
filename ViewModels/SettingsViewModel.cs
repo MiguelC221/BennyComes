@@ -404,59 +404,56 @@ public partial class SettingsViewModel : ObservableObject
     [RelayCommand]
     public async Task ConnectLastFmAccountAsync()
     {
-        if (string.IsNullOrWhiteSpace(LastFmApiKey) || string.IsNullOrWhiteSpace(LastFmApiSecret))
-        {
-            LastFmScrobbleStatusMessage = "Ingresa primero tu API Key y tu Shared Secret de Last.fm.";
-            return;
-        }
-
         _lastFmAuthPollCts?.Cancel();
         _lastFmAuthPollCts?.Dispose();
-        var cts = new System.Threading.CancellationTokenSource();
-        _lastFmAuthPollCts = cts;
+        _lastFmAuthPollCts = null;
 
         IsConnectingLastFmSession = true;
-        LastFmScrobbleStatusMessage = "Solicitando token de autorización a Last.fm...";
+        LastFmScrobbleStatusMessage = "Abriendo inicio de sesión de Last.fm...";
 
         try
         {
-            var (ok, token, msg) = await Services.Online.LastFmService.Instance.RequestAuthTokenAsync(LastFmApiKey, LastFmApiSecret);
-            if (!ok || string.IsNullOrWhiteSpace(token))
+            var loginWin = new Views.LastFmWebLoginWindow(LastFmApiKey, LastFmApiSecret);
+            if (System.Windows.Application.Current?.MainWindow != null &&
+                System.Windows.Application.Current.MainWindow.IsVisible)
             {
-                LastFmScrobbleStatusMessage = msg;
-                IsConnectingLastFmSession = false;
-                return;
+                loginWin.Owner = System.Windows.Application.Current.MainWindow;
             }
 
-            string authUrl = $"https://www.last.fm/api/auth/?api_key={Uri.EscapeDataString(LastFmApiKey.Trim())}&token={Uri.EscapeDataString(token)}";
-            try
+            bool? dialogResult = loginWin.ShowDialog();
+            if (dialogResult == true && Services.Online.LastFmService.Instance.IsScrobbleAuthenticated)
             {
-                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(authUrl) { UseShellExecute = true });
+                LastFmApiKey = Services.Online.LastFmService.Instance.ApiKey;
+                LastFmApiSecret = Services.Online.LastFmService.Instance.ApiSecret;
+                LastFmSessionUsername = Services.Online.LastFmService.Instance.SessionUsername;
+                IsLastFmAuthenticated = true;
+                IsLastFmScrobblingEnabled = true;
+                IsLastFmEnabled = true;
+                LastFmScrobbleStatusMessage = !string.IsNullOrWhiteSpace(loginWin.StatusResultMessage)
+                    ? loginWin.StatusResultMessage
+                    : $"Cuenta de Last.fm conectada: @{LastFmSessionUsername}";
+
+                MainViewModel.Instance?.ShowToast(
+                    "Last.fm conectado",
+                    $"Sesión iniciada como @{LastFmSessionUsername} para hacer Scrobble.");
             }
-            catch { }
-
-            LastFmScrobbleStatusMessage = "Autoriza BenyComes en la página de Last.fm que se abrió en tu navegador... esperando confirmación.";
-
-            for (int attempt = 0; attempt < 40; attempt++)
+            else if (!string.IsNullOrWhiteSpace(loginWin.StatusResultMessage))
             {
-                await Task.Delay(3000, cts.Token);
-                if (cts.Token.IsCancellationRequested) return;
-
-                var (sessOk, user, sk, sessMsg) = await Services.Online.LastFmService.Instance.CompleteAuthSessionAsync(LastFmApiKey, LastFmApiSecret, token);
-                if (sessOk && !string.IsNullOrWhiteSpace(sk))
-                {
-                    LastFmSessionUsername = user;
-                    IsLastFmAuthenticated = true;
-                    IsLastFmScrobblingEnabled = true;
-                    IsLastFmEnabled = true;
-                    LastFmScrobbleStatusMessage = sessMsg;
-                    return;
-                }
+                LastFmScrobbleStatusMessage = loginWin.StatusResultMessage;
+            }
+            else
+            {
+                LastFmScrobbleStatusMessage = IsLastFmAuthenticated && !string.IsNullOrWhiteSpace(LastFmSessionUsername)
+                    ? $"Cuenta de Last.fm conectada: @{LastFmSessionUsername}"
+                    : "Inicio de sesión de Last.fm cancelado.";
             }
 
-            LastFmScrobbleStatusMessage = "Tiempo de espera agotado. Vuelve a pulsar 'Conectar cuenta de Last.fm' tras autorizar en el navegador.";
+            await Task.CompletedTask;
         }
-        catch (OperationCanceledException) { }
+        catch (Exception ex)
+        {
+            LastFmScrobbleStatusMessage = $"Error al abrir inicio de sesión: {ex.Message}";
+        }
         finally
         {
             IsConnectingLastFmSession = false;

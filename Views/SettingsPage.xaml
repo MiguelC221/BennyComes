@@ -827,36 +827,62 @@
                         </StackPanel>
                     </Grid>
 
-                    <!-- Shared Secret + Account Connection for Scrobbling -->
-                    <TextBlock Text="Shared Secret de Last.fm (Requerido para Scrobbling)" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,6" />
-                    <Grid Margin="0,0,0,10">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <ui:TextBox Grid.Column="0" Text="{Binding Settings.LastFmApiSecret, UpdateSourceTrigger=PropertyChanged}"
-                                    PlaceholderText="Ingresa tu Shared Secret de Last.fm (32 caracteres hexadecimales)..."
-                                    Background="{DynamicResource SurfaceCardHoverBrush}" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,10,0" />
-                        <StackPanel Grid.Column="1" Orientation="Horizontal">
-                            <ui:Button Appearance="Primary" Padding="14,6"
-                                       Background="{Binding Theme.CurrentAccentBrush}"
-                                       Command="{Binding Settings.ConnectLastFmAccountCommand}"
-                                       Visibility="{Binding Settings.IsLastFmAuthenticated, Converter={StaticResource InverseBoolToVisConverter}}">
-                                <StackPanel Orientation="Horizontal">
-                                    <ui:SymbolIcon Symbol="PersonAdd24" FontSize="14" Foreground="{Binding Theme.AccentForegroundBrush}" Margin="0,0,6,0" />
-                                    <TextBlock Text="Conectar cuenta de Last.fm" FontWeight="Bold" Foreground="{Binding Theme.AccentForegroundBrush}" FontSize="12" />
-                                </StackPanel>
-                            </ui:Button>
-                            <ui:Button Appearance="Secondary" Padding="14,6"
-                                       Command="{Binding Settings.DisconnectLastFmAccountCommand}"
-                                       Visibility="{Binding Settings.IsLastFmAuthenticated, Converter={StaticResource BoolToVisConverter}}">
-                                <StackPanel Orientation="Horizontal">
-                                    <ui:SymbolIcon Symbol="PersonDelete24" FontSize="14" Margin="0,0,6,0" />
-                                    <TextBlock Text="{Binding Settings.LastFmSessionUsername, StringFormat='Desconectar @{0}'}" FontWeight="SemiBold" FontSize="12" />
-                                </StackPanel>
-                            </ui:Button>
-                        </StackPanel>
-                    </Grid>
+                    <!-- Direct User Login Card for Scrobbling (WebView) -->
+                    <Border CornerRadius="8" Background="{DynamicResource SurfaceCardSubtleBrush}"
+                            BorderBrush="{DynamicResource SurfaceCardBorderBrush}" BorderThickness="1"
+                            Padding="14,12" Margin="0,0,0,10">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <Border Grid.Column="0" Width="36" Height="36" CornerRadius="18"
+                                    Background="#22E31B23" BorderBrush="#44E31B23" BorderThickness="1"
+                                    Margin="0,0,12,0" VerticalAlignment="Center">
+                                <ui:SymbolIcon Symbol="Person24" FontSize="18" Foreground="#FFE31B23"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                            </Border>
+
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,12,0">
+                                <TextBlock FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Text" Value="Cuenta de Last.fm para Scrobbling" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Settings.IsLastFmAuthenticated}" Value="True">
+                                                    <Setter Property="Text" Value="{Binding Settings.LastFmSessionUsername, StringFormat='Conectado como @{0}'}" />
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                                <TextBlock Text="Inicia sesión directamente con tu usuario de Last.fm en la ventana integrada sin necesidad de ingresar una API Key manual."
+                                           FontSize="11" Foreground="{DynamicResource TextTertiaryBrush}" TextWrapping="Wrap" Margin="0,2,0,0" />
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                                <ui:Button Appearance="Primary" Padding="15,7"
+                                           Background="{Binding Theme.CurrentAccentBrush}"
+                                           Command="{Binding Settings.ConnectLastFmAccountCommand}"
+                                           Visibility="{Binding Settings.IsLastFmAuthenticated, Converter={StaticResource InverseBoolToVisConverter}}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <ui:SymbolIcon Symbol="PersonAdd24" FontSize="14" Foreground="{Binding Theme.AccentForegroundBrush}" Margin="0,0,6,0" />
+                                        <TextBlock Text="Iniciar sesión con Last.fm" FontWeight="Bold" Foreground="{Binding Theme.AccentForegroundBrush}" FontSize="12" />
+                                    </StackPanel>
+                                </ui:Button>
+                                <ui:Button Appearance="Secondary" Padding="14,7"
+                                           Command="{Binding Settings.DisconnectLastFmAccountCommand}"
+                                           Visibility="{Binding Settings.IsLastFmAuthenticated, Converter={StaticResource BoolToVisConverter}}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <ui:SymbolIcon Symbol="PersonDelete24" FontSize="14" Margin="0,0,6,0" />
+                                        <TextBlock Text="{Binding Settings.LastFmSessionUsername, StringFormat='Desconectar @{0}'}" FontWeight="SemiBold" FontSize="12" />
+                                    </StackPanel>
+                                </ui:Button>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
 
                     <!-- Scrobble Status / Connected Account Badge -->
                     <Border CornerRadius="8" Background="{DynamicResource SurfaceCardHoverBrush}" Padding="12,8" Margin="0,0,0,16"

@@ -129,12 +129,26 @@ public partial class InfoAlbum : UserControl
     {
         if (RootAlbumContentGrid == null || RootAlbumSlideTransform == null) return;
 
-        var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
-        var fadeAnim = new DoubleAnimation(0.0, 1.0, TimeSpan.FromMilliseconds(280)) { EasingFunction = ease };
-        var slideAnim = new DoubleAnimation(18.0, 0.0, TimeSpan.FromMilliseconds(280)) { EasingFunction = ease };
+        RootAlbumContentGrid.BeginAnimation(OpacityProperty, null);
+        RootAlbumSlideTransform.BeginAnimation(TranslateTransform.YProperty, null);
+        RootAlbumContentGrid.Opacity = 0.0;
+        RootAlbumSlideTransform.Y = 22.0;
 
-        RootAlbumContentGrid.BeginAnimation(OpacityProperty, fadeAnim);
-        RootAlbumSlideTransform.BeginAnimation(TranslateTransform.YProperty, slideAnim);
+        if (AlbumTracksListView != null && AlbumTracksListView.Items.Count > 0)
+        {
+            AlbumTracksListView.ScrollIntoView(AlbumTracksListView.Items[0]);
+        }
+
+        Dispatcher.InvokeAsync(() =>
+        {
+            if (RootAlbumContentGrid == null || RootAlbumSlideTransform == null) return;
+            var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
+            var fadeAnim = new DoubleAnimation(0.0, 1.0, TimeSpan.FromMilliseconds(300)) { EasingFunction = ease };
+            var slideAnim = new DoubleAnimation(22.0, 0.0, TimeSpan.FromMilliseconds(300)) { EasingFunction = ease };
+
+            RootAlbumContentGrid.BeginAnimation(OpacityProperty, fadeAnim);
+            RootAlbumSlideTransform.BeginAnimation(TranslateTransform.YProperty, slideAnim);
+        }, System.Windows.Threading.DispatcherPriority.Loaded);
     }
 
     private void OnRootPreviewMouseWheel(object sender, MouseWheelEventArgs e)

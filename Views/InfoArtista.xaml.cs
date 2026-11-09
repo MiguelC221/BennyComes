@@ -47,6 +47,9 @@ public partial class InfoArtista : UserControl
     public static readonly DependencyProperty IsImagePreviewOpenProperty =
         DependencyProperty.Register(nameof(IsImagePreviewOpen), typeof(bool), typeof(InfoArtista), new PropertyMetadata(false));
 
+    public static readonly DependencyProperty ShowOsuTracksProperty =
+        DependencyProperty.Register(nameof(ShowOsuTracks), typeof(bool), typeof(InfoArtista), new PropertyMetadata(true));
+
     public ArtistModel? Artist
     {
         get => (ArtistModel?)GetValue(ArtistProperty);
@@ -95,6 +98,12 @@ public partial class InfoArtista : UserControl
         set => SetValue(IsImagePreviewOpenProperty, value);
     }
 
+    public bool ShowOsuTracks
+    {
+        get => (bool)GetValue(ShowOsuTracksProperty);
+        set => SetValue(ShowOsuTracksProperty, value);
+    }
+
     private void OnLateralCoverImageClick(object sender, MouseButtonEventArgs e)
     {
         IsImagePreviewOpen = true;
@@ -113,7 +122,28 @@ public partial class InfoArtista : UserControl
     public InfoArtista()
     {
         InitializeComponent();
+        ShowOsuTracks = ArtistModel.ShowOsuTracksInArtistDetail;
         IsVisibleChanged += OnIsVisibleChanged;
+        _ = LoadShowOsuPreferenceAsync();
+    }
+
+    private async Task LoadShowOsuPreferenceAsync()
+    {
+        try
+        {
+            string val = await LibraryDao.Instance.GetSettingAsync("artist_detail_show_osu", "true");
+            bool show = !bool.TryParse(val, out var parsed) || parsed;
+            ArtistModel.ShowOsuTracksInArtistDetail = show;
+            Dispatcher.Invoke(() =>
+            {
+                ShowOsuTracks = show;
+                if (Artist != null)
+                {
+                    Artist.EnsureAlbumsAndStats(show);
+                }
+            });
+        }
+        catch { }
     }
 
     private void OnIsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
@@ -121,6 +151,7 @@ public partial class InfoArtista : UserControl
         if (IsVisible)
         {
             _artistOpenedTick = Environment.TickCount64;
+            ShowOsuTracks = ArtistModel.ShowOsuTracksInArtistDetail;
         }
     }
 
@@ -130,12 +161,13 @@ public partial class InfoArtista : UserControl
         control.IsCompactHeader = false;
         control.IsBioPopupOpen = false;
         control.IsImagePreviewOpen = false;
+        control.ShowOsuTracks = ArtistModel.ShowOsuTracksInArtistDetail;
         control.ListScrollViewer?.ScrollToTop();
         control.GridScrollViewer?.ScrollToTop();
 
         if (e.NewValue is ArtistModel artist)
         {
-            artist.EnsureAlbumsAndStats();
+            artist.EnsureAlbumsAndStats(control.ShowOsuTracks);
             Favoritos.Instance.SyncTracksFavoriteState(artist.Tracks);
 
             // Trigger local avatar load & accented color extraction
@@ -157,12 +189,21 @@ public partial class InfoArtista : UserControl
     {
         if (RootContentGrid == null || RootSlideTransform == null) return;
 
-        var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
-        var fadeAnim = new DoubleAnimation(0.0, 1.0, TimeSpan.FromMilliseconds(280)) { EasingFunction = ease };
-        var slideAnim = new DoubleAnimation(18.0, 0.0, TimeSpan.FromMilliseconds(280)) { EasingFunction = ease };
+        RootContentGrid.BeginAnimation(OpacityProperty, null);
+        RootSlideTransform.BeginAnimation(TranslateTransform.YProperty, null);
+        RootContentGrid.Opacity = 0.0;
+        RootSlideTransform.Y = 20.0;
 
-        RootContentGrid.BeginAnimation(OpacityProperty, fadeAnim);
-        RootSlideTransform.BeginAnimation(TranslateTransform.YProperty, slideAnim);
+        Dispatcher.InvokeAsync(() =>
+        {
+            if (RootContentGrid == null || RootSlideTransform == null) return;
+            var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
+            var fadeAnim = new DoubleAnimation(0.0, 1.0, TimeSpan.FromMilliseconds(290)) { EasingFunction = ease };
+            var slideAnim = new DoubleAnimation(20.0, 0.0, TimeSpan.FromMilliseconds(290)) { EasingFunction = ease };
+
+            RootContentGrid.BeginAnimation(OpacityProperty, fadeAnim);
+            RootSlideTransform.BeginAnimation(TranslateTransform.YProperty, slideAnim);
+        }, System.Windows.Threading.DispatcherPriority.Loaded);
     }
 
     private void PlayViewSwitchAnimation(bool isGrid)
@@ -431,6 +472,21 @@ public partial class InfoArtista : UserControl
         }
     }
 
+    private void OnToggleShowOsuTracksClick(object sender, RoutedEventArgs e)
+    {
+        ShowOsuTracks = !ShowOsuTracks;
+        ArtistModel.ShowOsuTracksInArtistDetail = ShowOsuTracks;
+        _ = LibraryDao.Instance.SetSettingAsync("artist_detail_show_osu", ShowOsuTracks.ToString());
+
+        if (Artist != null)
+        {
+            Artist.EnsureAlbumsAndStats(ShowOsuTracks);
+            Favoritos.Instance.SyncTracksFavoriteState(Artist.Tracks);
+            MainViewModel.Instance?.MyMusic?.SyncPlayingTrack(AudioPlayerService.Instance.CurrentTrack, AudioPlayerService.Instance.IsPlaying);
+            PlayViewSwitchAnimation(IsGridView);
+        }
+    }
+
     private void OnListViewModeClick(object sender, RoutedEventArgs e)
     {
         if (IsGridView)
@@ -525,44 +581,72 @@ public partial class InfoArtista : UserControl
             }
             else
             {
-                // Para la librería local: obtener el álbum completo con todas sus canciones (no solo las del artista actual)
+                // Para la librería local: obtener el álbum completo con todas sus canciones (incluyendo las pistas ya agrupadas en el artista)
                 var cache = Services.Library.LibraryCacheService.Instance;
                 var fullAlbum = cache.CachedAlbums
-                    .FirstOrDefault(a => string.Equals(a.Name, album.Name, StringComparison.OrdinalIgnoreCase))
-                    ?? cache.CachedAlbums
-                    .FirstOrDefault(a => a.Name.Contains(album.Name, StringComparison.OrdinalIgnoreCase));
+                    .FirstOrDefault(a => string.Equals(a.Name, album.Name, StringComparison.OrdinalIgnoreCase));
 
-                if (fullAlbum != null)
-                {
-                    vm.MyMusic.OpenAlbumDetail(fullAlbum);
-                }
-                else
-                {
-                    var allMatchingTracks = cache.CachedTracks
-                        .Where(t => string.Equals(t.Album, album.Name, StringComparison.OrdinalIgnoreCase))
-                        .OrderBy(t => t.TrackNumber == 0 ? uint.MaxValue : t.TrackNumber)
-                        .ThenBy(t => t.Title, StringComparer.OrdinalIgnoreCase)
-                        .ToList();
+                var combinedTracks = new List<Track>();
+                var seenPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-                    if (allMatchingTracks.Count > 0)
+                if (fullAlbum?.Tracks != null)
+                {
+                    foreach (var t in fullAlbum.Tracks)
                     {
-                        var mergedAlbum = new AlbumModel
+                        if (!ShowOsuTracks && t.IsOsuTrack) continue;
+                        string key = !string.IsNullOrEmpty(t.FilePath) ? t.FilePath : t.Id.ToString();
+                        if (seenPaths.Add(key))
                         {
-                            Name = album.Name,
-                            Artist = album.Artist,
-                            Year = album.Year,
-                            Genre = album.Genre,
-                            ArtworkPath = album.ArtworkPath,
-                            Tracks = allMatchingTracks,
-                            PersistedTrackCount = allMatchingTracks.Count
-                        };
-                        vm.MyMusic.OpenAlbumDetail(mergedAlbum);
-                    }
-                    else
-                    {
-                        vm.MyMusic.OpenAlbumDetail(album);
+                            combinedTracks.Add(t);
+                        }
                     }
                 }
+
+                if (combinedTracks.Count == 0 && cache.CachedTracks != null)
+                {
+                    foreach (var t in cache.CachedTracks.Where(t => string.Equals(t.Album, album.Name, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        if (!ShowOsuTracks && t.IsOsuTrack) continue;
+                        string key = !string.IsNullOrEmpty(t.FilePath) ? t.FilePath : t.Id.ToString();
+                        if (seenPaths.Add(key))
+                        {
+                            combinedTracks.Add(t);
+                        }
+                    }
+                }
+
+                if (album.Tracks != null)
+                {
+                    foreach (var t in album.Tracks)
+                    {
+                        if (!ShowOsuTracks && t.IsOsuTrack) continue;
+                        string key = !string.IsNullOrEmpty(t.FilePath) ? t.FilePath : t.Id.ToString();
+                        if (seenPaths.Add(key))
+                        {
+                            combinedTracks.Add(t);
+                        }
+                    }
+                }
+
+                var orderedTracks = combinedTracks
+                    .OrderBy(t => t.TrackNumber == 0 ? uint.MaxValue : t.TrackNumber)
+                    .ThenBy(t => t.Title, StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+
+                var targetAlbum = new AlbumModel
+                {
+                    Name = fullAlbum?.Name ?? album.Name,
+                    Artist = !string.IsNullOrWhiteSpace(album.Artist) ? album.Artist : (fullAlbum?.Artist ?? Artist?.Name ?? string.Empty),
+                    Year = album.Year > 0 ? album.Year : (fullAlbum?.Year ?? 0),
+                    Genre = !string.IsNullOrWhiteSpace(album.Genre) ? album.Genre : (fullAlbum?.Genre ?? string.Empty),
+                    ArtworkPath = !string.IsNullOrWhiteSpace(album.ArtworkPath) ? album.ArtworkPath : fullAlbum?.ArtworkPath,
+                    CoverImage = album.CoverImage ?? fullAlbum?.CoverImage,
+                    DominantHeaderBrush = album.DominantHeaderBrush ?? fullAlbum?.DominantHeaderBrush,
+                    Tracks = orderedTracks.Count > 0 ? orderedTracks : (album.Tracks ?? new List<Track>()),
+                    PersistedTrackCount = orderedTracks.Count > 0 ? orderedTracks.Count : album.TrackCount
+                };
+
+                vm.MyMusic.OpenAlbumDetail(targetAlbum);
             }
             e.Handled = true;
         }
