@@ -14,8 +14,8 @@ namespace BenyComes.Services.Storyboard;
 /// </summary>
 public static class OsuStoryboardParser
 {
-    private const int MaxUnrolledLoopIterations = 256;
-    private const int MaxSpritesPerStoryboard = 12000;
+    private const int MaxUnrolledLoopIterations = 2048;
+    private const int MaxSpritesPerStoryboard = 45000;
 
     /// <summary>
     /// Determina rápidamente si la carpeta de un beatmap contiene un storyboard (.osb o comandos Sprite/Animation en .osu).
@@ -142,6 +142,7 @@ public static class OsuStoryboardParser
 
             // 3. Finalizar líneas de tiempo, filtrar sprites vacíos o de la capa Fail y ordenar por capa
             var validSprites = new List<StoryboardSprite>(rawSprites.Count);
+            double maxEndTime = double.MinValue;
             foreach (var sp in rawSprites)
             {
                 if (sp.Layer == StoryboardLayer.Fail) continue;
@@ -149,8 +150,12 @@ public static class OsuStoryboardParser
                 if (sp.HasCommands)
                 {
                     validSprites.Add(sp);
+                    if (sp.ActiveEndTime > maxEndTime)
+                        maxEndTime = sp.ActiveEndTime;
                 }
             }
+
+            storyboard.MaxEndTimeMs = maxEndTime;
 
             // Orden estable por capa: Background (0) -> Pass (2) -> Foreground (3) -> Overlay (4)
             foreach (var sp in validSprites.OrderBy(static s => (int)s.Layer))
@@ -237,6 +242,7 @@ public static class OsuStoryboardParser
         StoryboardSprite? currentSprite = null;
         LoopBlock? currentLoop = null;
         bool inTriggerBlock = false;
+        int blockHeaderDepth = int.MaxValue;
 
         void FlushCurrentLoop()
         {
@@ -245,6 +251,7 @@ public static class OsuStoryboardParser
                 UnrollLoopIntoSprite(currentSprite, currentLoop);
             }
             currentLoop = null;
+            blockHeaderDepth = int.MaxValue;
         }
 
         while ((rawLine = sr.ReadLine()) != null)
@@ -388,12 +395,26 @@ public static class OsuStoryboardParser
                     currentSprite = null;
                 }
             }
-            else if (depth == 1)
+            else
             {
-                FlushCurrentLoop();
-                inTriggerBlock = false;
-
                 if (currentSprite == null) continue;
+
+                // Si salimos de la indentación del bloque L o T actual, cerrar el bloque
+                if ((currentLoop != null || inTriggerBlock) && depth <= blockHeaderDepth)
+                {
+                    FlushCurrentLoop();
+                    inTriggerBlock = false;
+                }
+
+                // Si estamos dentro de un bloque L o T (depth > blockHeaderDepth)
+                if (currentLoop != null || inTriggerBlock)
+                {
+                    if (!inTriggerBlock && currentLoop != null)
+                    {
+                        currentLoop.RawCommandLines.Add(content);
+                    }
+                    continue;
+                }
 
                 // Loop: L,startTime,loopCount
                 if (content.StartsWith("L,", StringComparison.OrdinalIgnoreCase))
@@ -408,6 +429,7 @@ public static class OsuStoryboardParser
                             StartTime = startTime,
                             LoopCount = loopCount
                         };
+                        blockHeaderDepth = depth;
                     }
                     continue;
                 }
@@ -416,23 +438,11 @@ public static class OsuStoryboardParser
                 if (content.StartsWith("T,", StringComparison.OrdinalIgnoreCase))
                 {
                     inTriggerBlock = true;
+                    blockHeaderDepth = depth;
                     continue;
                 }
 
                 ParseAndAddCommandLine(currentSprite, content, timeOffset: 0.0);
-            }
-            else // depth >= 2 (dentro de un bloque L o T)
-            {
-                if (inTriggerBlock || currentSprite == null) continue;
-
-                if (currentLoop != null)
-                {
-                    currentLoop.RawCommandLines.Add(content);
-                }
-                else
-                {
-                    ParseAndAddCommandLine(currentSprite, content, timeOffset: 0.0);
-                }
             }
         }
 
@@ -515,7 +525,7 @@ public static class OsuStoryboardParser
                 float v0 = ParseFloat(parts[4], 0f);
                 if (parts.Length == 5)
                 {
-                    targetList.Add(new ScalarCommand(easing, baseStartTime, baseEndTime, v0, v0));
+                    targetList.Add(new ScalarCommand(easing, baseStartTime, baseEndTime, v0, v0, sprite.NextOrderIndex()));
                 }
                 else
                 {
@@ -527,7 +537,7 @@ public static class OsuStoryboardParser
                         float ev = ParseFloat(parts[idx + 1], sv);
                         double st = baseStartTime + (segIndex * duration);
                         double et = st + duration;
-                        targetList.Add(new ScalarCommand(easing, st, et, sv, ev));
+                        targetList.Add(new ScalarCommand(easing, st, et, sv, ev, sprite.NextOrderIndex()));
                         segIndex++;
                     }
                 }
@@ -544,7 +554,7 @@ public static class OsuStoryboardParser
                 float y0 = ParseFloat(parts[5], 0f);
                 if (parts.Length < 8)
                 {
-                    targetList.Add(new Vector2Command(easing, baseStartTime, baseEndTime, x0, y0, x0, y0));
+                    targetList.Add(new Vector2Command(easing, baseStartTime, baseEndTime, x0, y0, x0, y0, sprite.NextOrderIndex()));
                 }
                 else
                 {
@@ -557,7 +567,7 @@ public static class OsuStoryboardParser
                         float ey = ParseFloat(parts[idx + 3], sy);
                         double st = baseStartTime + (segIndex * duration);
                         double et = st + duration;
-                        targetList.Add(new Vector2Command(easing, st, et, sx, sy, ex, ey));
+                        targetList.Add(new Vector2Command(easing, st, et, sx, sy, ex, ey, sprite.NextOrderIndex()));
                         segIndex++;
                     }
                 }
@@ -572,7 +582,7 @@ public static class OsuStoryboardParser
                 float b0 = ParseFloat(parts[6], 255f);
                 if (parts.Length < 10)
                 {
-                    sprite.ColorCommands.Add(new ColorCommand(easing, baseStartTime, baseEndTime, r0, g0, b0, r0, g0, b0));
+                    sprite.ColorCommands.Add(new ColorCommand(easing, baseStartTime, baseEndTime, r0, g0, b0, r0, g0, b0, sprite.NextOrderIndex()));
                 }
                 else
                 {
@@ -587,7 +597,7 @@ public static class OsuStoryboardParser
                         float eb = ParseFloat(parts[idx + 5], sb);
                         double st = baseStartTime + (segIndex * duration);
                         double et = st + duration;
-                        sprite.ColorCommands.Add(new ColorCommand(easing, st, et, sr, sg, sb, er, eg, eb));
+                        sprite.ColorCommands.Add(new ColorCommand(easing, st, et, sr, sg, sb, er, eg, eb, sprite.NextOrderIndex()));
                         segIndex++;
                     }
                 }
@@ -603,7 +613,7 @@ public static class OsuStoryboardParser
                     char pChar = char.ToUpperInvariant(pStr[0]);
                     if (pChar is 'A' or 'H' or 'V')
                     {
-                        sprite.ParameterCommands.Add(new ParameterCommand(baseStartTime, baseEndTime, pChar));
+                        sprite.ParameterCommands.Add(new ParameterCommand(baseStartTime, baseEndTime, pChar, sprite.NextOrderIndex()));
                     }
                 }
                 break;
@@ -617,7 +627,7 @@ public static class OsuStoryboardParser
         for (int i = 0; i < line.Length; i++)
         {
             char c = line[i];
-            if (c == ' ' || c == '_')
+            if (c == ' ' || c == '_' || c == '\t')
                 depth++;
             else
                 break;

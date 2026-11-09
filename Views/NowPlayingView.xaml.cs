@@ -158,6 +158,8 @@ public partial class NowPlayingView : UserControl
     private string? _currentVlcVideoPath = null;
     private bool _isCinemaMode = false;
     private bool _isVideoActive = false;
+    private bool _hasVideoEndedForCurrentTrack = false;
+    private double _knownVideoDurationSec = 0.0;
     private bool _isStoryboardActive = false;
     private int _storyboardLoadGeneration = 0;
 
@@ -170,6 +172,7 @@ public partial class NowPlayingView : UserControl
             _libVlc = new VlcInstance("--no-audio", "--avcodec-hw=any", "--clock-jitter=0");
             _libVlcPlayer = new VlcPlayer(_libVlc);
             _libVlcPlayer.EncounteredError += OnVlcPlayerEncounteredError;
+            _libVlcPlayer.EndReached += OnVlcPlayerEndReached;
             _libVlcPlayer.SetVideoFormatCallbacks(_videoFormatCb, _videoCleanupCb);
             _libVlcPlayer.SetVideoCallbacks(_videoLockCb, _videoUnlockCb, _videoDisplayCb);
             _isLibVlcInitialized = true;
@@ -306,6 +309,7 @@ public partial class NowPlayingView : UserControl
             if (_libVlcPlayer != null)
             {
                 _libVlcPlayer.EncounteredError -= OnVlcPlayerEncounteredError;
+                _libVlcPlayer.EndReached -= OnVlcPlayerEndReached;
                 var oldMedia = _libVlcPlayer.Media;
                 _libVlcPlayer.Media = null;
                 oldMedia?.Dispose();
@@ -329,6 +333,8 @@ public partial class NowPlayingView : UserControl
 
     private void UpdateOsuVideoState(Track? track)
     {
+        _hasVideoEndedForCurrentTrack = false;
+        _knownVideoDurationSec = 0.0;
         StopOsuVideoPlayback();
 
         if (DataContext is MainViewModel vm &&
@@ -344,6 +350,10 @@ public partial class NowPlayingView : UserControl
             {
                 _isCinemaMode = true;
                 UpdateCinemaModeVisualState(showToast: false);
+            }
+            if (OsuCinemaBlackBackdrop != null)
+            {
+                OsuCinemaBlackBackdrop.Visibility = Visibility.Visible;
             }
             if (OsuBackgroundVideoPlayer != null)
             {
@@ -418,6 +428,10 @@ public partial class NowPlayingView : UserControl
 
             // Fondo negro puro (#000000) cuando el storyboard se reproduce por sí solo (sin vídeo debajo)
             // y remover las imágenes estáticas de fondo / fotos de artista
+            if (OsuCinemaBlackBackdrop != null)
+            {
+                OsuCinemaBlackBackdrop.Visibility = Visibility.Visible;
+            }
             if (BackgroundTransformContainer != null)
             {
                 BackgroundTransformContainer.Opacity = 0.0;
@@ -528,6 +542,70 @@ public partial class NowPlayingView : UserControl
         _vlcBitmap = null;
     }
 
+    /// <summary>
+    /// Se invoca cuando un vídeo de osu! llega a su fin antes o al terminar la canción.
+    /// Libera el decodificador de vídeo y limpia la escena dejando el fondo en negro puro / oscurecido.
+    /// </summary>
+    private void CompleteAndReleaseOsuVideo()
+    {
+        _hasVideoEndedForCurrentTrack = true;
+        _isVideoActive = false;
+        _isMediaElementPlaying = false;
+
+        if (OsuBackgroundVideoPlayer != null)
+        {
+            OsuBackgroundVideoPlayer.Stop();
+            OsuBackgroundVideoPlayer.Source = null;
+            OsuBackgroundVideoPlayer.Opacity = 0.0;
+        }
+        if (OsuVideoBlurContainer != null)
+        {
+            OsuVideoBlurContainer.Opacity = 0.0;
+            OsuVideoBlurContainer.Visibility = Visibility.Collapsed;
+        }
+        StopVlcPlayback();
+
+        if (OsuStoryboardLayer != null)
+        {
+            OsuStoryboardLayer.UseSolidBlackBackground = true;
+        }
+
+        // Mantener el fondo en negro / oscurecido al acabar el vídeo sin volver a cargar imágenes estáticas
+        if (OsuCinemaBlackBackdrop != null)
+        {
+            OsuCinemaBlackBackdrop.Visibility = Visibility.Visible;
+        }
+        if (BackgroundTransformContainer != null)
+        {
+            BackgroundTransformContainer.Opacity = 0.0;
+            BackgroundTransformContainer.Visibility = Visibility.Collapsed;
+        }
+    }
+
+    private void OnOsuVideoMediaEnded(object? sender, RoutedEventArgs e)
+    {
+        if (OsuBackgroundVideoPlayer != null && OsuBackgroundVideoPlayer.NaturalDuration.HasTimeSpan)
+        {
+            _knownVideoDurationSec = OsuBackgroundVideoPlayer.NaturalDuration.TimeSpan.TotalSeconds;
+        }
+        CompleteAndReleaseOsuVideo();
+    }
+
+    private static void OnVlcPlayerEndReached(object? sender, EventArgs e)
+    {
+        Application.Current?.Dispatcher.BeginInvoke(new Action(() =>
+        {
+            if (_currentInstance != null)
+            {
+                if (_libVlcPlayer != null && _libVlcPlayer.Length > 500)
+                {
+                    _currentInstance._knownVideoDurationSec = _libVlcPlayer.Length / 1000.0;
+                }
+                _currentInstance.CompleteAndReleaseOsuVideo();
+            }
+        }));
+    }
+
     private void SyncOsuVideoPlayback()
     {
         if (DataContext is not MainViewModel vm || vm.NowPlaying.CurrentTrack == null) return;
@@ -537,21 +615,47 @@ public partial class NowPlayingView : UserControl
             OsuStoryboardLayer.SyncPlayback(vm.NowPlaying.CurrentPositionSeconds, vm.NowPlaying.IsPlaying);
         }
 
+        var currentTrack = vm.NowPlaying.CurrentTrack;
+        double targetSec = vm.NowPlaying.CurrentPositionSeconds + (currentTrack.VideoOffsetMs / 1000.0);
+        if (targetSec < 0) targetSec = 0;
+
+        // Si el vídeo ya terminó y se liberó, no sobrecargar el decodificador;
+        // solo recargarlo si el usuario retrocedió manualmente en la barra de progreso dentro del rango del vídeo.
+        if (_hasVideoEndedForCurrentTrack)
+        {
+            if (vm.NowPlaying.PlayOsuBackgroundVideo &&
+                _knownVideoDurationSec > 1.0 &&
+                targetSec < _knownVideoDurationSec - 1.5 &&
+                currentTrack.HasVideo &&
+                !_incompatibleVideos.Contains(currentTrack.VideoPath) &&
+                System.IO.File.Exists(currentTrack.VideoPath))
+            {
+                UpdateOsuVideoState(currentTrack);
+            }
+            return;
+        }
+
         if (!_isVideoActive) return;
 
-        var currentTrack = vm.NowPlaying.CurrentTrack;
         if (_incompatibleVideos.Contains(currentTrack.VideoPath))
         {
             StopOsuVideoPlayback();
             return;
         }
 
-        double targetSec = vm.NowPlaying.CurrentPositionSeconds + (currentTrack.VideoOffsetMs / 1000.0);
-        if (targetSec < 0) targetSec = 0;
-
         // Si LibVLC está activo como fallback
         if (_isVlcActive && _libVlcPlayer != null)
         {
+            if (_libVlcPlayer.Length > 500)
+            {
+                _knownVideoDurationSec = _libVlcPlayer.Length / 1000.0;
+            }
+            if (_knownVideoDurationSec > 0.5 && targetSec >= _knownVideoDurationSec - 0.15)
+            {
+                CompleteAndReleaseOsuVideo();
+                return;
+            }
+
             long targetMs = (long)(targetSec * 1000.0);
             if (vm.NowPlaying.IsPlaying)
             {
@@ -580,6 +684,16 @@ public partial class NowPlayingView : UserControl
 
         // Si MediaElement está activo
         if (OsuBackgroundVideoPlayer == null || OsuBackgroundVideoPlayer.Source == null) return;
+
+        if (OsuBackgroundVideoPlayer.NaturalDuration.HasTimeSpan)
+        {
+            _knownVideoDurationSec = OsuBackgroundVideoPlayer.NaturalDuration.TimeSpan.TotalSeconds;
+        }
+        if (_knownVideoDurationSec > 0.5 && targetSec >= _knownVideoDurationSec - 0.15)
+        {
+            CompleteAndReleaseOsuVideo();
+            return;
+        }
 
         if (vm.NowPlaying.IsPlaying)
         {
@@ -749,14 +863,22 @@ public partial class NowPlayingView : UserControl
         {
             OsuStoryboardLayer.UseSolidBlackBackground = true;
         }
-        if (_isStoryboardActive)
+        if (_isStoryboardActive || _hasVideoEndedForCurrentTrack)
         {
+            if (OsuCinemaBlackBackdrop != null)
+            {
+                OsuCinemaBlackBackdrop.Visibility = Visibility.Visible;
+            }
             if (BackgroundTransformContainer != null)
             {
                 BackgroundTransformContainer.Opacity = 0.0;
                 BackgroundTransformContainer.Visibility = Visibility.Collapsed;
             }
             return;
+        }
+        if (OsuCinemaBlackBackdrop != null)
+        {
+            OsuCinemaBlackBackdrop.Visibility = Visibility.Collapsed;
         }
         if (BackgroundTransformContainer != null)
         {
@@ -822,6 +944,8 @@ public partial class NowPlayingView : UserControl
         {
             OsuBackgroundVideoPlayer.MediaFailed -= OnOsuVideoMediaFailed;
             OsuBackgroundVideoPlayer.MediaFailed += OnOsuVideoMediaFailed;
+            OsuBackgroundVideoPlayer.MediaEnded -= OnOsuVideoMediaEnded;
+            OsuBackgroundVideoPlayer.MediaEnded += OnOsuVideoMediaEnded;
         }
 
         if (CustomizationPopup != null)
@@ -861,6 +985,7 @@ public partial class NowPlayingView : UserControl
         if (OsuBackgroundVideoPlayer != null)
         {
             OsuBackgroundVideoPlayer.MediaFailed -= OnOsuVideoMediaFailed;
+            OsuBackgroundVideoPlayer.MediaEnded -= OnOsuVideoMediaEnded;
         }
         StopOsuStoryboardPlayback();
         StopVlcPlayback();

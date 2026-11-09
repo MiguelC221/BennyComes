@@ -40,14 +40,16 @@ public readonly struct ScalarCommand
     public readonly double EndTime;
     public readonly float StartValue;
     public readonly float EndValue;
+    public readonly int OrderIndex;
 
-    public ScalarCommand(int easing, double startTime, double endTime, float startVal, float endVal)
+    public ScalarCommand(int easing, double startTime, double endTime, float startVal, float endVal, int orderIndex = 0)
     {
         Easing = easing;
         StartTime = startTime;
         EndTime = endTime < startTime ? startTime : endTime;
         StartValue = startVal;
         EndValue = endVal;
+        OrderIndex = orderIndex;
     }
 
     public float Interpolate(double time)
@@ -69,8 +71,9 @@ public readonly struct Vector2Command
     public readonly float StartY;
     public readonly float EndX;
     public readonly float EndY;
+    public readonly int OrderIndex;
 
-    public Vector2Command(int easing, double startTime, double endTime, float sx, float sy, float ex, float ey)
+    public Vector2Command(int easing, double startTime, double endTime, float sx, float sy, float ex, float ey, int orderIndex = 0)
     {
         Easing = easing;
         StartTime = startTime;
@@ -79,6 +82,7 @@ public readonly struct Vector2Command
         StartY = sy;
         EndX = ex;
         EndY = ey;
+        OrderIndex = orderIndex;
     }
 
     public (float X, float Y) Interpolate(double time)
@@ -102,8 +106,9 @@ public readonly struct ColorCommand
     public readonly float EndR;
     public readonly float EndG;
     public readonly float EndB;
+    public readonly int OrderIndex;
 
-    public ColorCommand(int easing, double startTime, double endTime, float sr, float sg, float sb, float er, float eg, float eb)
+    public ColorCommand(int easing, double startTime, double endTime, float sr, float sg, float sb, float er, float eg, float eb, int orderIndex = 0)
     {
         Easing = easing;
         StartTime = startTime;
@@ -114,6 +119,7 @@ public readonly struct ColorCommand
         EndR = er;
         EndG = eg;
         EndB = eb;
+        OrderIndex = orderIndex;
     }
 
     public (byte R, byte G, byte B) Interpolate(double time)
@@ -137,12 +143,14 @@ public readonly struct ParameterCommand
     public readonly double StartTime;
     public readonly double EndTime;
     public readonly char ParameterType; // 'A' = Additive, 'H' = FlipH, 'V' = FlipV
+    public readonly int OrderIndex;
 
-    public ParameterCommand(double startTime, double endTime, char paramType)
+    public ParameterCommand(double startTime, double endTime, char paramType, int orderIndex = 0)
     {
         StartTime = startTime;
         EndTime = endTime < startTime ? startTime : endTime;
         ParameterType = paramType;
+        OrderIndex = orderIndex;
     }
 
     public bool IsActiveAt(double time)
@@ -199,18 +207,53 @@ public sealed class StoryboardSprite
     public double ActiveStartTime { get; private set; } = double.MaxValue;
     public double ActiveEndTime { get; private set; } = double.MinValue;
     public bool HasCommands { get; private set; }
+    private int _nextCommandOrderIndex;
+
+    public int NextOrderIndex() => _nextCommandOrderIndex++;
+
+    private static int CompareScalar(ScalarCommand a, ScalarCommand b)
+    {
+        int cmp = a.StartTime.CompareTo(b.StartTime);
+        if (cmp != 0) return cmp;
+        cmp = a.EndTime.CompareTo(b.EndTime);
+        return cmp != 0 ? cmp : a.OrderIndex.CompareTo(b.OrderIndex);
+    }
+
+    private static int CompareVector2(Vector2Command a, Vector2Command b)
+    {
+        int cmp = a.StartTime.CompareTo(b.StartTime);
+        if (cmp != 0) return cmp;
+        cmp = a.EndTime.CompareTo(b.EndTime);
+        return cmp != 0 ? cmp : a.OrderIndex.CompareTo(b.OrderIndex);
+    }
+
+    private static int CompareColor(ColorCommand a, ColorCommand b)
+    {
+        int cmp = a.StartTime.CompareTo(b.StartTime);
+        if (cmp != 0) return cmp;
+        cmp = a.EndTime.CompareTo(b.EndTime);
+        return cmp != 0 ? cmp : a.OrderIndex.CompareTo(b.OrderIndex);
+    }
+
+    private static int CompareParameter(ParameterCommand a, ParameterCommand b)
+    {
+        int cmp = a.StartTime.CompareTo(b.StartTime);
+        if (cmp != 0) return cmp;
+        cmp = a.EndTime.CompareTo(b.EndTime);
+        return cmp != 0 ? cmp : a.OrderIndex.CompareTo(b.OrderIndex);
+    }
 
     public void FinalizeTimelines()
     {
-        FadeCommands.Sort(static (a, b) => a.StartTime.CompareTo(b.StartTime));
-        MoveCommands.Sort(static (a, b) => a.StartTime.CompareTo(b.StartTime));
-        MoveXCommands.Sort(static (a, b) => a.StartTime.CompareTo(b.StartTime));
-        MoveYCommands.Sort(static (a, b) => a.StartTime.CompareTo(b.StartTime));
-        ScaleCommands.Sort(static (a, b) => a.StartTime.CompareTo(b.StartTime));
-        VectorScaleCommands.Sort(static (a, b) => a.StartTime.CompareTo(b.StartTime));
-        RotateCommands.Sort(static (a, b) => a.StartTime.CompareTo(b.StartTime));
-        ColorCommands.Sort(static (a, b) => a.StartTime.CompareTo(b.StartTime));
-        ParameterCommands.Sort(static (a, b) => a.StartTime.CompareTo(b.StartTime));
+        FadeCommands.Sort(CompareScalar);
+        MoveCommands.Sort(CompareVector2);
+        MoveXCommands.Sort(CompareScalar);
+        MoveYCommands.Sort(CompareScalar);
+        ScaleCommands.Sort(CompareScalar);
+        VectorScaleCommands.Sort(CompareVector2);
+        RotateCommands.Sort(CompareScalar);
+        ColorCommands.Sort(CompareColor);
+        ParameterCommands.Sort(CompareParameter);
 
         double minT = double.MaxValue;
         double maxT = double.MinValue;
@@ -322,10 +365,24 @@ public sealed class StoryboardSprite
         bool hasVecScale = VectorScaleCommands.Count > 0;
         if (hasScale && hasVecScale)
         {
-            // Usar el comando más reciente entre S y V
             double lastS = GetActiveCommandTime(ScaleCommands, timeMs);
             double lastV = GetActiveCommandTime(VectorScaleCommands, timeMs);
-            if (lastV >= lastS)
+            if (lastV == double.MinValue && lastS == double.MinValue)
+            {
+                if (VectorScaleCommands[0].StartTime <= ScaleCommands[0].StartTime)
+                {
+                    var (sx, sy) = EvaluateVector2(VectorScaleCommands, timeMs, 1f, 1f);
+                    state.ScaleX = sx;
+                    state.ScaleY = sy;
+                }
+                else
+                {
+                    float s = EvaluateScalar(ScaleCommands, timeMs, 1f);
+                    state.ScaleX = s;
+                    state.ScaleY = s;
+                }
+            }
+            else if (lastV >= lastS)
             {
                 var (sx, sy) = EvaluateVector2(VectorScaleCommands, timeMs, 1f, 1f);
                 state.ScaleX = sx;
@@ -355,6 +412,7 @@ public sealed class StoryboardSprite
             return state;
 
         // 3. Position (M vs MX/MY)
+        double lastM = MoveCommands.Count > 0 ? GetActiveCommandTime(MoveCommands, timeMs) : double.MinValue;
         if (MoveCommands.Count > 0)
         {
             var (mx, my) = EvaluateVector2(MoveCommands, timeMs, InitialX, InitialY);
@@ -363,14 +421,24 @@ public sealed class StoryboardSprite
         }
         if (MoveXCommands.Count > 0)
         {
-            if (MoveCommands.Count == 0 || GetActiveCommandTime(MoveXCommands, timeMs) >= GetActiveCommandTime(MoveCommands, timeMs))
+            double lastMX = GetActiveCommandTime(MoveXCommands, timeMs);
+            bool useMX = MoveCommands.Count == 0 ||
+                         (lastMX == double.MinValue && lastM == double.MinValue
+                             ? MoveXCommands[0].StartTime <= MoveCommands[0].StartTime
+                             : lastMX >= lastM);
+            if (useMX)
             {
                 state.X = EvaluateScalar(MoveXCommands, timeMs, state.X);
             }
         }
         if (MoveYCommands.Count > 0)
         {
-            if (MoveCommands.Count == 0 || GetActiveCommandTime(MoveYCommands, timeMs) >= GetActiveCommandTime(MoveCommands, timeMs))
+            double lastMY = GetActiveCommandTime(MoveYCommands, timeMs);
+            bool useMY = MoveCommands.Count == 0 ||
+                         (lastMY == double.MinValue && lastM == double.MinValue
+                             ? MoveYCommands[0].StartTime <= MoveCommands[0].StartTime
+                             : lastMY >= lastM);
+            if (useMY)
             {
                 state.Y = EvaluateScalar(MoveYCommands, timeMs, state.Y);
             }
@@ -395,6 +463,7 @@ public sealed class StoryboardSprite
         for (int i = 0; i < ParameterCommands.Count; i++)
         {
             var p = ParameterCommands[i];
+            if (p.StartTime > timeMs) break;
             if (p.IsActiveAt(timeMs))
             {
                 switch (p.ParameterType)
@@ -432,50 +501,98 @@ public sealed class StoryboardSprite
         return state;
     }
 
+    private static int FindLastStartedScalarIndex(List<ScalarCommand> cmds, double time)
+    {
+        int lo = 0;
+        int hi = cmds.Count - 1;
+        int ans = -1;
+        while (lo <= hi)
+        {
+            int mid = (lo + hi) >> 1;
+            if (cmds[mid].StartTime <= time)
+            {
+                ans = mid;
+                lo = mid + 1;
+            }
+            else
+            {
+                hi = mid - 1;
+            }
+        }
+        return ans;
+    }
+
+    private static int FindLastStartedVector2Index(List<Vector2Command> cmds, double time)
+    {
+        int lo = 0;
+        int hi = cmds.Count - 1;
+        int ans = -1;
+        while (lo <= hi)
+        {
+            int mid = (lo + hi) >> 1;
+            if (cmds[mid].StartTime <= time)
+            {
+                ans = mid;
+                lo = mid + 1;
+            }
+            else
+            {
+                hi = mid - 1;
+            }
+        }
+        return ans;
+    }
+
+    private static int FindLastStartedColorIndex(List<ColorCommand> cmds, double time)
+    {
+        int lo = 0;
+        int hi = cmds.Count - 1;
+        int ans = -1;
+        while (lo <= hi)
+        {
+            int mid = (lo + hi) >> 1;
+            if (cmds[mid].StartTime <= time)
+            {
+                ans = mid;
+                lo = mid + 1;
+            }
+            else
+            {
+                hi = mid - 1;
+            }
+        }
+        return ans;
+    }
+
     private static double GetActiveCommandTime(List<ScalarCommand> cmds, double time)
     {
-        if (cmds.Count == 0) return double.MinValue;
-        double t = cmds[0].StartTime;
-        for (int i = 0; i < cmds.Count; i++)
-        {
-            if (cmds[i].StartTime <= time)
-                t = cmds[i].StartTime;
-            else
-                break;
-        }
-        return t;
+        int idx = FindLastStartedScalarIndex(cmds, time);
+        return idx >= 0 ? cmds[idx].StartTime : double.MinValue;
     }
 
     private static double GetActiveCommandTime(List<Vector2Command> cmds, double time)
     {
-        if (cmds.Count == 0) return double.MinValue;
-        double t = cmds[0].StartTime;
-        for (int i = 0; i < cmds.Count; i++)
-        {
-            if (cmds[i].StartTime <= time)
-                t = cmds[i].StartTime;
-            else
-                break;
-        }
-        return t;
+        int idx = FindLastStartedVector2Index(cmds, time);
+        return idx >= 0 ? cmds[idx].StartTime : double.MinValue;
     }
 
     private static float EvaluateScalar(List<ScalarCommand> cmds, double time, float defaultVal)
     {
         if (cmds.Count == 0) return defaultVal;
-        if (time <= cmds[0].StartTime) return cmds[0].StartValue;
+        int idx = FindLastStartedScalarIndex(cmds, time);
+        if (idx < 0) return cmds[0].StartValue;
 
-        ScalarCommand active = cmds[0];
-        for (int i = 0; i < cmds.Count; i++)
+        var active = cmds[idx];
+        // Si el comando más reciente ya terminó pero un comando previo solapado sigue interpolándose en 'time', priorizar el solapado activo
+        if (time > active.EndTime && idx > 0)
         {
-            var c = cmds[i];
-            if (time >= c.StartTime)
+            for (int k = idx - 1; k >= Math.Max(0, idx - 6); k--)
             {
-                active = c;
-            }
-            else
-            {
-                break;
+                if (cmds[k].EndTime >= time)
+                {
+                    active = cmds[k];
+                    break;
+                }
             }
         }
         return active.Interpolate(time);
@@ -484,19 +601,19 @@ public sealed class StoryboardSprite
     private static (float X, float Y) EvaluateVector2(List<Vector2Command> cmds, double time, float defX, float defY)
     {
         if (cmds.Count == 0) return (defX, defY);
-        if (time <= cmds[0].StartTime) return (cmds[0].StartX, cmds[0].StartY);
+        int idx = FindLastStartedVector2Index(cmds, time);
+        if (idx < 0) return (cmds[0].StartX, cmds[0].StartY);
 
-        Vector2Command active = cmds[0];
-        for (int i = 0; i < cmds.Count; i++)
+        var active = cmds[idx];
+        if (time > active.EndTime && idx > 0)
         {
-            var c = cmds[i];
-            if (time >= c.StartTime)
+            for (int k = idx - 1; k >= Math.Max(0, idx - 6); k--)
             {
-                active = c;
-            }
-            else
-            {
-                break;
+                if (cmds[k].EndTime >= time)
+                {
+                    active = cmds[k];
+                    break;
+                }
             }
         }
         return active.Interpolate(time);
@@ -505,7 +622,8 @@ public sealed class StoryboardSprite
     private static (byte R, byte G, byte B) EvaluateColor(List<ColorCommand> cmds, double time)
     {
         if (cmds.Count == 0) return (255, 255, 255);
-        if (time <= cmds[0].StartTime)
+        int idx = FindLastStartedColorIndex(cmds, time);
+        if (idx < 0)
         {
             var first = cmds[0];
             return ((byte)Math.Clamp(first.StartR, 0f, 255f),
@@ -513,17 +631,16 @@ public sealed class StoryboardSprite
                     (byte)Math.Clamp(first.StartB, 0f, 255f));
         }
 
-        ColorCommand active = cmds[0];
-        for (int i = 0; i < cmds.Count; i++)
+        var active = cmds[idx];
+        if (time > active.EndTime && idx > 0)
         {
-            var c = cmds[i];
-            if (time >= c.StartTime)
+            for (int k = idx - 1; k >= Math.Max(0, idx - 6); k--)
             {
-                active = c;
-            }
-            else
-            {
-                break;
+                if (cmds[k].EndTime >= time)
+                {
+                    active = cmds[k];
+                    break;
+                }
             }
         }
         return active.Interpolate(time);
@@ -536,6 +653,7 @@ public sealed class OsuStoryboard
     public bool WidescreenStoryboard { get; set; } = true;
     public string? BeatmapBackgroundRelativePath { get; set; }
     public List<StoryboardSprite> Sprites { get; } = new();
+    public double MaxEndTimeMs { get; set; } = double.MinValue;
 
     public bool HasRenderableSprites => Sprites.Count > 0;
 }

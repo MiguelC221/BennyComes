@@ -38,6 +38,7 @@ public sealed class OsuStoryboardControl : SKElement
     private double _anchorAudioTimeMs;
     private bool _isPlaying;
     private bool _isVsyncSubscribed;
+    private bool _hasStoryboardFinished;
     private TimeSpan _lastVsyncRenderTime = TimeSpan.Zero;
     private Stretch _stretchMode = Stretch.UniformToFill;
     private StoryboardFpsMode _fpsMode = StoryboardFpsMode.Fps60;
@@ -144,6 +145,7 @@ public sealed class OsuStoryboardControl : SKElement
         _storyboard = storyboard;
         _anchorAudioTimeMs = currentPositionSeconds * 1000.0;
         _isPlaying = isPlaying;
+        _hasStoryboardFinished = false;
 
         if (_storyboard != null && _storyboard.HasRenderableSprites)
         {
@@ -162,6 +164,12 @@ public sealed class OsuStoryboardControl : SKElement
         double targetMs = currentPositionSeconds * 1000.0;
         double currentEstimatedMs = GetInterpolatedTimeMs();
 
+        // Si el storyboard había terminado pero el usuario retrocedió en la barra de progreso, reactivarlo
+        if (_hasStoryboardFinished && _storyboard != null && targetMs <= _storyboard.MaxEndTimeMs)
+        {
+            _hasStoryboardFinished = false;
+        }
+
         // Sincronizar reloj interpolado si hubo seek o deriva > 90 ms, o si cambió el estado Play/Pause
         if (_isPlaying != isPlaying || Math.Abs(currentEstimatedMs - targetMs) > 90.0)
         {
@@ -175,10 +183,19 @@ public sealed class OsuStoryboardControl : SKElement
         _isPlaying = isPlaying;
         UpdateTimerState();
 
-        if (!_isPlaying && HasActiveStoryboard && IsVisible)
+        if (!_isPlaying && HasActiveStoryboard && IsVisible && !_hasStoryboardFinished)
         {
             InvalidateVisual();
         }
+    }
+
+    private void ClearTextureCache()
+    {
+        foreach (var bmp in _textureCache.Values)
+        {
+            bmp?.Dispose();
+        }
+        _textureCache.Clear();
     }
 
     public void UnloadStoryboard()
@@ -186,12 +203,8 @@ public sealed class OsuStoryboardControl : SKElement
         StopRenderTimer();
         _clockInterpolator.Reset();
         _storyboard = null;
-
-        foreach (var bmp in _textureCache.Values)
-        {
-            bmp?.Dispose();
-        }
-        _textureCache.Clear();
+        _hasStoryboardFinished = false;
+        ClearTextureCache();
         InvalidateVisual();
     }
 
@@ -204,7 +217,7 @@ public sealed class OsuStoryboardControl : SKElement
 
     private void UpdateTimerState()
     {
-        bool shouldRun = HasActiveStoryboard && IsVisible && _isPlaying && Visibility == Visibility.Visible && Opacity > 0.01;
+        bool shouldRun = HasActiveStoryboard && !_hasStoryboardFinished && IsVisible && _isPlaying && Visibility == Visibility.Visible && Opacity > 0.01;
         if (!shouldRun)
         {
             StopRenderTimer();
@@ -294,6 +307,16 @@ public sealed class OsuStoryboardControl : SKElement
         if (viewW <= 0 || viewH <= 0) return;
 
         double timeMs = GetInterpolatedTimeMs();
+
+        // Si el storyboard ya superó su último evento activo, liberar las texturas de memoria,
+        // detener el bucle de renderizado y dejar el lienzo limpio en negro puro (#000000).
+        if (_storyboard.MaxEndTimeMs > 0 && timeMs > _storyboard.MaxEndTimeMs + 250.0)
+        {
+            _hasStoryboardFinished = true;
+            ClearTextureCache();
+            StopRenderTimer();
+            return;
+        }
 
         // Espacio de coordenadas de osu!:
         // El playfield base es 640x480 (con centro en 320, 240).
@@ -404,8 +427,8 @@ public sealed class OsuStoryboardControl : SKElement
         if (_textureCache.TryGetValue(relativePath, out var cached))
             return cached;
 
-        // Límite preventivo de seguridad de caché por storyboard (máx 450 texturas únicas en RAM)
-        if (_textureCache.Count >= 450)
+        // Límite preventivo de seguridad de caché por storyboard (máx 1200 texturas únicas en RAM)
+        if (_textureCache.Count >= 1200)
         {
             _textureCache[relativePath] = null;
             return null;

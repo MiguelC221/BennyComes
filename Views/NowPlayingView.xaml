@@ -49,6 +49,9 @@
                 </Image>
             </Grid>
 
+            <!-- Fondo negro puro para modo Cinema / Storyboard / Vídeo finalizado -->
+            <Border x:Name="OsuCinemaBlackBackdrop" Background="#000000" Visibility="Collapsed" IsHitTestVisible="False" />
+
             <!-- Dynamic Blurred Video Backdrop Container (Rellena los espacios y bordes del vídeo de osu!) -->
             <Grid x:Name="OsuVideoBlurContainer" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Opacity="0.0" IsHitTestVisible="False">
                 <Grid.CacheMode>
