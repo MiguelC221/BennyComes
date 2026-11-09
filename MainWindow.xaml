@@ -689,9 +689,9 @@
                                                         Background="{Binding DataContext.Theme.CurrentAccentBrush, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"
                                                         Visibility="Collapsed" />
                                                 <StackPanel Orientation="Horizontal">
-                                                    <ui:SymbolIcon Symbol="Games24" FontSize="18" Margin="0,0,14,0" VerticalAlignment="Center">
-                                                        <ui:SymbolIcon.Style>
-                                                            <Style TargetType="ui:SymbolIcon">
+                                                    <Control Template="{StaticResource OsuThemeLogoTemplate}" Width="20" Height="20" Margin="-1,0,13,0" VerticalAlignment="Center" Background="Transparent">
+                                                        <Control.Style>
+                                                            <Style TargetType="Control">
                                                                 <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
                                                                 <Style.Triggers>
                                                                     <DataTrigger Binding="{Binding CurrentView}" Value="OsuLibrary">
@@ -699,8 +699,8 @@
                                                                     </DataTrigger>
                                                                 </Style.Triggers>
                                                             </Style>
-                                                        </ui:SymbolIcon.Style>
-                                                    </ui:SymbolIcon>
+                                                        </Control.Style>
+                                                    </Control>
                                                     <TextBlock Text="Osu! Library" FontSize="13" VerticalAlignment="Center"
                                                                Visibility="{Binding DataContext.IsNavPaneOpen, RelativeSource={RelativeSource AncestorType={x:Type Window}}, Converter={StaticResource BoolToVisConverter}}">
                                                         <TextBlock.Style>
@@ -1705,8 +1705,17 @@
                                                 </TextBlock>
                                             </ScrollViewer>
 
-                                            <TextBlock Text="{Binding NowPlaying.Artist}" FontSize="13" FontWeight="Normal"
-                                                       Foreground="#D0FFFFFF" TextTrimming="CharacterEllipsis" Margin="0,4,0,0" />
+                                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,4,0,0">
+                                                <Control Template="{StaticResource OsuThemeLogoTemplate}"
+                                                         Width="16" Height="16" Margin="0,0,6,0"
+                                                         VerticalAlignment="Center"
+                                                         Background="Transparent"
+                                                         Foreground="{DynamicResource AccentBrush}"
+                                                         ToolTip="Canción de osu!"
+                                                         Visibility="{Binding CurrentTrack.IsOsuTrack, Converter={StaticResource BoolToVisConverter}}" />
+                                                <TextBlock Text="{Binding NowPlaying.Artist}" FontSize="13" FontWeight="Normal"
+                                                           Foreground="#D0FFFFFF" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                            </StackPanel>
                                         </StackPanel>
                                     </Grid>
                                 </Border>

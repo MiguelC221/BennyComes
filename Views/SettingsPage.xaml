@@ -601,7 +601,7 @@
                             <ColumnDefinition Width="Auto" />
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
-                        <ui:SymbolIcon Grid.Column="0" Symbol="Games24" FontSize="22" Foreground="{Binding Theme.CurrentAccentBrush}" Margin="0,0,16,0" VerticalAlignment="Center" />
+                        <Control Grid.Column="0" Template="{StaticResource OsuThemeLogoTemplate}" Width="24" Height="24" Foreground="{Binding Theme.CurrentAccentBrush}" Background="Transparent" Margin="0,0,16,0" VerticalAlignment="Center" />
                         <StackPanel Grid.Column="1" VerticalAlignment="Center">
                             <TextBlock Text="Modo Especial: Biblioteca de osu! (Stable)" FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" />
                             <TextBlock Text="Lee directamente osu!.db y reproduce tus beatmaps sin abrir osu! y sin alterar tu biblioteca musical principal"

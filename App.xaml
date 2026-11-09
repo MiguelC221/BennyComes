@@ -64,6 +64,26 @@
             <SolidColorBrush x:Key="RankDefaultBadgeBackgroundBrush" Color="#1AFFFFFF" />
             <SolidColorBrush x:Key="RankDefaultBadgeBorderBrush" Color="Transparent" />
 
+            <!-- Logo vectorial de osu! adaptado dinamicamente a los temas de BenyComes -->
+            <ControlTemplate x:Key="OsuThemeLogoTemplate" TargetType="Control">
+                <Viewbox Stretch="Uniform" UseLayoutRounding="False">
+                    <Grid Width="100" Height="100">
+                        <Ellipse Width="94" Height="94"
+                                 Stroke="{TemplateBinding Foreground}"
+                                 StrokeThickness="7.5"
+                                 Fill="{TemplateBinding Background}" />
+                        <TextBlock Text="osu!"
+                                   FontFamily="Segoe UI Variable Display, Segoe UI"
+                                   FontSize="35"
+                                   FontWeight="Bold"
+                                   Foreground="{TemplateBinding Foreground}"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   Margin="1,-3,0,0" />
+                    </Grid>
+                </Viewbox>
+            </ControlTemplate>
+
             <!-- Clean Circular Play/Pause Button Style -->
             <Style x:Key="CircularPlayPauseButtonStyle" TargetType="Button">
                 <Setter Property="Width" Value="44" />

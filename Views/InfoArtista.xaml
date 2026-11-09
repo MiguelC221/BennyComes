@@ -817,16 +817,25 @@
                                                                    Visibility="Collapsed" />
                                                 </Grid>
 
-                                                <!-- Título + Insignia VIDEO -->
+                                                <!-- Título + Logo osu! + Insignia VIDEO -->
                                                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,16,0">
                                                     <TextBlock x:Name="TrackTitleTxt"
                                                                Text="{Binding Title}"
                                                                FontSize="13"
+                                                               MaxWidth="260"
                                                                Foreground="{DynamicResource TextPrimaryBrush}"
                                                                TextTrimming="CharacterEllipsis"
                                                                VerticalAlignment="Center" />
 
-                                                    <Border Margin="8,0,0,0" Padding="4,1" CornerRadius="4"
+                                                    <Control Template="{StaticResource OsuThemeLogoTemplate}"
+                                                             Width="18" Height="18" Margin="7,0,0,0"
+                                                             VerticalAlignment="Center"
+                                                             Background="Transparent"
+                                                             Foreground="{DynamicResource AccentBrush}"
+                                                             ToolTip="Canción de osu!"
+                                                             Visibility="{Binding IsOsuTrack, Converter={StaticResource BoolToVisConverter}}" />
+
+                                                    <Border Margin="6,0,0,0" Padding="4,1" CornerRadius="4"
                                                             Background="{DynamicResource SurfaceCardSubtleBrush}"
                                                             BorderBrush="{DynamicResource SurfaceCardBorderBrush}" BorderThickness="1"
                                                             ToolTip="Contiene video musical (osu!)"

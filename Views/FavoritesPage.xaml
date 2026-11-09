@@ -88,7 +88,7 @@
                 <!-- Title & Artist -->
                 <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,14,0">
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                        <TextBlock Text="{Binding Title}" FontSize="14" FontWeight="SemiBold" TextTrimming="CharacterEllipsis">
+                        <TextBlock Text="{Binding Title}" FontSize="14" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" MaxWidth="360">
                             <TextBlock.Style>
                                 <Style TargetType="TextBlock">
                                     <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
@@ -102,8 +102,17 @@
                             </TextBlock.Style>
                         </TextBlock>
 
+                        <!-- Logo de osu! adaptado al tema -->
+                        <Control Template="{StaticResource OsuThemeLogoTemplate}"
+                                 Width="18" Height="18" Margin="7,0,0,0"
+                                 VerticalAlignment="Center"
+                                 Background="Transparent"
+                                 Foreground="{DynamicResource AccentBrush}"
+                                 ToolTip="Canción de osu!"
+                                 Visibility="{Binding IsOsuTrack, Converter={StaticResource BoolToVisConverter}}" />
+
                         <!-- Video Badge Icon -->
-                        <Border Margin="8,0,0,0" Padding="4,1" CornerRadius="4"
+                        <Border Margin="6,0,0,0" Padding="4,1" CornerRadius="4"
                                 Background="{DynamicResource SurfaceCardSubtleBrush}"
                                 BorderBrush="{DynamicResource SurfaceCardBorderBrush}" BorderThickness="1"
                                 ToolTip="Contiene video musical (osu!)"
@@ -284,18 +293,35 @@
                         <Button.Template>
                             <ControlTemplate TargetType="Button">
                                 <StackPanel Orientation="Vertical">
-                                    <TextBlock Text="osu!library" FontSize="20" FontWeight="Bold">
-                                        <TextBlock.Style>
-                                            <Style TargetType="TextBlock">
-                                                <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding DataContext.Favorites.SelectedTabIndex, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="1">
-                                                        <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </TextBlock.Style>
-                                    </TextBlock>
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <Control Template="{StaticResource OsuThemeLogoTemplate}"
+                                                 Width="22" Height="22" Margin="0,0,7,0"
+                                                 VerticalAlignment="Center"
+                                                 Background="Transparent">
+                                            <Control.Style>
+                                                <Style TargetType="Control">
+                                                    <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding DataContext.Favorites.SelectedTabIndex, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="1">
+                                                            <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Control.Style>
+                                        </Control>
+                                        <TextBlock Text="osu!library" FontSize="20" FontWeight="Bold" VerticalAlignment="Center">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Foreground" Value="{DynamicResource TextSecondaryBrush}" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding DataContext.Favorites.SelectedTabIndex, RelativeSource={RelativeSource AncestorType=UserControl}}" Value="1">
+                                                            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </StackPanel>
                                     <Rectangle Height="3" Margin="0,6,0,0" RadiusX="1.5" RadiusY="1.5" RenderTransformOrigin="0.5,0.5">
                                         <Rectangle.RenderTransform>
                                             <ScaleTransform ScaleX="1" />

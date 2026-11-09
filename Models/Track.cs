@@ -41,6 +41,11 @@ public partial class Track : ObservableObject
     public string OsuTitleRoumaji { get; set; } = string.Empty;
     public string OsuArtistUnicode { get; set; } = string.Empty;
     public string OsuTitleUnicode { get; set; } = string.Empty;
+    public bool IsOsuTrack =>
+        string.Equals(Genre, "osu!", StringComparison.OrdinalIgnoreCase) ||
+        Id >= 1_000_000 ||
+        !string.IsNullOrEmpty(OsuArtistRoumaji) ||
+        !string.IsNullOrEmpty(OsuTitleRoumaji);
 
     [ObservableProperty]
     private bool _isFavorite;

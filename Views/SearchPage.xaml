@@ -373,10 +373,10 @@
                             ToolTip="Buscar estas canciones dentro de osu!library">
                         <Button.Template>
                             <ControlTemplate TargetType="Button">
-                                <Border CornerRadius="16" BorderThickness="1" Background="#22FF66AA" BorderBrush="#55FF66AA" Padding="{TemplateBinding Padding}">
+                                <Border CornerRadius="16" BorderThickness="1" Background="{DynamicResource SurfaceCardHoverBrush}" BorderBrush="{DynamicResource AccentBrush}" Padding="{TemplateBinding Padding}">
                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                                        <ui:SymbolIcon Symbol="MusicNote224" FontSize="13" Foreground="#FF66AA" Margin="0,0,6,0" />
-                                        <TextBlock Text="Buscar en osu! library" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" />
+                                        <Control Template="{StaticResource OsuThemeLogoTemplate}" Width="16" Height="16" Foreground="{DynamicResource AccentBrush}" Background="Transparent" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                        <TextBlock Text="Buscar en osu! library" FontSize="12" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" />
                                     </StackPanel>
                                 </Border>
                             </ControlTemplate>
@@ -767,9 +767,18 @@
                                         </Button>
                                     </Grid>
 
-                                    <!-- Col 1: Title -->
-                                    <TextBlock Grid.Column="1" Text="{Binding Title}" FontSize="13" FontWeight="SemiBold"
-                                               Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Margin="6,0,10,0" />
+                                    <!-- Col 1: Title + Logo osu! -->
+                                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" Margin="6,0,10,0">
+                                        <TextBlock Text="{Binding Title}" FontSize="13" FontWeight="SemiBold" MaxWidth="260"
+                                                   Foreground="{DynamicResource TextPrimaryBrush}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                        <Control Template="{StaticResource OsuThemeLogoTemplate}"
+                                                 Width="18" Height="18" Margin="7,0,0,0"
+                                                 VerticalAlignment="Center"
+                                                 Background="Transparent"
+                                                 Foreground="{DynamicResource AccentBrush}"
+                                                 ToolTip="Canción de osu!"
+                                                 Visibility="{Binding IsOsuTrack, Converter={StaticResource BoolToVisConverter}}" />
+                                    </StackPanel>
 
                                     <!-- Col 2: Artist -->
                                     <TextBlock Grid.Column="2" Text="{Binding Artist}" FontSize="12"
