@@ -40,7 +40,16 @@ public class LastFmService
 
     public bool IsEnabled { get; set; } = true;
     public string ApiKey { get; set; } = string.Empty;
+    public string ApiSecret { get; set; } = string.Empty;
+    public bool IsScrobblingEnabled { get; set; } = false;
+    public string SessionKey { get; set; } = string.Empty;
+    public string SessionUsername { get; set; } = string.Empty;
     public string FanartTvApiKey { get; set; } = string.Empty;
+
+    public bool IsScrobbleAuthenticated =>
+        !string.IsNullOrWhiteSpace(SessionKey) &&
+        !string.IsNullOrWhiteSpace(ApiKey) &&
+        !string.IsNullOrWhiteSpace(ApiSecret);
 
     private readonly FanartTvImageProvider _fanartProvider;
     private readonly DeezerImageProvider _deezerProvider;
@@ -71,6 +80,18 @@ public class LastFmService
 
         string storedKey = await _libraryDao.GetSettingAsync("lastfm_api_key", "");
         ApiKey = string.IsNullOrWhiteSpace(storedKey) ? string.Empty : storedKey.Trim();
+
+        string storedSecret = await _libraryDao.GetSettingAsync("lastfm_api_secret", "");
+        ApiSecret = string.IsNullOrWhiteSpace(storedSecret) ? string.Empty : storedSecret.Trim();
+
+        string scrobbleVal = await _libraryDao.GetSettingAsync("lastfm_scrobble_enabled", "false");
+        IsScrobblingEnabled = bool.TryParse(scrobbleVal, out var sb) && sb;
+
+        string storedSessionKey = await _libraryDao.GetSettingAsync("lastfm_session_key", "");
+        SessionKey = string.IsNullOrWhiteSpace(storedSessionKey) ? string.Empty : storedSessionKey.Trim();
+
+        string storedSessionUser = await _libraryDao.GetSettingAsync("lastfm_session_user", "");
+        SessionUsername = string.IsNullOrWhiteSpace(storedSessionUser) ? string.Empty : storedSessionUser.Trim();
 
         string storedFanartKey = await _libraryDao.GetSettingAsync("fanarttv_api_key", "");
         FanartTvApiKey = string.IsNullOrWhiteSpace(storedFanartKey) ? string.Empty : storedFanartKey.Trim();
@@ -1061,6 +1082,289 @@ public class LastFmService
         {
             System.Diagnostics.Debug.WriteLine($"[LastFmService] DownloadAndCacheAlbumCoverAsync error: {ex.Message}");
             return null;
+        }
+    }
+
+    // =========================================================================
+    // LAST.FM SCROBBLING & SESSION AUTHENTICATION (API 2.0)
+    // =========================================================================
+
+    public static string ComputeApiSignature(IDictionary<string, string> parameters, string apiSecret)
+    {
+        var sb = new System.Text.StringBuilder();
+        foreach (var kvp in parameters.OrderBy(k => k.Key, StringComparer.Ordinal))
+        {
+            if (string.Equals(kvp.Key, "format", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(kvp.Key, "callback", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+            sb.Append(kvp.Key);
+            sb.Append(kvp.Value);
+        }
+        sb.Append(apiSecret);
+
+        byte[] bytes = System.Text.Encoding.UTF8.GetBytes(sb.ToString());
+        byte[] hash = System.Security.Cryptography.MD5.HashData(bytes);
+        return Convert.ToHexString(hash).ToLowerInvariant();
+    }
+
+    public async Task<(bool Success, string Token, string Message)> RequestAuthTokenAsync(string apiKey, string apiSecret)
+    {
+        string key = apiKey?.Trim() ?? string.Empty;
+        string secret = apiSecret?.Trim() ?? string.Empty;
+
+        if (string.IsNullOrWhiteSpace(key) || string.IsNullOrWhiteSpace(secret))
+        {
+            return (false, string.Empty, "Ingresa tanto tu API Key como tu Shared Secret de Last.fm para autorizar el Scrobbling.");
+        }
+
+        try
+        {
+            var parameters = new Dictionary<string, string>
+            {
+                ["api_key"] = key,
+                ["method"] = "auth.getToken"
+            };
+            string sig = ComputeApiSignature(parameters, secret);
+            string url = $"https://ws.audioscrobbler.com/2.0/?method=auth.getToken&api_key={Uri.EscapeDataString(key)}&api_sig={sig}&format=json";
+
+            using var resp = await _http.GetAsync(url).ConfigureAwait(false);
+            string json = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+            if (root.TryGetProperty("error", out _))
+            {
+                string errMsg = root.TryGetProperty("message", out var m) ? (m.GetString() ?? "Error de Last.fm") : "Clave o secreto inválido";
+                return (false, string.Empty, $"Last.fm: {errMsg}");
+            }
+
+            if (root.TryGetProperty("token", out var tokenProp))
+            {
+                string token = tokenProp.GetString() ?? string.Empty;
+                if (!string.IsNullOrWhiteSpace(token))
+                {
+                    return (true, token, "Token obtenido correctamente.");
+                }
+            }
+
+            return (false, string.Empty, "No se pudo obtener el token de autorización de Last.fm.");
+        }
+        catch (Exception ex)
+        {
+            return (false, string.Empty, $"Error al conectar con Last.fm: {ex.Message}");
+        }
+    }
+
+    public async Task<(bool Success, string Username, string SessionKey, string Message)> CompleteAuthSessionAsync(string apiKey, string apiSecret, string token)
+    {
+        string key = apiKey?.Trim() ?? string.Empty;
+        string secret = apiSecret?.Trim() ?? string.Empty;
+        string tok = token?.Trim() ?? string.Empty;
+
+        if (string.IsNullOrWhiteSpace(key) || string.IsNullOrWhiteSpace(secret) || string.IsNullOrWhiteSpace(tok))
+        {
+            return (false, string.Empty, string.Empty, "Faltan datos para completar la sesión de Last.fm.");
+        }
+
+        try
+        {
+            var parameters = new Dictionary<string, string>
+            {
+                ["api_key"] = key,
+                ["method"] = "auth.getSession",
+                ["token"] = tok
+            };
+            string sig = ComputeApiSignature(parameters, secret);
+            string url = $"https://ws.audioscrobbler.com/2.0/?method=auth.getSession&api_key={Uri.EscapeDataString(key)}&token={Uri.EscapeDataString(tok)}&api_sig={sig}&format=json";
+
+            using var resp = await _http.GetAsync(url).ConfigureAwait(false);
+            string json = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+            if (root.TryGetProperty("error", out var errProp))
+            {
+                int code = errProp.ValueKind == JsonValueKind.Number ? errProp.GetInt32() : 0;
+                string errMsg = root.TryGetProperty("message", out var m) ? (m.GetString() ?? "Error") : "No autorizado aún";
+                if (code == 14)
+                {
+                    return (false, string.Empty, string.Empty, "Aún no has autorizado la aplicación en la ventana del navegador.");
+                }
+                return (false, string.Empty, string.Empty, $"Last.fm: {errMsg}");
+            }
+
+            if (root.TryGetProperty("session", out var sessElem))
+            {
+                string user = sessElem.TryGetProperty("name", out var n) ? (n.GetString() ?? string.Empty) : string.Empty;
+                string sk = sessElem.TryGetProperty("key", out var k) ? (k.GetString() ?? string.Empty) : string.Empty;
+                if (!string.IsNullOrWhiteSpace(sk))
+                {
+                    ApiKey = key;
+                    ApiSecret = secret;
+                    SessionKey = sk;
+                    SessionUsername = user;
+
+                    await _libraryDao.SetSettingAsync("lastfm_api_key", ApiKey).ConfigureAwait(false);
+                    await _libraryDao.SetSettingAsync("lastfm_api_secret", ApiSecret).ConfigureAwait(false);
+                    await _libraryDao.SetSettingAsync("lastfm_session_key", SessionKey).ConfigureAwait(false);
+                    await _libraryDao.SetSettingAsync("lastfm_session_user", SessionUsername).ConfigureAwait(false);
+
+                    return (true, user, sk, $"¡Cuenta de Last.fm (@{user}) vinculada exitosamente para Scrobbling!");
+                }
+            }
+
+            return (false, string.Empty, string.Empty, "Respuesta inesperada al obtener sesión de Last.fm.");
+        }
+        catch (Exception ex)
+        {
+            return (false, string.Empty, string.Empty, $"Error al obtener sesión de Last.fm: {ex.Message}");
+        }
+    }
+
+    public async Task DisconnectScrobbleSessionAsync()
+    {
+        SessionKey = string.Empty;
+        SessionUsername = string.Empty;
+        await _libraryDao.SetSettingAsync("lastfm_session_key", string.Empty).ConfigureAwait(false);
+        await _libraryDao.SetSettingAsync("lastfm_session_user", string.Empty).ConfigureAwait(false);
+    }
+
+    private static (string Artist, string Title, string Album) ExtractScrobbleMetadata(Track track)
+    {
+        string artist = !string.IsNullOrWhiteSpace(track.Artist) ? track.Artist.Trim() : string.Empty;
+        string title = !string.IsNullOrWhiteSpace(track.Title) ? track.Title.Trim() : string.Empty;
+        string album = !string.IsNullOrWhiteSpace(track.Album) ? track.Album.Trim() : string.Empty;
+
+        if (string.Equals(artist, "Unknown Artist", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(artist, "Artista desconocido", StringComparison.OrdinalIgnoreCase))
+        {
+            artist = string.Empty;
+        }
+
+        if (string.Equals(album, "Unknown Album", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(album, "osu! Beatmaps", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(album, "Single", StringComparison.OrdinalIgnoreCase))
+        {
+            album = string.Empty;
+        }
+
+        return (artist, title, album);
+    }
+
+    public async Task<bool> UpdateNowPlayingAsync(Track? track)
+    {
+        if (track == null || !IsEnabled || !IsScrobblingEnabled || !IsScrobbleAuthenticated)
+            return false;
+
+        var (artist, title, album) = ExtractScrobbleMetadata(track);
+        if (string.IsNullOrWhiteSpace(artist) || string.IsNullOrWhiteSpace(title))
+            return false;
+
+        try
+        {
+            var parameters = new Dictionary<string, string>
+            {
+                ["api_key"] = ApiKey.Trim(),
+                ["artist"] = artist,
+                ["method"] = "track.updateNowPlaying",
+                ["sk"] = SessionKey.Trim(),
+                ["track"] = title
+            };
+
+            if (!string.IsNullOrWhiteSpace(album))
+            {
+                parameters["album"] = album;
+            }
+
+            int durationSecs = (int)Math.Round(track.Duration.TotalSeconds);
+            if (durationSecs > 0)
+            {
+                parameters["duration"] = durationSecs.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            }
+
+            string sig = ComputeApiSignature(parameters, ApiSecret.Trim());
+            var postData = new Dictionary<string, string>(parameters)
+            {
+                ["api_sig"] = sig,
+                ["format"] = "json"
+            };
+
+            using var content = new FormUrlEncodedContent(postData);
+            using var resp = await _http.PostAsync("https://ws.audioscrobbler.com/2.0/", content).ConfigureAwait(false);
+            return resp.IsSuccessStatusCode;
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[LastFmService] UpdateNowPlayingAsync error: {ex.Message}");
+            return false;
+        }
+    }
+
+    public async Task<(bool Success, string Message)> ScrobbleTrackAsync(Track? track, long startTimestampUnix)
+    {
+        if (track == null || !IsEnabled || !IsScrobblingEnabled || !IsScrobbleAuthenticated)
+            return (false, "Scrobbling desactivado o sin sesión activa.");
+
+        var (artist, title, album) = ExtractScrobbleMetadata(track);
+        if (string.IsNullOrWhiteSpace(artist) || string.IsNullOrWhiteSpace(title))
+            return (false, "Metadatos de artista o título insuficientes para scrobble.");
+
+        try
+        {
+            long ts = startTimestampUnix > 0 ? startTimestampUnix : DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            var parameters = new Dictionary<string, string>
+            {
+                ["api_key"] = ApiKey.Trim(),
+                ["artist"] = artist,
+                ["method"] = "track.scrobble",
+                ["sk"] = SessionKey.Trim(),
+                ["timestamp"] = ts.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                ["track"] = title
+            };
+
+            if (!string.IsNullOrWhiteSpace(album))
+            {
+                parameters["album"] = album;
+            }
+
+            int durationSecs = (int)Math.Round(track.Duration.TotalSeconds);
+            if (durationSecs > 0)
+            {
+                parameters["duration"] = durationSecs.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            }
+
+            string sig = ComputeApiSignature(parameters, ApiSecret.Trim());
+            var postData = new Dictionary<string, string>(parameters)
+            {
+                ["api_sig"] = sig,
+                ["format"] = "json"
+            };
+
+            using var content = new FormUrlEncodedContent(postData);
+            using var resp = await _http.PostAsync("https://ws.audioscrobbler.com/2.0/", content).ConfigureAwait(false);
+            string json = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
+
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+            if (root.TryGetProperty("error", out _))
+            {
+                string msg = root.TryGetProperty("message", out var m) ? (m.GetString() ?? "Error en scrobble") : "Error en scrobble";
+                return (false, msg);
+            }
+
+            if (root.TryGetProperty("scrobbles", out _))
+            {
+                return (true, $"Scrobble enviado: {artist} - {title}");
+            }
+
+            return (false, "Respuesta inesperada de Last.fm al hacer scrobble.");
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[LastFmService] ScrobbleTrackAsync error: {ex.Message}");
+            return (false, ex.Message);
         }
     }
 }

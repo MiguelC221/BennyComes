@@ -6,6 +6,8 @@ public partial class AudioOutputDeviceInfo : ObservableObject
 {
     public string Id { get; set; } = string.Empty;
 
+    public string Subtitle { get; set; } = string.Empty;
+
     [ObservableProperty]
     private string _name = string.Empty;
 
@@ -15,5 +17,7 @@ public partial class AudioOutputDeviceInfo : ObservableObject
     [ObservableProperty]
     private bool _isSelected;
 
-    public string Description => IsDefault ? $"{Name} (Default)" : Name;
+    public string Description => !string.IsNullOrEmpty(Subtitle)
+        ? Subtitle
+        : (IsDefault ? $"{Name} (Predeterminado en Windows)" : Name);
 }

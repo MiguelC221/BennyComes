@@ -58,7 +58,7 @@ public partial class AudioDeviceSelectorViewModel : ObservableObject
     {
         if (device == null) return;
         SelectedDevice = device;
-        _audio.SelectedDeviceId = device.Id;
+        _audio.SelectedDeviceId = string.IsNullOrEmpty(device.Id) ? null : device.Id;
         UpdateSelectedDeviceStatus();
     }
 
@@ -70,10 +70,10 @@ public partial class AudioDeviceSelectorViewModel : ObservableObject
 
     private void UpdateSelectedDeviceStatus()
     {
-        var currentId = _audio.SelectedDeviceId;
+        var currentId = _audio.SelectedDeviceId ?? string.Empty;
         foreach (var d in Devices)
         {
-            d.IsSelected = (d.Id == currentId);
+            d.IsSelected = ((d.Id ?? string.Empty) == currentId);
         }
     }
 

@@ -414,11 +414,12 @@
                                    StaysOpen="False"
                                    AllowsTransparency="True"
                                    PopupAnimation="Fade"
-                                   Width="186"
+                                   Width="340"
+                                   HorizontalOffset="-2"
                                    VerticalOffset="4">
-                                <Border Background="#F21C1D26" BorderBrush="#33FFFFFF" BorderThickness="1" CornerRadius="10" Padding="4">
+                                <Border Background="#F21C1D26" BorderBrush="#33FFFFFF" BorderThickness="1" CornerRadius="10" Padding="6" Margin="2,2,14,14">
                                     <Border.Effect>
-                                        <DropShadowEffect BlurRadius="16" Color="#000000" Opacity="0.5" ShadowDepth="4" />
+                                        <DropShadowEffect BlurRadius="16" Color="#000000" Opacity="0.55" ShadowDepth="4" />
                                     </Border.Effect>
                                     <ScrollViewer MaxHeight="300" VerticalScrollBarVisibility="Auto">
                                         <ItemsControl ItemsSource="{Binding Search.Suggestions}">
@@ -1755,6 +1756,17 @@
                             </ControlTemplate>
                         </Button.Template>
                     </Button>
+
+                    <!-- Indicador de Scrobble de Last.fm en MiniPlayer -->
+                    <Border CornerRadius="6" Padding="7,3" Margin="4,0,0,0" VerticalAlignment="Center"
+                            Background="#2600D26A" BorderBrush="#5500D26A" BorderThickness="1"
+                            ToolTip="Scrobble registrado en Last.fm"
+                            Visibility="{Binding NowPlaying.IsScrobbled, Converter={StaticResource BoolToVisConverter}}">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <ui:SymbolIcon Symbol="CheckmarkCircle24" FontSize="13" Foreground="{Binding Theme.CurrentAccentBrush}" Margin="0,0,4,0" VerticalAlignment="Center" />
+                            <TextBlock Text="Scrobble" FontSize="10.5" FontWeight="SemiBold" Foreground="#F0FFFFFF" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Border>
                 </StackPanel>
 
                 <!-- ====================================================== -->
@@ -2115,8 +2127,19 @@
                                 <StackPanel VerticalAlignment="Center">
                                     <TextBlock Text="{Binding NowPlaying.Title}" FontSize="14" Foreground="#FFFFFF"
                                                TextTrimming="CharacterEllipsis" />
-                                    <TextBlock Text="{Binding NowPlaying.Artist}" FontSize="13" FontWeight="Bold" Foreground="#F2FFFFFF"
-                                               TextTrimming="CharacterEllipsis" Margin="0,2,0,0" />
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,2,0,0">
+                                        <TextBlock Text="{Binding NowPlaying.Artist}" FontSize="13" FontWeight="Bold" Foreground="#F2FFFFFF"
+                                                   TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                        <Border CornerRadius="5" Padding="5,1" Margin="6,0,0,0" VerticalAlignment="Center"
+                                                Background="#2600D26A" BorderBrush="#5500D26A" BorderThickness="1"
+                                                ToolTip="Scrobble registrado en Last.fm"
+                                                Visibility="{Binding NowPlaying.IsScrobbled, Converter={StaticResource BoolToVisConverter}}">
+                                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                <ui:SymbolIcon Symbol="CheckmarkCircle24" FontSize="11" Foreground="{Binding Theme.CurrentAccentBrush}" Margin="0,0,3,0" VerticalAlignment="Center" />
+                                                <TextBlock Text="Scrobble" FontSize="9.5" FontWeight="SemiBold" Foreground="#F0FFFFFF" VerticalAlignment="Center" />
+                                            </StackPanel>
+                                        </Border>
+                                    </StackPanel>
                                 </StackPanel>
                             </Border>
                         </ControlTemplate>
@@ -4070,7 +4093,7 @@
                         </Border>
 
                         <StackPanel Grid.Column="1" VerticalAlignment="Center">
-                            <TextBlock Text="Licencias de Código Abierto — BennyComes v1.3.0" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" />
+                            <TextBlock Text="Licencias de Código Abierto — BennyComes v1.4.0 osu!" FontSize="20" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" />
                             <TextBlock Text="Agradecemos a los autores y mantenedores de los proyectos open-source que hacen posible BennyComes."
                                        FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}" Margin="0,3,0,0" />
                         </StackPanel>
@@ -4138,7 +4161,7 @@
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
 
-                        <TextBlock Grid.Column="0" Text="BennyComes v1.3.0 • Reproductor Nativo Bit-Perfect"
+                        <TextBlock Grid.Column="0" Text="BennyComes v1.4.0 osu! • Reproductor Nativo Bit-Perfect"
                                    FontSize="11" Foreground="{DynamicResource TextTertiaryBrush}" VerticalAlignment="Center" />
 
                         <ui:Button Grid.Column="1" Appearance="Primary" Padding="24,8"

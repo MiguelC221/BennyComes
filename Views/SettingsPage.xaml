@@ -792,6 +792,83 @@
                         </Hyperlink>
                     </TextBlock>
 
+                    <Separator Background="{DynamicResource DividerBrush}" Margin="0,0,0,16" />
+
+                    <!-- 1.B Last.fm Scrobbling (API 2.0) -->
+                    <Grid Margin="0,0,0,12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                            <TextBlock Text="Hacer Scrobble en Last.fm" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" />
+                            <TextBlock Text="Registra automáticamente en tu perfil de Last.fm las canciones que escuchas y muestra un indicador visual cuando se completa el scrobble."
+                                       FontSize="11" Foreground="{DynamicResource TextTertiaryBrush}" TextWrapping="Wrap" Margin="0,2,0,0" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Right">
+                            <TextBlock VerticalAlignment="Center" Margin="0,0,8,0" FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Text" Value="Desactivado" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Settings.IsLastFmScrobblingEnabled}" Value="True">
+                                                <Setter Property="Text" Value="Activado" />
+                                                <Setter Property="Foreground" Value="{Binding Theme.CurrentAccentBrush}" />
+                                                <Setter Property="FontWeight" Value="SemiBold" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                            <ui:ToggleSwitch IsChecked="{Binding Settings.IsLastFmScrobblingEnabled, Mode=TwoWay}"
+                                             IsEnabled="{Binding Settings.IsLastFmEnabled}"
+                                             OffContent="" OnContent=""
+                                             VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- Shared Secret + Account Connection for Scrobbling -->
+                    <TextBlock Text="Shared Secret de Last.fm (Requerido para Scrobbling)" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,6" />
+                    <Grid Margin="0,0,0,10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <ui:TextBox Grid.Column="0" Text="{Binding Settings.LastFmApiSecret, UpdateSourceTrigger=PropertyChanged}"
+                                    PlaceholderText="Ingresa tu Shared Secret de Last.fm (32 caracteres hexadecimales)..."
+                                    Background="{DynamicResource SurfaceCardHoverBrush}" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,10,0" />
+                        <StackPanel Grid.Column="1" Orientation="Horizontal">
+                            <ui:Button Appearance="Primary" Padding="14,6"
+                                       Background="{Binding Theme.CurrentAccentBrush}"
+                                       Command="{Binding Settings.ConnectLastFmAccountCommand}"
+                                       Visibility="{Binding Settings.IsLastFmAuthenticated, Converter={StaticResource InverseBoolToVisConverter}}">
+                                <StackPanel Orientation="Horizontal">
+                                    <ui:SymbolIcon Symbol="PersonAdd24" FontSize="14" Foreground="{Binding Theme.AccentForegroundBrush}" Margin="0,0,6,0" />
+                                    <TextBlock Text="Conectar cuenta de Last.fm" FontWeight="Bold" Foreground="{Binding Theme.AccentForegroundBrush}" FontSize="12" />
+                                </StackPanel>
+                            </ui:Button>
+                            <ui:Button Appearance="Secondary" Padding="14,6"
+                                       Command="{Binding Settings.DisconnectLastFmAccountCommand}"
+                                       Visibility="{Binding Settings.IsLastFmAuthenticated, Converter={StaticResource BoolToVisConverter}}">
+                                <StackPanel Orientation="Horizontal">
+                                    <ui:SymbolIcon Symbol="PersonDelete24" FontSize="14" Margin="0,0,6,0" />
+                                    <TextBlock Text="{Binding Settings.LastFmSessionUsername, StringFormat='Desconectar @{0}'}" FontWeight="SemiBold" FontSize="12" />
+                                </StackPanel>
+                            </ui:Button>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- Scrobble Status / Connected Account Badge -->
+                    <Border CornerRadius="8" Background="{DynamicResource SurfaceCardHoverBrush}" Padding="12,8" Margin="0,0,0,16"
+                            Visibility="{Binding Settings.LastFmScrobbleStatusMessage, Converter={StaticResource StringToVisibilityConverter}}">
+                        <StackPanel Orientation="Horizontal">
+                            <ui:SymbolIcon Symbol="CheckmarkCircle24" FontSize="15" Foreground="{Binding Theme.CurrentAccentBrush}" Margin="0,0,8,0" VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding Settings.LastFmScrobbleStatusMessage}" FontSize="12" Foreground="{DynamicResource TextPrimaryBrush}" VerticalAlignment="Center" TextWrapping="Wrap" />
+                        </StackPanel>
+                    </Border>
+
+                    <Separator Background="{DynamicResource DividerBrush}" Margin="0,0,0,16" />
+
                     <!-- 2. Fanart.tv API Key Field & Test Button -->
                     <TextBlock Text="API Key de Fanart.tv (Fotos y Fondos HD de Artistas)" FontSize="13" FontWeight="SemiBold" Foreground="{DynamicResource TextPrimaryBrush}" Margin="0,0,0,6" />
                     <Grid Margin="0,0,0,10">
@@ -1361,7 +1438,7 @@
                                 <TextBlock Text="BennyComes" FontSize="22" FontWeight="Bold" Foreground="{DynamicResource TextPrimaryBrush}" />
                                 <Border CornerRadius="6" Padding="8,2" Margin="10,0,0,0" VerticalAlignment="Center"
                                         Background="{Binding Theme.CurrentAccentBrush}">
-                                    <TextBlock Text="v1.3.0" FontSize="11" FontWeight="Bold" Foreground="{Binding Theme.AccentForegroundBrush}" />
+                                    <TextBlock Text="v1.4.0 osu!" FontSize="11" FontWeight="Bold" Foreground="{Binding Theme.AccentForegroundBrush}" />
                                 </Border>
                             </StackPanel>
                             <TextBlock Text="{Binding Settings.AppVersion}" FontSize="12" FontWeight="SemiBold" Foreground="{Binding Theme.CurrentAccentBrush}" Margin="0,3,0,5" />

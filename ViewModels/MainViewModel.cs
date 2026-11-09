@@ -265,10 +265,17 @@ public partial class MainViewModel : ObservableObject
 
         _audio.TrackChanged += (s, t) =>
         {
+            _scrobbleSubmittedForCurrentTrack = false;
+            _scrobbleTrackStartUnix = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            _scrobbleAccumulatedSeconds = 0.0;
+            NowPlaying.IsScrobbling = false;
+            NowPlaying.IsScrobbled = false;
+
             if (t != null)
             {
                 SyncOsuTrackMetadata(t);
                 ForceUiPlaybackUpdate(t, _audio.IsPlaying);
+                _ = Services.Online.LastFmService.Instance.UpdateNowPlayingAsync(t);
             }
             else
             {
@@ -307,6 +314,10 @@ public partial class MainViewModel : ObservableObject
         _ = InitializeDataAsync();
     }
 
+    private bool _scrobbleSubmittedForCurrentTrack;
+    private long _scrobbleTrackStartUnix;
+    private double _scrobbleAccumulatedSeconds;
+
     public void UpdatePlaybackPosition()
     {
         if (!NowPlaying.IsUserSeeking)
@@ -325,6 +336,42 @@ public partial class MainViewModel : ObservableObject
                     ? total.ToString(@"h\:mm\:ss")
                     : total.ToString(@"m\:ss");
             }
+
+            if (_audio.IsPlaying && _audio.CurrentTrack != null)
+            {
+                _scrobbleAccumulatedSeconds += 0.2;
+
+                var lfm = Services.Online.LastFmService.Instance;
+                if (!_scrobbleSubmittedForCurrentTrack &&
+                    lfm.IsEnabled &&
+                    lfm.IsScrobblingEnabled &&
+                    lfm.IsScrobbleAuthenticated)
+                {
+                    var currentTrack = _audio.CurrentTrack;
+                    double totalSecs = total.TotalSeconds > 0 ? total.TotalSeconds : currentTrack.Duration.TotalSeconds;
+                    double thresholdSecs = totalSecs > 0 ? Math.Clamp(totalSecs * 0.45, 15.0, 240.0) : 25.0;
+
+                    if (_scrobbleAccumulatedSeconds >= thresholdSecs || (pos.TotalSeconds >= thresholdSecs && thresholdSecs >= 15.0))
+                    {
+                        _scrobbleSubmittedForCurrentTrack = true;
+                        NowPlaying.IsScrobbling = true;
+                        long startTs = _scrobbleTrackStartUnix > 0 ? _scrobbleTrackStartUnix : DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+
+                        _ = Task.Run(async () =>
+                        {
+                            var (ok, _) = await lfm.ScrobbleTrackAsync(currentTrack, startTs);
+                            Application.Current?.Dispatcher?.InvokeAsync(() =>
+                            {
+                                NowPlaying.IsScrobbling = false;
+                                if (ok && ReferenceEquals(_audio.CurrentTrack, currentTrack))
+                                {
+                                    NowPlaying.IsScrobbled = true;
+                                }
+                            });
+                        });
+                    }
+                }
+            }
         }
     }
 
@@ -335,8 +382,10 @@ public partial class MainViewModel : ObservableObject
         ArtistModel? ArtistDetail,
         AlbumModel? AlbumDetail,
         Playlist? PlaylistDetail,
+        int OsuTabIndex,
         ArtistModel? OsuArtistDetail,
         AlbumModel? OsuAlbumDetail,
+        int FavTabIndex,
         ArtistModel? FavArtistDetail,
         AlbumModel? FavAlbumDetail
     );
@@ -360,8 +409,10 @@ public partial class MainViewModel : ObservableObject
             MyMusic.SelectedArtistDetail,
             MyMusic.SelectedAlbumDetail,
             SelectedPlaylistForDetail,
+            OsuLibrary.SelectedTabIndex,
             OsuLibrary.SelectedArtistDetail,
             OsuLibrary.SelectedAlbumDetail,
+            Favorites.SelectedTabIndex,
             Favorites.SelectedArtistDetail,
             Favorites.SelectedAlbumDetail
         );
@@ -384,8 +435,10 @@ public partial class MainViewModel : ObservableObject
             MyMusic.SelectedArtistDetail,
             MyMusic.SelectedAlbumDetail,
             SelectedPlaylistForDetail,
+            OsuLibrary.SelectedTabIndex,
             OsuLibrary.SelectedArtistDetail,
             OsuLibrary.SelectedAlbumDetail,
+            Favorites.SelectedTabIndex,
             Favorites.SelectedArtistDetail,
             Favorites.SelectedAlbumDetail
         );
@@ -405,15 +458,7 @@ public partial class MainViewModel : ObservableObject
 
     private void UpdateCanGoBack()
     {
-        if (CurrentView == "Home")
-        {
-            _navigationHistory.Clear();
-            CanGoBack = false;
-        }
-        else
-        {
-            CanGoBack = _navigationHistory.Count > 0;
-        }
+        CanGoBack = CurrentView != "Home" && _navigationHistory.Count > 0;
     }
 
     [RelayCommand]
@@ -456,11 +501,13 @@ public partial class MainViewModel : ObservableObject
             }
             else if (prev.ViewName == "OsuLibrary")
             {
+                OsuLibrary.SelectedTabIndex = prev.OsuTabIndex;
                 OsuLibrary.SelectedArtistDetail = prev.OsuArtistDetail;
                 OsuLibrary.SelectedAlbumDetail = prev.OsuAlbumDetail;
             }
             else if (prev.ViewName == "Favorites")
             {
+                Favorites.SelectedTabIndex = prev.FavTabIndex;
                 Favorites.SelectedArtistDetail = prev.FavArtistDetail;
                 Favorites.SelectedAlbumDetail = prev.FavAlbumDetail;
             }
@@ -799,7 +846,7 @@ public partial class MainViewModel : ObservableObject
             // Rule: Navigation history ALWAYS clears when clicking or arriving at Inicio (Home)
             ClearNavigationHistory();
         }
-        else if (CurrentView != viewName || MyMusic.IsInDetailView)
+        else if (CurrentView != viewName || MyMusic.IsInDetailView || OsuLibrary.IsInDetailView || Favorites.IsInDetailView || IsNowPlayingActive)
         {
             PushCurrentNavigationState();
         }

@@ -74,6 +74,26 @@ public partial class SettingsViewModel : ObservableObject
     private string _lastFmApiKey = string.Empty;
 
     [ObservableProperty]
+    private string _lastFmApiSecret = string.Empty;
+
+    [ObservableProperty]
+    private bool _isLastFmScrobblingEnabled;
+
+    [ObservableProperty]
+    private string _lastFmSessionUsername = string.Empty;
+
+    [ObservableProperty]
+    private bool _isLastFmAuthenticated;
+
+    [ObservableProperty]
+    private bool _isConnectingLastFmSession;
+
+    [ObservableProperty]
+    private string _lastFmScrobbleStatusMessage = string.Empty;
+
+    private System.Threading.CancellationTokenSource? _lastFmAuthPollCts;
+
+    [ObservableProperty]
     private bool _isTestingLastFm;
 
     [ObservableProperty]
@@ -135,9 +155,9 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty]
     private int _artistImageIntervalSeconds = 35;
 
-    public const string CurrentVersionTag = "1.3.5";
+    public const string CurrentVersionTag = "1.4.0";
     public const string GitHubReleasesUrl = "https://github.com/MiguelC221/BennyComes/releases";
-    public string AppVersion => "v1.3.5 (osu! Edition) - Build x64 Native (.NET 8.0)";
+    public string AppVersion => "v1.4.0 osu! - Build x64 Native (.NET 8.0)";
     public string AudioEngineInfo => "NAudio CoreAudioApi (WASAPI Shared / Exclusive Bit-Perfect low-latency event-sync)";
     public string TechnologiesInfo => ".NET 8.0 • WPF-UI (Fluent Design 2) • TagLibSharp • Microsoft.Data.Sqlite (WAL)";
 
@@ -192,6 +212,14 @@ public partial class SettingsViewModel : ObservableObject
         await Services.Online.LastFmService.Instance.InitializeAsync();
         IsLastFmEnabled = Services.Online.LastFmService.Instance.IsEnabled;
         LastFmApiKey = Services.Online.LastFmService.Instance.ApiKey;
+        LastFmApiSecret = Services.Online.LastFmService.Instance.ApiSecret;
+        IsLastFmScrobblingEnabled = Services.Online.LastFmService.Instance.IsScrobblingEnabled;
+        LastFmSessionUsername = Services.Online.LastFmService.Instance.SessionUsername;
+        IsLastFmAuthenticated = Services.Online.LastFmService.Instance.IsScrobbleAuthenticated;
+        if (IsLastFmAuthenticated && !string.IsNullOrWhiteSpace(LastFmSessionUsername))
+        {
+            LastFmScrobbleStatusMessage = $"Cuenta de Last.fm conectada: @{LastFmSessionUsername}";
+        }
         FanartTvApiKey = Services.Online.LastFmService.Instance.FanartTvApiKey;
 
         string syncVal = await _libraryDao.GetSettingAsync("sync_artists_lastfm", "false");
@@ -349,10 +377,101 @@ public partial class SettingsViewModel : ObservableObject
     {
         string trimmed = value?.Trim() ?? string.Empty;
         Services.Online.LastFmService.Instance.ApiKey = trimmed;
+        IsLastFmAuthenticated = Services.Online.LastFmService.Instance.IsScrobbleAuthenticated;
         _ = Task.Run(async () =>
         {
             await _libraryDao.SetSettingAsync("lastfm_api_key", trimmed);
         });
+    }
+
+    partial void OnLastFmApiSecretChanged(string value)
+    {
+        string trimmed = value?.Trim() ?? string.Empty;
+        Services.Online.LastFmService.Instance.ApiSecret = trimmed;
+        IsLastFmAuthenticated = Services.Online.LastFmService.Instance.IsScrobbleAuthenticated;
+        _ = Task.Run(async () =>
+        {
+            await _libraryDao.SetSettingAsync("lastfm_api_secret", trimmed);
+        });
+    }
+
+    partial void OnIsLastFmScrobblingEnabledChanged(bool value)
+    {
+        Services.Online.LastFmService.Instance.IsScrobblingEnabled = value;
+        _ = _libraryDao.SetSettingAsync("lastfm_scrobble_enabled", value.ToString());
+    }
+
+    [RelayCommand]
+    public async Task ConnectLastFmAccountAsync()
+    {
+        if (string.IsNullOrWhiteSpace(LastFmApiKey) || string.IsNullOrWhiteSpace(LastFmApiSecret))
+        {
+            LastFmScrobbleStatusMessage = "Ingresa primero tu API Key y tu Shared Secret de Last.fm.";
+            return;
+        }
+
+        _lastFmAuthPollCts?.Cancel();
+        _lastFmAuthPollCts?.Dispose();
+        var cts = new System.Threading.CancellationTokenSource();
+        _lastFmAuthPollCts = cts;
+
+        IsConnectingLastFmSession = true;
+        LastFmScrobbleStatusMessage = "Solicitando token de autorización a Last.fm...";
+
+        try
+        {
+            var (ok, token, msg) = await Services.Online.LastFmService.Instance.RequestAuthTokenAsync(LastFmApiKey, LastFmApiSecret);
+            if (!ok || string.IsNullOrWhiteSpace(token))
+            {
+                LastFmScrobbleStatusMessage = msg;
+                IsConnectingLastFmSession = false;
+                return;
+            }
+
+            string authUrl = $"https://www.last.fm/api/auth/?api_key={Uri.EscapeDataString(LastFmApiKey.Trim())}&token={Uri.EscapeDataString(token)}";
+            try
+            {
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(authUrl) { UseShellExecute = true });
+            }
+            catch { }
+
+            LastFmScrobbleStatusMessage = "Autoriza BenyComes en la página de Last.fm que se abrió en tu navegador... esperando confirmación.";
+
+            for (int attempt = 0; attempt < 40; attempt++)
+            {
+                await Task.Delay(3000, cts.Token);
+                if (cts.Token.IsCancellationRequested) return;
+
+                var (sessOk, user, sk, sessMsg) = await Services.Online.LastFmService.Instance.CompleteAuthSessionAsync(LastFmApiKey, LastFmApiSecret, token);
+                if (sessOk && !string.IsNullOrWhiteSpace(sk))
+                {
+                    LastFmSessionUsername = user;
+                    IsLastFmAuthenticated = true;
+                    IsLastFmScrobblingEnabled = true;
+                    IsLastFmEnabled = true;
+                    LastFmScrobbleStatusMessage = sessMsg;
+                    return;
+                }
+            }
+
+            LastFmScrobbleStatusMessage = "Tiempo de espera agotado. Vuelve a pulsar 'Conectar cuenta de Last.fm' tras autorizar en el navegador.";
+        }
+        catch (OperationCanceledException) { }
+        finally
+        {
+            IsConnectingLastFmSession = false;
+        }
+    }
+
+    [RelayCommand]
+    public async Task DisconnectLastFmAccountAsync()
+    {
+        _lastFmAuthPollCts?.Cancel();
+        await Services.Online.LastFmService.Instance.DisconnectScrobbleSessionAsync();
+        LastFmSessionUsername = string.Empty;
+        IsLastFmAuthenticated = false;
+        IsConnectingLastFmSession = false;
+        LastFmScrobbleStatusMessage = "Cuenta de Last.fm desvinculada.";
     }
 
     partial void OnFanartTvApiKeyChanged(string value)

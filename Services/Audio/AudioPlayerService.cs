@@ -325,10 +325,21 @@ public class AudioPlayerService
             }
             catch { }
 
+            list.Add(new AudioOutputDeviceInfo
+            {
+                Id = string.Empty,
+                Name = "Dispositivo de audio por defecto",
+                Subtitle = defaultDevice != null
+                    ? $"Salida predeterminada de Windows ({defaultDevice.FriendlyName})"
+                    : "Salida predeterminada del sistema (Windows)",
+                IsDefault = false,
+                IsSelected = string.IsNullOrEmpty(_selectedDeviceId)
+            });
+
             foreach (var ep in endpoints)
             {
                 bool isDef = defaultDevice != null && ep.ID == defaultDevice.ID;
-                bool isSel = _selectedDeviceId != null ? ep.ID == _selectedDeviceId : isDef;
+                bool isSel = !string.IsNullOrEmpty(_selectedDeviceId) && ep.ID == _selectedDeviceId;
 
                 list.Add(new AudioOutputDeviceInfo
                 {

@@ -34,6 +34,12 @@ public partial class NowPlayingViewModel : ObservableObject
     private bool _isAlbumNotFound;
 
     [ObservableProperty]
+    private bool _isScrobbling;
+
+    [ObservableProperty]
+    private bool _isScrobbled;
+
+    [ObservableProperty]
     private string _artistAndAlbum = "Sin pistas por ahora";
 
     [ObservableProperty]
