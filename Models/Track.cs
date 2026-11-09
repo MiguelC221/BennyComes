@@ -31,10 +31,11 @@ public partial class Track : ObservableObject
     public long FileSize { get; set; }
     public int Rank { get; set; }
 
-    // osu! / Video features
+    // osu! / Video & Storyboard features
     public string VideoPath { get; set; } = string.Empty;
     public int VideoOffsetMs { get; set; }
     public bool HasVideo => !string.IsNullOrEmpty(VideoPath);
+    public bool HasStoryboard { get; set; }
     public string OsuSource { get; set; } = string.Empty;
     public bool HasOsuSource => !string.IsNullOrWhiteSpace(OsuSource);
     public string OsuArtistRoumaji { get; set; } = string.Empty;

@@ -581,6 +581,19 @@
                                     <TextBlock Text="VIDEO" FontSize="9" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}" />
                                 </StackPanel>
                             </Border>
+
+                            <Border Margin="6,0,0,0" Padding="4,1" CornerRadius="4"
+                                    Background="{DynamicResource SurfaceCardSubtleBrush}"
+                                    BorderBrush="{DynamicResource SurfaceCardBorderBrush}" BorderThickness="1"
+                                    ToolTip="Contiene Storyboard (osu!)"
+                                    Visibility="{Binding HasStoryboard, Converter={StaticResource BoolToVisConverter}}">
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                    <ui2:SymbolIcon Symbol="Sparkle24" FontSize="11"
+                                                    Foreground="{Binding Source={x:Static vm:MainViewModel.Instance}, Path=Theme.CurrentAccentBrush}"
+                                                    Margin="0,0,3,0" />
+                                    <TextBlock Text="STORYBOARD" FontSize="9" FontWeight="Bold" Foreground="{DynamicResource TextSecondaryBrush}" />
+                                </StackPanel>
+                            </Border>
                         </StackPanel>
 
                         <!-- Column 2: Artist (Invisible Button to redirect to Artist Detail) -->

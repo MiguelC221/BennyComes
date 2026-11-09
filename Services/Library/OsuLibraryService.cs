@@ -91,14 +91,36 @@ public class OsuLibraryService
             if (cachedTracks != null && cachedTracks.Count > 0)
             {
                 await ArtistSplitterService.Instance.LoadSettingsAsync();
+                bool sbIndexed = await OsuLibraryCacheDao.Instance.IsStoryboardIndexedAsync();
 
                 await Task.Run(() =>
                 {
+                    if (!sbIndexed)
+                    {
+                        Parallel.ForEach(cachedTracks, new ParallelOptions { MaxDegreeOfParallelism = Environment.ProcessorCount }, t =>
+                        {
+                            t.HasStoryboard = Storyboard.OsuStoryboardParser.HasStoryboardInFolder(t.FilePath);
+                        });
+                    }
+
                     _osuTracks.Clear();
                     _osuTracks.AddRange(cachedTracks);
                     Data.Favoritos.Instance.SyncTracksFavoriteState(_osuTracks);
                     RebuildArtistsFromTracks();
                 });
+
+                if (!sbIndexed)
+                {
+                    _ = Task.Run(async () =>
+                    {
+                        try
+                        {
+                            await OsuLibraryCacheDao.Instance.SaveTracksAsync(cachedTracks);
+                            await OsuLibraryCacheDao.Instance.SetStoryboardIndexedAsync(true);
+                        }
+                        catch { }
+                    });
+                }
 
                 IsLoaded = true;
                 LibraryUpdated?.Invoke();
@@ -178,8 +200,9 @@ public class OsuLibraryService
                     displayTitle = !string.IsNullOrWhiteSpace(bm.Title) ? bm.Title : (!string.IsNullOrWhiteSpace(bm.TitleUnicode) ? bm.TitleUnicode : Path.GetFileNameWithoutExtension(bm.AudioFilename));
                 }
 
-                // Find background image and optional video
+                // Find background image, optional video and storyboard
                 var (artworkPath, videoPath, videoOffset) = FindMediaAssets(folderPath, bm.OsuFilename);
+                bool hasStoryboard = Storyboard.OsuStoryboardParser.HasStoryboardInFolder(audioPath);
 
                 var track = new Track
                 {
@@ -194,6 +217,7 @@ public class OsuLibraryService
                     ArtworkPath = artworkPath,
                     VideoPath = videoPath,
                     VideoOffsetMs = videoOffset,
+                    HasStoryboard = hasStoryboard,
                     OsuSource = bm.Source ?? string.Empty,
                     OsuArtistRoumaji = bm.Artist ?? string.Empty,
                     OsuTitleRoumaji = bm.Title ?? string.Empty,
@@ -245,6 +269,7 @@ public class OsuLibraryService
             {
                 await OsuLibraryCacheDao.Instance.SaveTracksAsync(tracks);
                 await OsuLibraryCacheDao.Instance.SaveDbVersionAsync(currentDbVersion);
+                await OsuLibraryCacheDao.Instance.SetStoryboardIndexedAsync(true);
             }
             catch (Exception ex)
             {

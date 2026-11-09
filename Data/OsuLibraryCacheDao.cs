@@ -45,7 +45,8 @@ public class OsuLibraryCacheDao
                     osu_artist_unicode TEXT,
                     osu_title_unicode TEXT,
                     date_added TEXT NOT NULL,
-                    first_letter_group TEXT
+                    first_letter_group TEXT,
+                    has_storyboard INTEGER NOT NULL DEFAULT 0
                 );
 
                 CREATE TABLE IF NOT EXISTS osu_meta (
@@ -54,6 +55,15 @@ public class OsuLibraryCacheDao
                 );
             ";
             cmd.ExecuteNonQuery();
+
+            try
+            {
+                using var alterCmd = conn.CreateCommand();
+                alterCmd.CommandText = "ALTER TABLE osu_tracks ADD COLUMN has_storyboard INTEGER NOT NULL DEFAULT 0;";
+                alterCmd.ExecuteNonQuery();
+            }
+            catch { }
+
             _tablesInitialized = true;
         }
     }
@@ -83,7 +93,8 @@ public class OsuLibraryCacheDao
                 osu_artist_unicode TEXT,
                 osu_title_unicode TEXT,
                 date_added TEXT NOT NULL,
-                first_letter_group TEXT
+                first_letter_group TEXT,
+                has_storyboard INTEGER NOT NULL DEFAULT 0
             );
 
             CREATE TABLE IF NOT EXISTS osu_meta (
@@ -92,7 +103,39 @@ public class OsuLibraryCacheDao
             );
         ";
         await cmd.ExecuteNonQueryAsync();
+
+        try
+        {
+            using var alterCmd = conn.CreateCommand();
+            alterCmd.CommandText = "ALTER TABLE osu_tracks ADD COLUMN has_storyboard INTEGER NOT NULL DEFAULT 0;";
+            await alterCmd.ExecuteNonQueryAsync();
+        }
+        catch { }
+
         _tablesInitialized = true;
+    }
+
+    public async Task<bool> IsStoryboardIndexedAsync()
+    {
+        await EnsureTablesCreatedAsync();
+        using var conn = await _db.CreateConnectionAsync();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT value FROM osu_meta WHERE key = 'storyboard_indexed_v1';";
+        var res = await cmd.ExecuteScalarAsync();
+        return string.Equals(res?.ToString(), "1", StringComparison.Ordinal);
+    }
+
+    public async Task SetStoryboardIndexedAsync(bool indexed)
+    {
+        await EnsureTablesCreatedAsync();
+        using var conn = await _db.CreateConnectionAsync();
+        using var cmd = conn.CreateCommand();
+        cmd.CommandText = @"
+            INSERT INTO osu_meta (key, value) VALUES ('storyboard_indexed_v1', $val)
+            ON CONFLICT(key) DO UPDATE SET value = excluded.value;
+        ";
+        cmd.Parameters.AddWithValue("$val", indexed ? "1" : "0");
+        await cmd.ExecuteNonQueryAsync();
     }
 
     public string? GetDbVersion()
@@ -164,12 +207,12 @@ public class OsuLibraryCacheDao
                     id, file_path, title, artist, album, album_artist, genre,
                     duration_ms, file_format, artwork_path, video_path, video_offset_ms,
                     osu_source, osu_artist_roumaji, osu_title_roumaji, osu_artist_unicode, osu_title_unicode,
-                    date_added, first_letter_group
+                    date_added, first_letter_group, has_storyboard
                 ) VALUES (
                     $id, $filePath, $title, $artist, $album, $albumArtist, $genre,
                     $durationMs, $fileFormat, $artworkPath, $videoPath, $videoOffsetMs,
                     $osuSource, $osuArtistRoumaji, $osuTitleRoumaji, $osuArtistUnicode, $osuTitleUnicode,
-                    $dateAdded, $firstLetterGroup
+                    $dateAdded, $firstLetterGroup, $hasStoryboard
                 );
             ";
 
@@ -192,6 +235,7 @@ public class OsuLibraryCacheDao
             var pOsuTitleUnicode = cmd.Parameters.Add("$osuTitleUnicode", SqliteType.Text);
             var pDateAdded = cmd.Parameters.Add("$dateAdded", SqliteType.Text);
             var pFirstLetterGroup = cmd.Parameters.Add("$firstLetterGroup", SqliteType.Text);
+            var pHasStoryboard = cmd.Parameters.Add("$hasStoryboard", SqliteType.Integer);
 
             foreach (var t in tracks)
             {
@@ -214,6 +258,7 @@ public class OsuLibraryCacheDao
                 pOsuTitleUnicode.Value = t.OsuTitleUnicode ?? string.Empty;
                 pDateAdded.Value = t.DateAdded.ToString("O");
                 pFirstLetterGroup.Value = t.FirstLetterGroup ?? string.Empty;
+                pHasStoryboard.Value = t.HasStoryboard ? 1 : 0;
 
                 await cmd.ExecuteNonQueryAsync();
             }
@@ -238,7 +283,7 @@ public class OsuLibraryCacheDao
                 id, file_path, title, artist, album, album_artist, genre,
                 duration_ms, file_format, artwork_path, video_path, video_offset_ms,
                 osu_source, osu_artist_roumaji, osu_title_roumaji, osu_artist_unicode, osu_title_unicode,
-                date_added, first_letter_group
+                date_added, first_letter_group, has_storyboard
             FROM osu_tracks
             ORDER BY title COLLATE NOCASE ASC;
         ";
@@ -267,7 +312,8 @@ public class OsuLibraryCacheDao
                 OsuArtistUnicode = reader.IsDBNull(15) ? string.Empty : reader.GetString(15),
                 OsuTitleUnicode = reader.IsDBNull(16) ? string.Empty : reader.GetString(16),
                 DateAdded = DateTime.TryParse(reader.GetString(17), out var da) ? da : DateTime.UtcNow,
-                FirstLetterGroup = reader.IsDBNull(18) ? string.Empty : reader.GetString(18)
+                FirstLetterGroup = reader.IsDBNull(18) ? string.Empty : reader.GetString(18),
+                HasStoryboard = !reader.IsDBNull(19) && reader.GetInt32(19) != 0
             };
             list.Add(track);
         }

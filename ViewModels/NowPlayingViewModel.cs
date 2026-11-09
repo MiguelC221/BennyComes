@@ -150,6 +150,21 @@ public partial class NowPlayingViewModel : ObservableObject
     }
 
     [ObservableProperty]
+    private string _osuStoryboardFpsMode = "60 FPS";
+
+    partial void OnOsuStoryboardFpsModeChanged(string value)
+    {
+        _ = Data.LibraryDao.Instance.SetSettingAsync("osu_storyboard_fps", value);
+    }
+
+    public System.Collections.ObjectModel.ObservableCollection<string> OsuStoryboardFpsOptions { get; } = new()
+    {
+        "60 FPS",
+        "30 FPS",
+        "Sincronización vertical (VSync)"
+    };
+
+    [ObservableProperty]
     private string _osuVideoStretchMode = "Ajustar (proporción original)"; // "Ajustar (proporción original)" (Uniform) por default o "Rellenar pantalla" (UniformToFill)
 
     public System.Windows.Media.Stretch OsuVideoStretch =>
@@ -366,6 +381,10 @@ public partial class NowPlayingViewModel : ObservableObject
 
             string playSbVal = await Data.LibraryDao.Instance.GetSettingAsync("osu_play_storyboard", "true");
             PlayOsuStoryboard = bool.TryParse(playSbVal, out var psb) ? psb : true;
+
+            string sbFpsVal = await Data.LibraryDao.Instance.GetSettingAsync("osu_storyboard_fps", "60 FPS");
+            if (!string.IsNullOrWhiteSpace(sbFpsVal))
+                OsuStoryboardFpsMode = sbFpsVal;
         }
         catch { }
     }
@@ -531,7 +550,7 @@ public partial class NowPlayingViewModel : ObservableObject
 
         bool isOsuContext = track.IsOsuTrack ||
                             (!string.IsNullOrEmpty(track.FilePath) && track.FilePath.IndexOf("Songs", StringComparison.OrdinalIgnoreCase) >= 0);
-        HasOsuStoryboard = isOsuContext && Services.Storyboard.OsuStoryboardParser.HasStoryboardInFolder(track.FilePath);
+        HasOsuStoryboard = isOsuContext && (track.HasStoryboard || Services.Storyboard.OsuStoryboardParser.HasStoryboardInFolder(track.FilePath));
 
         OnPropertyChanged(nameof(HasOsuVideo));
         OnPropertyChanged(nameof(QueuePositionText));

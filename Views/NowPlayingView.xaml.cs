@@ -383,10 +383,14 @@ public partial class NowPlayingView : UserControl
             track == null ||
             string.IsNullOrWhiteSpace(track.FilePath))
         {
-            if (!_isVideoActive && _isCinemaMode)
+            if (!_isVideoActive)
             {
-                _isCinemaMode = false;
-                UpdateCinemaModeVisualState(showToast: false);
+                if (_isCinemaMode)
+                {
+                    _isCinemaMode = false;
+                    UpdateCinemaModeVisualState(showToast: false);
+                }
+                RestoreArtworkBackground();
             }
             return;
         }
@@ -394,7 +398,11 @@ public partial class NowPlayingView : UserControl
         bool isOsuContext = track.IsOsuTrack ||
                             track.FilePath.IndexOf("Songs", StringComparison.OrdinalIgnoreCase) >= 0;
         if (!isOsuContext)
+        {
+            if (!_isVideoActive)
+                RestoreArtworkBackground();
             return;
+        }
 
         string audioPath = track.FilePath;
         var parsedStoryboard = await System.Threading.Tasks.Task.Run(() =>
@@ -408,6 +416,16 @@ public partial class NowPlayingView : UserControl
             _isStoryboardActive = true;
             StopBackgroundCinematicMotion();
 
+            // Fondo negro puro (#000000) cuando el storyboard se reproduce por sí solo (sin vídeo debajo)
+            // y remover las imágenes estáticas de fondo / fotos de artista
+            if (BackgroundTransformContainer != null)
+            {
+                BackgroundTransformContainer.Opacity = 0.0;
+                BackgroundTransformContainer.Visibility = Visibility.Collapsed;
+            }
+
+            OsuStoryboardLayer.UseSolidBlackBackground = !_isVideoActive;
+            OsuStoryboardLayer.SetFpsModeFromString(vm.NowPlaying.OsuStoryboardFpsMode);
             OsuStoryboardLayer.StretchMode = vm.NowPlaying.OsuVideoStretch;
             OsuStoryboardLayer.Visibility = Visibility.Visible;
             OsuStoryboardLayer.Opacity = 1.0;
@@ -418,6 +436,10 @@ public partial class NowPlayingView : UserControl
                 _isCinemaMode = true;
                 UpdateCinemaModeVisualState(showToast: false);
             }
+        }
+        else if (!_isVideoActive)
+        {
+            RestoreArtworkBackground();
         }
     }
 
@@ -470,7 +492,11 @@ public partial class NowPlayingView : UserControl
             OsuVideoBlurContainer.Opacity = 0.0;
             OsuVideoBlurContainer.Visibility = Visibility.Collapsed;
         }
-        if (BackgroundTransformContainer != null)
+        if (OsuStoryboardLayer != null)
+        {
+            OsuStoryboardLayer.UseSolidBlackBackground = true;
+        }
+        if (BackgroundTransformContainer != null && !_isStoryboardActive)
         {
             BackgroundTransformContainer.Visibility = Visibility.Visible;
             BackgroundTransformContainer.Opacity = 1.0;
@@ -649,6 +675,10 @@ public partial class NowPlayingView : UserControl
             {
                 OsuVlcVideoImage.Opacity = 1.0;
             }
+            if (OsuStoryboardLayer != null)
+            {
+                OsuStoryboardLayer.UseSolidBlackBackground = false;
+            }
             if (BackgroundTransformContainer != null)
             {
                 BackgroundTransformContainer.Opacity = 0.0;
@@ -714,6 +744,19 @@ public partial class NowPlayingView : UserControl
         {
             OsuVideoBlurContainer.Opacity = 0.0;
             OsuVideoBlurContainer.Visibility = Visibility.Collapsed;
+        }
+        if (OsuStoryboardLayer != null)
+        {
+            OsuStoryboardLayer.UseSolidBlackBackground = true;
+        }
+        if (_isStoryboardActive)
+        {
+            if (BackgroundTransformContainer != null)
+            {
+                BackgroundTransformContainer.Opacity = 0.0;
+                BackgroundTransformContainer.Visibility = Visibility.Collapsed;
+            }
+            return;
         }
         if (BackgroundTransformContainer != null)
         {
@@ -1297,6 +1340,10 @@ public partial class NowPlayingView : UserControl
         {
             UpdateOsuStoryboardState(vmSb.NowPlaying.CurrentTrack);
         }
+        else if (e.PropertyName == nameof(NowPlayingViewModel.OsuStoryboardFpsMode) && DataContext is MainViewModel vmSbFps)
+        {
+            OsuStoryboardLayer?.SetFpsModeFromString(vmSbFps.NowPlaying.OsuStoryboardFpsMode);
+        }
         else if (e.PropertyName == nameof(NowPlayingViewModel.OsuVideoStretch))
         {
             UpdateVideoBlurBackdropVisibility();
@@ -1319,9 +1366,9 @@ public partial class NowPlayingView : UserControl
 
     private void CrossfadeBackgroundWithKenBurns(BitmapImage newImage, bool isArtistPhoto)
     {
-        if ((_isVideoActive || _isStoryboardActive) && isArtistPhoto)
+        if (_isVideoActive || _isStoryboardActive)
         {
-            // Cuando hay un vídeo o storyboard de osu! activo, desactiva automáticamente la imagen del artista
+            // Cuando hay un vídeo o storyboard de osu! activo, se omiten las imágenes estáticas y fotos del artista
             return;
         }
 

@@ -12,6 +12,13 @@ using SkiaSharp.Views.WPF;
 
 namespace BenyComes.Views.Controls;
 
+public enum StoryboardFpsMode
+{
+    Fps60 = 0,
+    Fps30 = 1,
+    VSync = 2
+}
+
 /// <summary>
 /// Lienzo 2D acelerado por SkiaSharp para renderizar Storyboards de osu! (Nivel 1: Básico / Ambiental).
 /// Proyecta el espacio virtual de osu! (640x480 / 853.33x480 widescreen) y administra la caché de texturas por beatmap.
@@ -30,9 +37,65 @@ public sealed class OsuStoryboardControl : SKElement
 
     private double _anchorAudioTimeMs;
     private bool _isPlaying;
+    private bool _isVsyncSubscribed;
+    private TimeSpan _lastVsyncRenderTime = TimeSpan.Zero;
     private Stretch _stretchMode = Stretch.UniformToFill;
+    private StoryboardFpsMode _fpsMode = StoryboardFpsMode.Fps60;
+    private bool _useSolidBlackBackground = true;
 
     public bool HasActiveStoryboard => _storyboard != null && _storyboard.HasRenderableSprites;
+
+    /// <summary>
+    /// Cuando es true (por defecto al no haber vídeo debajo), limpia el lienzo en negro puro (#000000)
+    /// para que el storyboard avance por sí solo sin imágenes de fondo ajenas.
+    /// </summary>
+    public bool UseSolidBlackBackground
+    {
+        get => _useSolidBlackBackground;
+        set
+        {
+            if (_useSolidBlackBackground != value)
+            {
+                _useSolidBlackBackground = value;
+                if (HasActiveStoryboard && IsVisible)
+                {
+                    InvalidateVisual();
+                }
+            }
+        }
+    }
+
+    public StoryboardFpsMode FpsMode
+    {
+        get => _fpsMode;
+        set
+        {
+            if (_fpsMode != value)
+            {
+                _fpsMode = value;
+                ApplyFpsTimerInterval();
+                UpdateTimerState();
+            }
+        }
+    }
+
+    public void SetFpsModeFromString(string? modeStr)
+    {
+        if (string.IsNullOrWhiteSpace(modeStr))
+        {
+            FpsMode = StoryboardFpsMode.Fps60;
+            return;
+        }
+
+        if (modeStr.Contains("30", StringComparison.OrdinalIgnoreCase))
+            FpsMode = StoryboardFpsMode.Fps30;
+        else if (modeStr.Contains("VSync", StringComparison.OrdinalIgnoreCase) ||
+                 modeStr.Contains("Sincronización", StringComparison.OrdinalIgnoreCase) ||
+                 modeStr.Contains("Sincronizacion", StringComparison.OrdinalIgnoreCase))
+            FpsMode = StoryboardFpsMode.VSync;
+        else
+            FpsMode = StoryboardFpsMode.Fps60;
+    }
 
     public Stretch StretchMode
     {
@@ -57,12 +120,21 @@ public sealed class OsuStoryboardControl : SKElement
 
         _renderTimer = new DispatcherTimer(DispatcherPriority.Render)
         {
-            Interval = TimeSpan.FromMilliseconds(22) // ~45 FPS fluidos con bajo impacto en CPU
+            Interval = TimeSpan.FromMilliseconds(16.6667) // 60 FPS por defecto
         };
         _renderTimer.Tick += OnRenderTimerTick;
 
         IsVisibleChanged += (_, _) => UpdateTimerState();
         Unloaded += (_, _) => StopRenderTimer();
+    }
+
+    private void ApplyFpsTimerInterval()
+    {
+        _renderTimer.Interval = _fpsMode switch
+        {
+            StoryboardFpsMode.Fps30 => TimeSpan.FromMilliseconds(33.3333), // 30 FPS
+            _ => TimeSpan.FromMilliseconds(16.6667)                        // 60 FPS
+        };
     }
 
     public void LoadStoryboard(OsuStoryboard? storyboard, double currentPositionSeconds, bool isPlaying)
@@ -132,16 +204,37 @@ public sealed class OsuStoryboardControl : SKElement
 
     private void UpdateTimerState()
     {
-        if (HasActiveStoryboard && IsVisible && _isPlaying && Visibility == Visibility.Visible && Opacity > 0.01)
+        bool shouldRun = HasActiveStoryboard && IsVisible && _isPlaying && Visibility == Visibility.Visible && Opacity > 0.01;
+        if (!shouldRun)
         {
-            if (!_renderTimer.IsEnabled)
+            StopRenderTimer();
+            return;
+        }
+
+        if (_fpsMode == StoryboardFpsMode.VSync)
+        {
+            if (_renderTimer.IsEnabled)
+                _renderTimer.Stop();
+
+            if (!_isVsyncSubscribed)
             {
-                _renderTimer.Start();
+                CompositionTarget.Rendering += OnCompositionTargetRendering;
+                _isVsyncSubscribed = true;
             }
         }
         else
         {
-            StopRenderTimer();
+            if (_isVsyncSubscribed)
+            {
+                CompositionTarget.Rendering -= OnCompositionTargetRendering;
+                _isVsyncSubscribed = false;
+            }
+
+            ApplyFpsTimerInterval();
+            if (!_renderTimer.IsEnabled)
+            {
+                _renderTimer.Start();
+            }
         }
     }
 
@@ -151,6 +244,29 @@ public sealed class OsuStoryboardControl : SKElement
         {
             _renderTimer.Stop();
         }
+        if (_isVsyncSubscribed)
+        {
+            CompositionTarget.Rendering -= OnCompositionTargetRendering;
+            _isVsyncSubscribed = false;
+        }
+    }
+
+    private void OnCompositionTargetRendering(object? sender, EventArgs e)
+    {
+        if (!HasActiveStoryboard || !IsVisible || Visibility != Visibility.Visible || !_isPlaying)
+        {
+            StopRenderTimer();
+            return;
+        }
+
+        if (e is RenderingEventArgs rea)
+        {
+            if (rea.RenderingTime == _lastVsyncRenderTime)
+                return;
+            _lastVsyncRenderTime = rea.RenderingTime;
+        }
+
+        InvalidateVisual();
     }
 
     private void OnRenderTimerTick(object? sender, EventArgs e)
@@ -168,7 +284,7 @@ public sealed class OsuStoryboardControl : SKElement
         base.OnPaintSurface(e);
 
         var canvas = e.Surface.Canvas;
-        canvas.Clear(SKColors.Transparent);
+        canvas.Clear(_useSolidBlackBackground ? SKColors.Black : SKColors.Transparent);
 
         if (_storyboard == null || !_storyboard.HasRenderableSprites)
             return;

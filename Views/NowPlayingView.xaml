@@ -333,7 +333,7 @@
 
                                     <!-- OSU! STORYBOARD PLAYBACK TOGGLE (Visible when current track has an osu! storyboard) -->
                                     <StackPanel Margin="0,0,0,14" Visibility="{Binding NowPlaying.HasOsuStoryboard, Converter={StaticResource BoolToVisConverter}}">
-                                        <Grid Margin="0,0,0,6">
+                                        <Grid Margin="0,0,0,8">
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="*" />
                                                 <ColumnDefinition Width="Auto" />
@@ -343,11 +343,19 @@
                                                     <ui:SymbolIcon Symbol="Sparkle24" FontSize="14" Foreground="{Binding Theme.CurrentAccentBrush}" Margin="0,0,6,0" VerticalAlignment="Center" />
                                                     <TextBlock Text="Reproducir Storyboard (osu!)" FontWeight="SemiBold" FontSize="12" Foreground="#FFFFFF" />
                                                 </StackPanel>
-                                                <TextBlock Text="Renderiza los sprites y efectos ambientales (.osb / .osu) en tiempo real" FontSize="11" Foreground="#99FFFFFF" TextWrapping="Wrap" />
+                                                <TextBlock Text="Renderiza los sprites y efectos ambientales (.osb / .osu) sobre fondo negro" FontSize="11" Foreground="#99FFFFFF" TextWrapping="Wrap" />
                                             </StackPanel>
                                             <ui:ToggleSwitch Grid.Column="1" IsChecked="{Binding NowPlaying.PlayOsuStoryboard, Mode=TwoWay}"
                                                              OffContent="" OnContent="" VerticalAlignment="Center" />
                                         </Grid>
+
+                                        <!-- Storyboard FPS Mode Selector (visible when storyboard playback toggle is enabled) -->
+                                        <StackPanel Visibility="{Binding NowPlaying.PlayOsuStoryboard, Converter={StaticResource BoolToVisConverter}}" Margin="20,0,0,0">
+                                            <TextBlock Text="Tasa de fotogramas (FPS) del Storyboard:" FontSize="11" Foreground="#CCCCCC" Margin="0,0,0,4" FontWeight="SemiBold" />
+                                            <ComboBox ItemsSource="{Binding NowPlaying.OsuStoryboardFpsOptions}"
+                                                      SelectedItem="{Binding NowPlaying.OsuStoryboardFpsMode, Mode=TwoWay}"
+                                                      HorizontalAlignment="Stretch" />
+                                        </StackPanel>
                                     </StackPanel>
 
                                     <!-- 2. Seleccionar imagen de artista -->
