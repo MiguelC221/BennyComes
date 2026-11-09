@@ -23,6 +23,7 @@ public partial class NowPlayingView : UserControl
     private Point _lastMousePosition = new(-1, -1);
     private bool _hasMousePositionInitialized = false;
     private long _lastFadeOutTick = 0;
+    private long _manualHideGraceUntilTick = 0;
 
     public NowPlayingView()
     {
@@ -35,7 +36,7 @@ public partial class NowPlayingView : UserControl
         _hudInactivityTimer.Tick += OnInactivityTimerTick;
 
         PreviewMouseMove += OnPreviewMouseMove;
-        PreviewMouseDown += OnUserActivity;
+        PreviewMouseDown += OnPreviewMouseDown;
         PreviewKeyDown += OnUserActivity;
 
         Loaded += OnLoaded;
@@ -1033,6 +1034,79 @@ public partial class NowPlayingView : UserControl
         }
     }
 
+    private void OnPreviewMouseDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        if (e.ChangedButton == System.Windows.Input.MouseButton.Left && IsBlankSpaceClick(e.OriginalSource as DependencyObject))
+        {
+            bool canHideHud = true;
+            if (DataContext is MainViewModel vm)
+            {
+                if (vm.IsNowPlayingQueueExpanded || vm.NowPlaying?.IsCompactMode == true || vm.NowPlaying?.IsCustomizationFlyoutOpen == true)
+                    canHideHud = false;
+            }
+            else if (DataContext is NowPlayingViewModel np && (np.IsCompactMode || np.IsCustomizationFlyoutOpen))
+            {
+                canHideHud = false;
+            }
+
+            if (canHideHud)
+            {
+                if (_isHudVisible)
+                {
+                    _hudInactivityTimer.Stop();
+                    // Dar 2.6 segundos de margen tras ocultar con clic para poder sacar el mouse de la ventana/pantalla sin despertar el HUD
+                    _manualHideGraceUntilTick = Environment.TickCount64 + 2600;
+                    FadeOutHud();
+                    return;
+                }
+                else
+                {
+                    _manualHideGraceUntilTick = 0;
+                    OnUserActivity(sender, e);
+                    return;
+                }
+            }
+        }
+
+        _manualHideGraceUntilTick = 0;
+        OnUserActivity(sender, e);
+    }
+
+    private bool IsBlankSpaceClick(DependencyObject? source)
+    {
+        if (source == null) return false;
+
+        DependencyObject? curr = source;
+        while (curr != null && !ReferenceEquals(curr, this))
+        {
+            if (ReferenceEquals(curr, TopHudContainer) ||
+                ReferenceEquals(curr, BottomHudControlsContainer) ||
+                ReferenceEquals(curr, QueueExpandedContainer) ||
+                ReferenceEquals(curr, TechBadgesPanel))
+            {
+                return false;
+            }
+
+            if (curr is System.Windows.Controls.Primitives.ButtonBase ||
+                curr is Slider ||
+                curr is ComboBox ||
+                curr is ComboBoxItem ||
+                curr is ListViewItem ||
+                curr is System.Windows.Controls.Primitives.ScrollBar ||
+                curr is MenuItem ||
+                curr is TextBox)
+            {
+                return false;
+            }
+
+            curr = curr is Visual || curr is System.Windows.Media.Media3D.Visual3D
+                ? VisualTreeHelper.GetParent(curr)
+                : LogicalTreeHelper.GetParent(curr);
+        }
+
+        return true;
+    }
+
     private void OnPreviewMouseMove(object sender, System.Windows.Input.MouseEventArgs e)
     {
         Point currentPos = e.GetPosition(this);
@@ -1053,6 +1127,13 @@ public partial class NowPlayingView : UserControl
         }
 
         _lastMousePosition = currentPos;
+
+        // Si el usuario acaba de ocultar el HUD haciendo clic en un espacio en blanco,
+        // respetar el tiempo de gracia para que pueda retirar el cursor de la pantalla sin reactivar el HUD.
+        if (!_isHudVisible && Environment.TickCount64 < _manualHideGraceUntilTick)
+        {
+            return;
+        }
 
         // Pequeño margen tras iniciar FadeOutHud para evitar rebotes por cambios de layout simultáneos
         if (!_isHudVisible && Environment.TickCount64 - _lastFadeOutTick < 350 && dx < 12.0 && dy < 12.0)

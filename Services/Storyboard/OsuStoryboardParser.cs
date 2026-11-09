@@ -108,7 +108,7 @@ public static class OsuStoryboardParser
             var storyboard = new OsuStoryboard
             {
                 FolderPath = folder,
-                WidescreenStoryboard = true
+                WidescreenStoryboard = false
             };
 
             var variables = new Dictionary<string, string>(StringComparer.Ordinal);
@@ -117,15 +117,22 @@ public static class OsuStoryboardParser
             // 1. Elegir el mejor archivo .osu de la carpeta (el que coincida con AudioFilename y tenga más líneas de eventos)
             string? bestOsuFile = null;
             int bestOsuEventScore = -1;
+            bool anyOsuWidescreen = false;
 
             foreach (var osuFile in Directory.EnumerateFiles(folder, "*.osu"))
             {
-                int score = ScoreOsuFileForStoryboard(osuFile, audioFileName);
+                int score = ScoreOsuFileForStoryboard(osuFile, audioFileName, out bool isWidescreen);
+                if (isWidescreen) anyOsuWidescreen = true;
                 if (score > bestOsuEventScore)
                 {
                     bestOsuEventScore = score;
                     bestOsuFile = osuFile;
                 }
+            }
+
+            if (anyOsuWidescreen)
+            {
+                storyboard.WidescreenStoryboard = true;
             }
 
             if (bestOsuFile != null)
@@ -143,19 +150,31 @@ public static class OsuStoryboardParser
             // 3. Finalizar líneas de tiempo, filtrar sprites vacíos o de la capa Fail y ordenar por capa
             var validSprites = new List<StoryboardSprite>(rawSprites.Count);
             double maxEndTime = double.MinValue;
+            bool replacesBg = false;
             foreach (var sp in rawSprites)
             {
                 if (sp.Layer == StoryboardLayer.Fail) continue;
-                sp.FinalizeTimelines();
+                sp.FinalizeTimelines(folder);
                 if (sp.HasCommands)
                 {
                     validSprites.Add(sp);
                     if (sp.ActiveEndTime > maxEndTime)
                         maxEndTime = sp.ActiveEndTime;
+
+                    if (!replacesBg)
+                    {
+                        if (sp.Layer == StoryboardLayer.Background ||
+                            (!string.IsNullOrEmpty(storyboard.BeatmapBackgroundRelativePath) &&
+                             string.Equals(sp.RelativeFilePath, storyboard.BeatmapBackgroundRelativePath, StringComparison.OrdinalIgnoreCase)))
+                        {
+                            replacesBg = true;
+                        }
+                    }
                 }
             }
 
             storyboard.MaxEndTimeMs = maxEndTime;
+            storyboard.ReplacesBeatmapBackground = replacesBg;
 
             // Orden estable por capa: Background (0) -> Pass (2) -> Foreground (3) -> Overlay (4)
             foreach (var sp in validSprites.OrderBy(static s => (int)s.Layer))
@@ -172,8 +191,9 @@ public static class OsuStoryboardParser
         }
     }
 
-    private static int ScoreOsuFileForStoryboard(string osuFile, string expectedAudioFileName)
+    private static int ScoreOsuFileForStoryboard(string osuFile, string expectedAudioFileName, out bool isWidescreen)
     {
+        isWidescreen = false;
         try
         {
             using var sr = new StreamReader(osuFile, Encoding.UTF8);
@@ -194,12 +214,24 @@ public static class OsuStoryboardParser
                     continue;
                 }
 
-                if (inGeneral && trimmed.StartsWith("AudioFilename:", StringComparison.OrdinalIgnoreCase))
+                if (inGeneral)
                 {
-                    string val = trimmed["AudioFilename:".Length..].Trim();
-                    if (!string.IsNullOrEmpty(val) && !val.Equals(expectedAudioFileName, StringComparison.OrdinalIgnoreCase))
+                    if (trimmed.StartsWith("AudioFilename:", StringComparison.OrdinalIgnoreCase))
                     {
-                        return -1;
+                        string val = trimmed["AudioFilename:".Length..].Trim();
+                        if (!string.IsNullOrEmpty(val) && !val.Equals(expectedAudioFileName, StringComparison.OrdinalIgnoreCase))
+                        {
+                            isWidescreen = false;
+                            return -1;
+                        }
+                    }
+                    else if (trimmed.StartsWith("WidescreenStoryboard:", StringComparison.OrdinalIgnoreCase))
+                    {
+                        string val = trimmed["WidescreenStoryboard:".Length..].Trim();
+                        if (val == "1" || val.Equals("true", StringComparison.OrdinalIgnoreCase))
+                        {
+                            isWidescreen = true;
+                        }
                     }
                 }
                 else if (inEvents && line[0] != ' ' && line[0] != '_')

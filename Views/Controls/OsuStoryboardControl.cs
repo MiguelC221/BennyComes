@@ -1,7 +1,10 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Threading;
@@ -20,13 +23,15 @@ public enum StoryboardFpsMode
 }
 
 /// <summary>
-/// Lienzo 2D acelerado por SkiaSharp para renderizar Storyboards de osu! (Nivel 1: Básico / Ambiental).
-/// Proyecta el espacio virtual de osu! (640x480 / 853.33x480 widescreen) y administra la caché de texturas por beatmap.
+/// Lienzo 2D acelerado por SkiaSharp para renderizar Storyboards de osu! (Nivel 2: Avanzado).
+/// Soporta Sprite, Animation (spritesheets por frames), coordenadas Widescreen (WidescreenStoryboard: 0/1),
+/// recorte de cámara virtual y pre-carga asíncrona de texturas.
 /// </summary>
 public sealed class OsuStoryboardControl : SKElement
 {
     private OsuStoryboard? _storyboard;
-    private readonly Dictionary<string, SKBitmap?> _textureCache = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, SKBitmap?> _textureCache = new(StringComparer.OrdinalIgnoreCase);
+    private int _preloadGeneration;
     private readonly DispatcherTimer _renderTimer;
     private readonly Stopwatch _clockInterpolator = new();
     private readonly SKPaint _spritePaint = new()
@@ -149,6 +154,10 @@ public sealed class OsuStoryboardControl : SKElement
 
         if (_storyboard != null && _storyboard.HasRenderableSprites)
         {
+            int gen = Interlocked.Increment(ref _preloadGeneration);
+            var sbRef = _storyboard;
+            _ = Task.Run(() => PreloadTexturesInBackground(sbRef, gen));
+
             if (_isPlaying)
                 _clockInterpolator.Restart();
             else
@@ -157,6 +166,37 @@ public sealed class OsuStoryboardControl : SKElement
             UpdateTimerState();
             InvalidateVisual();
         }
+    }
+
+    private void PreloadTexturesInBackground(OsuStoryboard sb, int gen)
+    {
+        try
+        {
+            var uniquePaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var sp in sb.Sprites)
+            {
+                if (sp.IsAnimation && sp.AnimationFramePaths != null)
+                {
+                    foreach (var fp in sp.AnimationFramePaths)
+                    {
+                        if (!string.IsNullOrWhiteSpace(fp))
+                            uniquePaths.Add(fp);
+                    }
+                }
+                else if (!string.IsNullOrWhiteSpace(sp.RelativeFilePath))
+                {
+                    uniquePaths.Add(sp.RelativeFilePath);
+                }
+            }
+
+            foreach (var relPath in uniquePaths)
+            {
+                if (gen != Volatile.Read(ref _preloadGeneration) || _hasStoryboardFinished)
+                    return;
+                GetOrLoadTexture(sb.FolderPath, relPath);
+            }
+        }
+        catch { }
     }
 
     public void SyncPlayback(double currentPositionSeconds, bool isPlaying)
@@ -191,9 +231,13 @@ public sealed class OsuStoryboardControl : SKElement
 
     private void ClearTextureCache()
     {
-        foreach (var bmp in _textureCache.Values)
+        Interlocked.Increment(ref _preloadGeneration);
+        foreach (var kv in _textureCache)
         {
-            bmp?.Dispose();
+            if (_textureCache.TryRemove(kv.Key, out var bmp))
+            {
+                bmp?.Dispose();
+            }
         }
         _textureCache.Clear();
     }
@@ -335,13 +379,11 @@ public sealed class OsuStoryboardControl : SKElement
 
         canvas.Save();
 
-        // Si está en modo Uniform (con bandas laterales/superiores), recortar al rectángulo virtual del storyboard
-        if (_stretchMode == Stretch.Uniform)
-        {
-            float leftEdge = _storyboard.WidescreenStoryboard ? -106.6667f : 0f;
-            var clipRect = SKRect.Create(offsetX + leftEdge * scale, offsetY, virtualW * scale, virtualH * scale);
-            canvas.ClipRect(clipRect);
-        }
+        // Recortar siempre al rectángulo virtual del storyboard (4:3 640x480 o 16:9 Widescreen 853.33x480)
+        // para que los sprites estacionados fuera de cámara nunca queden flotando en los bordes laterales
+        float leftEdge = _storyboard.WidescreenStoryboard ? -106.6667f : 0f;
+        var clipRect = SKRect.Create(offsetX + leftEdge * scale, offsetY, virtualW * scale, virtualH * scale);
+        canvas.ClipRect(clipRect);
 
         canvas.Translate(offsetX, offsetY);
         canvas.Scale(scale, scale);

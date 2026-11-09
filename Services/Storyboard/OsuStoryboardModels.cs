@@ -54,8 +54,8 @@ public readonly struct ScalarCommand
 
     public float Interpolate(double time)
     {
-        if (time <= StartTime || EndTime <= StartTime) return StartValue;
-        if (time >= EndTime) return EndValue;
+        if (time < StartTime) return StartValue;
+        if (time >= EndTime || EndTime <= StartTime) return EndValue;
         double progress = (time - StartTime) / (EndTime - StartTime);
         float eased = OsuStoryboardEasing.Apply(Easing, progress);
         return StartValue + (EndValue - StartValue) * eased;
@@ -87,8 +87,8 @@ public readonly struct Vector2Command
 
     public (float X, float Y) Interpolate(double time)
     {
-        if (time <= StartTime || EndTime <= StartTime) return (StartX, StartY);
-        if (time >= EndTime) return (EndX, EndY);
+        if (time < StartTime) return (StartX, StartY);
+        if (time >= EndTime || EndTime <= StartTime) return (EndX, EndY);
         double progress = (time - StartTime) / (EndTime - StartTime);
         float eased = OsuStoryboardEasing.Apply(Easing, progress);
         return (StartX + (EndX - StartX) * eased, StartY + (EndY - StartY) * eased);
@@ -124,9 +124,9 @@ public readonly struct ColorCommand
 
     public (byte R, byte G, byte B) Interpolate(double time)
     {
-        if (time <= StartTime || EndTime <= StartTime)
+        if (time < StartTime)
             return ((byte)Math.Clamp(StartR, 0f, 255f), (byte)Math.Clamp(StartG, 0f, 255f), (byte)Math.Clamp(StartB, 0f, 255f));
-        if (time >= EndTime)
+        if (time >= EndTime || EndTime <= StartTime)
             return ((byte)Math.Clamp(EndR, 0f, 255f), (byte)Math.Clamp(EndG, 0f, 255f), (byte)Math.Clamp(EndB, 0f, 255f));
 
         double progress = (time - StartTime) / (EndTime - StartTime);
@@ -243,7 +243,7 @@ public sealed class StoryboardSprite
         return cmp != 0 ? cmp : a.OrderIndex.CompareTo(b.OrderIndex);
     }
 
-    public void FinalizeTimelines()
+    public void FinalizeTimelines(string? folderPath = null)
     {
         FadeCommands.Sort(CompareScalar);
         MoveCommands.Sort(CompareVector2);
@@ -286,11 +286,37 @@ public sealed class StoryboardSprite
         if (IsAnimation && FrameCount > 0 && !string.IsNullOrEmpty(RelativeFilePath))
         {
             string ext = Path.GetExtension(RelativeFilePath);
-            string baseNoExt = RelativeFilePath[..^ext.Length];
+            string baseNoExt = ext.Length > 0 ? RelativeFilePath[..^ext.Length] : RelativeFilePath;
+
+            // Nivel 2 (Soporte avanzado de Animation por frames):
+            // Verificar patrón estándar "{base}{i}{ext}", o si el mapper incluyó el "0" inicial en RelativeFilePath,
+            // o si los frames usan numeración con ceros a la izquierda ("00", "01"...).
+            int zeroPadDigits = 0;
+            if (!string.IsNullOrEmpty(folderPath))
+            {
+                string standardFrame0 = Path.Combine(folderPath, $"{baseNoExt}0{ext}");
+                if (!File.Exists(standardFrame0))
+                {
+                    if (baseNoExt.EndsWith('0') && File.Exists(Path.Combine(folderPath, $"{baseNoExt[..^1]}0{ext}")))
+                    {
+                        baseNoExt = baseNoExt[..^1];
+                    }
+                    else if (File.Exists(Path.Combine(folderPath, $"{baseNoExt}00{ext}")))
+                    {
+                        zeroPadDigits = 2;
+                    }
+                    else if (File.Exists(Path.Combine(folderPath, $"{baseNoExt}000{ext}")))
+                    {
+                        zeroPadDigits = 3;
+                    }
+                }
+            }
+
             var paths = new string[FrameCount];
             for (int i = 0; i < FrameCount; i++)
             {
-                paths[i] = $"{baseNoExt}{i}{ext}";
+                string numStr = zeroPadDigits > 0 ? i.ToString($"D{zeroPadDigits}") : i.ToString();
+                paths[i] = $"{baseNoExt}{numStr}{ext}";
             }
             AnimationFramePaths = paths;
         }
@@ -650,8 +676,9 @@ public sealed class StoryboardSprite
 public sealed class OsuStoryboard
 {
     public string FolderPath { get; init; } = string.Empty;
-    public bool WidescreenStoryboard { get; set; } = true;
+    public bool WidescreenStoryboard { get; set; } = false;
     public string? BeatmapBackgroundRelativePath { get; set; }
+    public bool ReplacesBeatmapBackground { get; set; }
     public List<StoryboardSprite> Sprites { get; } = new();
     public double MaxEndTimeMs { get; set; } = double.MinValue;
 
