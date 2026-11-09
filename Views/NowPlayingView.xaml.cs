@@ -77,7 +77,21 @@ public partial class NowPlayingView : UserControl
 
     private void OnAudioTrackChanged(object? sender, Track? track)
     {
-        if (track == null) return;
+        if (track == null)
+        {
+            _hasVideoEndedForCurrentTrack = false;
+            _knownVideoDurationSec = 0.0;
+            StopOsuVideoPlayback();
+            StopOsuStoryboardPlayback();
+            if (_isCinemaMode)
+            {
+                _isCinemaMode = false;
+                UpdateCinemaModeVisualState(showToast: false);
+            }
+            RestoreArtworkBackground();
+            FadeInHud();
+            return;
+        }
         StartBackgroundCinematicMotion();
         PlayTrackChangedSlideAnimation();
         UpdateOsuVideoState(track);
@@ -624,7 +638,10 @@ public partial class NowPlayingView : UserControl
         // solo recargarlo si el usuario retrocedió manualmente en la barra de progreso dentro del rango del vídeo.
         if (_hasVideoEndedForCurrentTrack)
         {
-            if (vm.NowPlaying.PlayOsuBackgroundVideo &&
+            bool isUserRewinding = (vm.NowPlaying.IsUserSeeking || _isDraggingSeek) ||
+                                   (vm.NowPlaying.IsPlaying && vm.NowPlaying.CurrentPositionSeconds > 0.25);
+            if (isUserRewinding &&
+                vm.NowPlaying.PlayOsuBackgroundVideo &&
                 _knownVideoDurationSec > 1.0 &&
                 targetSec < _knownVideoDurationSec - 1.5 &&
                 currentTrack.HasVideo &&

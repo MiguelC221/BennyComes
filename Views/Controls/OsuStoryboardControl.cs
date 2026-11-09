@@ -31,6 +31,7 @@ public sealed class OsuStoryboardControl : SKElement
 {
     private OsuStoryboard? _storyboard;
     private readonly ConcurrentDictionary<string, SKBitmap?> _textureCache = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<uint, SKColorFilter> _colorFilterCache = new();
     private int _preloadGeneration;
     private readonly DispatcherTimer _renderTimer;
     private readonly Stopwatch _clockInterpolator = new();
@@ -123,6 +124,7 @@ public sealed class OsuStoryboardControl : SKElement
     {
         IsHitTestVisible = false;
         IgnorePixelScaling = true; // Renderizar a escala de píxeles lógicos de WPF para ahorrar fillrate y CPU/GPU
+        CacheMode = new BitmapCache { EnableClearType = false, SnapsToDevicePixels = true }; // Composición acelerada por GPU en DirectX/WPF
 
         _renderTimer = new DispatcherTimer(DispatcherPriority.Render)
         {
@@ -240,6 +242,12 @@ public sealed class OsuStoryboardControl : SKElement
             }
         }
         _textureCache.Clear();
+
+        foreach (var filter in _colorFilterCache.Values)
+        {
+            filter.Dispose();
+        }
+        _colorFilterCache.Clear();
     }
 
     public void UnloadStoryboard()
@@ -363,12 +371,13 @@ public sealed class OsuStoryboardControl : SKElement
         }
 
         // Espacio de coordenadas de osu!:
-        // El playfield base es 640x480 (con centro en 320, 240).
-        // En Widescreen (16:9), el área visible se extiende de X = -106.67 a X = 746.67 (853.33 x 480), manteniendo el centro en (320, 240).
-        float virtualW = _storyboard.WidescreenStoryboard ? 853.3333f : 640f;
-        float virtualH = 480f;
+        // El playfield base es 640x480 (con centro exacto en X = 320, Y = 240).
+        // En pantallas 16:9 el lienzo virtual de osu! abarca 853.3333 x 480 (de X = -106.6667 a X = 746.6667),
+        // manteniendo siempre (320, 240) en el centro geométrico de la pantalla y 480 unidades de alto.
+        const float widescreenVirtualW = 853.3333f;
+        const float virtualH = 480f;
 
-        float scaleX = viewW / virtualW;
+        float scaleX = viewW / widescreenVirtualW;
         float scaleY = viewH / virtualH;
         float scale = _stretchMode == Stretch.UniformToFill
             ? Math.Max(scaleX, scaleY)
@@ -379,19 +388,22 @@ public sealed class OsuStoryboardControl : SKElement
 
         canvas.Save();
 
-        // Recortar siempre al rectángulo virtual del storyboard (4:3 640x480 o 16:9 Widescreen 853.33x480)
-        // para que los sprites estacionados fuera de cámara nunca queden flotando en los bordes laterales
-        float leftEdge = _storyboard.WidescreenStoryboard ? -106.6667f : 0f;
-        var clipRect = SKRect.Create(offsetX + leftEdge * scale, offsetY, virtualW * scale, virtualH * scale);
+        // Recortar al rectángulo de cámara widescreen (-106.67 .. 746.67 x 0 .. 480)
+        // para que los sprites aparcados fuera de escena no sean visibles
+        var clipRect = SKRect.Create(offsetX + (-106.6667f * scale), offsetY, widescreenVirtualW * scale, virtualH * scale);
         canvas.ClipRect(clipRect);
 
         canvas.Translate(offsetX, offsetY);
         canvas.Scale(scale, scale);
 
         var sprites = _storyboard.Sprites;
-        for (int i = 0; i < sprites.Count; i++)
+        int count = sprites.Count;
+        for (int i = 0; i < count; i++)
         {
             var sprite = sprites[i];
+            if (!sprite.HasCommands || timeMs < sprite.ActiveStartTime || timeMs > sprite.ActiveEndTime)
+                continue;
+
             var state = sprite.Evaluate(timeMs);
             if (!state.IsVisible) continue;
 
@@ -417,9 +429,7 @@ public sealed class OsuStoryboardControl : SKElement
             canvas.RotateDegrees(degrees);
         }
 
-        float sx = state.FlipH ? -state.ScaleX : state.ScaleX;
-        float sy = state.FlipV ? -state.ScaleY : state.ScaleY;
-        canvas.Scale(sx, sy);
+        canvas.Scale(state.ScaleX, state.ScaleY);
 
         byte alpha = (byte)Math.Clamp(state.Opacity * 255f, 0f, 255f);
         _spritePaint.BlendMode = state.Additive ? SKBlendMode.Plus : SKBlendMode.SrcOver;
@@ -428,18 +438,41 @@ public sealed class OsuStoryboardControl : SKElement
         {
             _spritePaint.ColorFilter = null;
             _spritePaint.Color = new SKColor(255, 255, 255, alpha);
-            canvas.DrawBitmap(bitmap, -pivotX, -pivotY, _spritePaint);
         }
         else
         {
-            var tintColor = new SKColor(state.R, state.G, state.B, alpha);
-            using var filter = SKColorFilter.CreateBlendMode(tintColor, SKBlendMode.Modulate);
+            uint colorKey = ((uint)alpha << 24) | ((uint)state.R << 16) | ((uint)state.G << 8) | state.B;
+            if (!_colorFilterCache.TryGetValue(colorKey, out var filter))
+            {
+                if (_colorFilterCache.Count >= 512)
+                {
+                    foreach (var old in _colorFilterCache.Values)
+                        old.Dispose();
+                    _colorFilterCache.Clear();
+                }
+                filter = SKColorFilter.CreateBlendMode(new SKColor(state.R, state.G, state.B, alpha), SKBlendMode.Modulate);
+                _colorFilterCache[colorKey] = filter;
+            }
             _spritePaint.ColorFilter = filter;
             _spritePaint.Color = SKColors.White;
-            canvas.DrawBitmap(bitmap, -pivotX, -pivotY, _spritePaint);
-            _spritePaint.ColorFilter = null;
         }
 
+        // En osu! (XNA SpriteBatch), FlipH / FlipV invierten los píxeles de la textura dentro de su propio
+        // rectángulo [-pivotX .. width - pivotX], sin reflejar el rectángulo respecto al pivote cuando el origen no es Centre.
+        if (state.FlipH || state.FlipV)
+        {
+            float halfW = bitmap.Width * 0.5f;
+            float halfH = bitmap.Height * 0.5f;
+            canvas.Translate(halfW - pivotX, halfH - pivotY);
+            canvas.Scale(state.FlipH ? -1f : 1f, state.FlipV ? -1f : 1f);
+            canvas.DrawBitmap(bitmap, -halfW, -halfH, _spritePaint);
+        }
+        else
+        {
+            canvas.DrawBitmap(bitmap, -pivotX, -pivotY, _spritePaint);
+        }
+
+        _spritePaint.ColorFilter = null;
         canvas.Restore();
     }
 
@@ -495,6 +528,7 @@ public sealed class OsuStoryboardControl : SKElement
             if (File.Exists(fullPath))
             {
                 loaded = SKBitmap.Decode(fullPath);
+                loaded?.SetImmutable();
             }
         }
         catch

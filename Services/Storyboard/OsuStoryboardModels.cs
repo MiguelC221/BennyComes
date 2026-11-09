@@ -386,52 +386,19 @@ public sealed class StoryboardSprite
         if (state.Opacity <= 0.002f)
             return state;
 
-        // 2. Scale / VectorScale
-        bool hasScale = ScaleCommands.Count > 0;
-        bool hasVecScale = VectorScaleCommands.Count > 0;
-        if (hasScale && hasVecScale)
+        // 2. Scale (S) * VectorScale (V)
+        // En osu!, S (escala uniforme) y V (escala vectorial X/Y) son propiedades independientes que se multiplican entre sí.
+        float uniformScale = ScaleCommands.Count > 0 ? EvaluateScalar(ScaleCommands, timeMs, 1f) : 1f;
+        if (VectorScaleCommands.Count > 0)
         {
-            double lastS = GetActiveCommandTime(ScaleCommands, timeMs);
-            double lastV = GetActiveCommandTime(VectorScaleCommands, timeMs);
-            if (lastV == double.MinValue && lastS == double.MinValue)
-            {
-                if (VectorScaleCommands[0].StartTime <= ScaleCommands[0].StartTime)
-                {
-                    var (sx, sy) = EvaluateVector2(VectorScaleCommands, timeMs, 1f, 1f);
-                    state.ScaleX = sx;
-                    state.ScaleY = sy;
-                }
-                else
-                {
-                    float s = EvaluateScalar(ScaleCommands, timeMs, 1f);
-                    state.ScaleX = s;
-                    state.ScaleY = s;
-                }
-            }
-            else if (lastV >= lastS)
-            {
-                var (sx, sy) = EvaluateVector2(VectorScaleCommands, timeMs, 1f, 1f);
-                state.ScaleX = sx;
-                state.ScaleY = sy;
-            }
-            else
-            {
-                float s = EvaluateScalar(ScaleCommands, timeMs, 1f);
-                state.ScaleX = s;
-                state.ScaleY = s;
-            }
+            var (vx, vy) = EvaluateVector2(VectorScaleCommands, timeMs, 1f, 1f);
+            state.ScaleX = uniformScale * vx;
+            state.ScaleY = uniformScale * vy;
         }
-        else if (hasVecScale)
+        else
         {
-            var (sx, sy) = EvaluateVector2(VectorScaleCommands, timeMs, 1f, 1f);
-            state.ScaleX = sx;
-            state.ScaleY = sy;
-        }
-        else if (hasScale)
-        {
-            float s = EvaluateScalar(ScaleCommands, timeMs, 1f);
-            state.ScaleX = s;
-            state.ScaleY = s;
+            state.ScaleX = uniformScale;
+            state.ScaleY = uniformScale;
         }
 
         if (Math.Abs(state.ScaleX) <= 0.0005f || Math.Abs(state.ScaleY) <= 0.0005f)

@@ -170,6 +170,11 @@ public static class OsuStoryboardParser
                             replacesBg = true;
                         }
                     }
+
+                    if (!storyboard.WidescreenStoryboard && UsesWidescreenCoordinates(sp))
+                    {
+                        storyboard.WidescreenStoryboard = true;
+                    }
                 }
             }
 
@@ -690,21 +695,44 @@ public static class OsuStoryboardParser
         };
     }
 
+    private static bool UsesWidescreenCoordinates(StoryboardSprite sp)
+    {
+        if (sp.InitialX < -15f || sp.InitialX > 655f)
+            return true;
+
+        for (int i = 0; i < sp.MoveXCommands.Count; i++)
+        {
+            var c = sp.MoveXCommands[i];
+            if ((c.StartValue < -15f && c.StartValue >= -160f) || (c.EndValue < -15f && c.EndValue >= -160f) ||
+                (c.StartValue > 655f && c.StartValue <= 800f) || (c.EndValue > 655f && c.EndValue <= 800f))
+                return true;
+        }
+
+        for (int i = 0; i < sp.MoveCommands.Count; i++)
+        {
+            var c = sp.MoveCommands[i];
+            if ((c.StartX < -15f && c.StartX >= -160f) || (c.EndX < -15f && c.EndX >= -160f) ||
+                (c.StartX > 655f && c.StartX <= 800f) || (c.EndX > 655f && c.EndX <= 800f))
+                return true;
+        }
+
+        return false;
+    }
+
     private static StoryboardOrigin ParseOrigin(string token)
     {
-        token = token.Trim();
-        return token switch
+        return token.Trim().ToLowerInvariant() switch
         {
-            "0" or "TopLeft" => StoryboardOrigin.TopLeft,
-            "1" or "Centre" or "Center" => StoryboardOrigin.Centre,
-            "2" or "CentreLeft" or "CenterLeft" => StoryboardOrigin.CentreLeft,
-            "3" or "TopRight" => StoryboardOrigin.TopRight,
-            "4" or "BottomCentre" or "BottomCenter" => StoryboardOrigin.BottomCentre,
-            "5" or "TopCentre" or "TopCenter" => StoryboardOrigin.TopCentre,
-            "6" or "Custom" => StoryboardOrigin.Centre,
-            "7" or "CentreRight" or "CenterRight" => StoryboardOrigin.CentreRight,
-            "8" or "BottomLeft" => StoryboardOrigin.BottomLeft,
-            "9" or "BottomRight" => StoryboardOrigin.BottomRight,
+            "0" or "topleft" => StoryboardOrigin.TopLeft,
+            "1" or "centre" or "center" => StoryboardOrigin.Centre,
+            "2" or "centreleft" or "centerleft" => StoryboardOrigin.CentreLeft,
+            "3" or "topright" => StoryboardOrigin.TopRight,
+            "4" or "bottomcentre" or "bottomcenter" => StoryboardOrigin.BottomCentre,
+            "5" or "topcentre" or "topcenter" => StoryboardOrigin.TopCentre,
+            "6" or "custom" => StoryboardOrigin.Centre,
+            "7" or "centreright" or "centerright" => StoryboardOrigin.CentreRight,
+            "8" or "bottomleft" => StoryboardOrigin.BottomLeft,
+            "9" or "bottomright" => StoryboardOrigin.BottomRight,
             _ => StoryboardOrigin.Centre
         };
     }
