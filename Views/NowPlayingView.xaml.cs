@@ -20,6 +20,9 @@ public partial class NowPlayingView : UserControl
     private bool _isPrimaryActive = true;
     private readonly System.Windows.Threading.DispatcherTimer _hudInactivityTimer;
     private bool _isHudVisible = true;
+    private Point _lastMousePosition = new(-1, -1);
+    private bool _hasMousePositionInitialized = false;
+    private long _lastFadeOutTick = 0;
 
     public NowPlayingView()
     {
@@ -31,7 +34,7 @@ public partial class NowPlayingView : UserControl
         };
         _hudInactivityTimer.Tick += OnInactivityTimerTick;
 
-        PreviewMouseMove += OnUserActivity;
+        PreviewMouseMove += OnPreviewMouseMove;
         PreviewMouseDown += OnUserActivity;
         PreviewKeyDown += OnUserActivity;
 
@@ -147,9 +150,11 @@ public partial class NowPlayingView : UserControl
     private static int _vlcBufferSize = 0;
     private static uint _vlcVideoWidth = 0;
     private static uint _vlcVideoHeight = 0;
+    private static int _vlcRenderPending = 0;
     private WriteableBitmap? _vlcBitmap;
 
     private bool _isVlcActive = false;
+    private bool _isMediaElementPlaying = false;
     private string? _currentVlcVideoPath = null;
     private bool _isCinemaMode = false;
     private bool _isVideoActive = false;
@@ -160,7 +165,7 @@ public partial class NowPlayingView : UserControl
         try
         {
             LibVLCSharp.Shared.Core.Initialize();
-            _libVlc = new VlcInstance("--no-audio");
+            _libVlc = new VlcInstance("--no-audio", "--avcodec-hw=any", "--clock-jitter=0");
             _libVlcPlayer = new VlcPlayer(_libVlc);
             _libVlcPlayer.EncounteredError += OnVlcPlayerEncounteredError;
             _libVlcPlayer.SetVideoFormatCallbacks(_videoFormatCb, _videoCleanupCb);
@@ -177,6 +182,17 @@ public partial class NowPlayingView : UserControl
     {
         byte[] fourcc = new byte[] { (byte)'R', (byte)'V', (byte)'3', (byte)'2' };
         Marshal.Copy(fourcc, 0, chroma, 4);
+
+        // Limitar resolución máxima del buffer RV32 de software a 1280x720 (manteniendo proporción)
+        // para reducir drásticamente el uso de CPU en conversión de color (swscale) y copia a WriteableBitmap.
+        const uint maxWidth = 1280;
+        const uint maxHeight = 720;
+        if (width > maxWidth || height > maxHeight)
+        {
+            double scale = Math.Min((double)maxWidth / width, (double)maxHeight / height);
+            width = Math.Max(2u, ((uint)Math.Round(width * scale)) & ~1u);
+            height = Math.Max(2u, ((uint)Math.Round(height * scale)) & ~1u);
+        }
 
         pitches = width * 4;
         lines = height;
@@ -224,10 +240,28 @@ public partial class NowPlayingView : UserControl
 
     private static void VideoDisplayCallback(IntPtr opaque, IntPtr picture)
     {
-        Application.Current?.Dispatcher.BeginInvoke(new Action(() =>
+        // Evitar encolar múltiples delegados en el hilo UI si el frame anterior aún no se ha renderizado
+        if (System.Threading.Interlocked.CompareExchange(ref _vlcRenderPending, 1, 0) != 0)
+            return;
+
+        var dispatcher = Application.Current?.Dispatcher;
+        if (dispatcher == null)
         {
-            _currentInstance?.RenderVlcFrame();
-        }), System.Windows.Threading.DispatcherPriority.Render);
+            System.Threading.Interlocked.Exchange(ref _vlcRenderPending, 0);
+            return;
+        }
+
+        dispatcher.BeginInvoke(new Action(() =>
+        {
+            try
+            {
+                _currentInstance?.RenderVlcFrame();
+            }
+            finally
+            {
+                System.Threading.Interlocked.Exchange(ref _vlcRenderPending, 0);
+            }
+        }), System.Windows.Threading.DispatcherPriority.Background);
     }
 
     private void SetupVlcBitmap(int width, int height)
@@ -249,7 +283,7 @@ public partial class NowPlayingView : UserControl
 
     private void RenderVlcFrame()
     {
-        if (!_isVlcActive || _vlcBitmap == null || _vlcBuffer == IntPtr.Zero || _vlcVideoWidth <= 0 || _vlcVideoHeight <= 0) return;
+        if (!_isVlcActive || !IsVisible || _vlcBitmap == null || _vlcBuffer == IntPtr.Zero || _vlcVideoWidth <= 0 || _vlcVideoHeight <= 0) return;
         try
         {
             int stride = (int)(_vlcVideoWidth * 4);
@@ -303,6 +337,7 @@ public partial class NowPlayingView : UserControl
             System.IO.File.Exists(track.VideoPath))
         {
             _isVideoActive = true;
+            StopBackgroundCinematicMotion();
             if (!_isCinemaMode)
             {
                 _isCinemaMode = true;
@@ -312,16 +347,15 @@ public partial class NowPlayingView : UserControl
             {
                 OsuBackgroundVideoPlayer.Source = new Uri(track.VideoPath, UriKind.Absolute);
                 OsuBackgroundVideoPlayer.Play();
+                _isMediaElementPlaying = true;
                 OsuBackgroundVideoPlayer.Opacity = 1.0;
-            }
-            if (OsuVideoBlurContainer != null)
-            {
-                OsuVideoBlurContainer.Opacity = 1.0;
             }
             if (BackgroundTransformContainer != null)
             {
                 BackgroundTransformContainer.Opacity = 0.0;
+                BackgroundTransformContainer.Visibility = Visibility.Collapsed;
             }
+            UpdateVideoBlurBackdropVisibility();
         }
         else
         {
@@ -335,9 +369,33 @@ public partial class NowPlayingView : UserControl
         }
     }
 
+    private void UpdateVideoBlurBackdropVisibility()
+    {
+        if (OsuVideoBlurContainer == null) return;
+
+        bool isUniform = DataContext is MainViewModel vm && vm.NowPlaying.OsuVideoStretch == Stretch.Uniform;
+        if (_isVideoActive && isUniform)
+        {
+            OsuVideoBlurContainer.Visibility = Visibility.Visible;
+            OsuVideoBlurContainer.Opacity = 1.0;
+            if (OsuVideoMediaElementBlur != null)
+                OsuVideoMediaElementBlur.Visibility = _isVlcActive ? Visibility.Collapsed : Visibility.Visible;
+            if (OsuVlcVideoBlurImage != null)
+                OsuVlcVideoBlurImage.Visibility = _isVlcActive ? Visibility.Visible : Visibility.Collapsed;
+        }
+        else
+        {
+            // En modo UniformToFill (o sin vídeo activo), el vídeo cubre toda la pantalla sin bordes:
+            // colapsar la capa de desenfoque en tiempo real ahorra una pasada completa de shader por fotograma.
+            OsuVideoBlurContainer.Opacity = 0.0;
+            OsuVideoBlurContainer.Visibility = Visibility.Collapsed;
+        }
+    }
+
     private void StopOsuVideoPlayback()
     {
         _isVideoActive = false;
+        _isMediaElementPlaying = false;
         if (OsuBackgroundVideoPlayer != null)
         {
             OsuBackgroundVideoPlayer.Stop();
@@ -347,9 +405,11 @@ public partial class NowPlayingView : UserControl
         if (OsuVideoBlurContainer != null)
         {
             OsuVideoBlurContainer.Opacity = 0.0;
+            OsuVideoBlurContainer.Visibility = Visibility.Collapsed;
         }
         if (BackgroundTransformContainer != null)
         {
+            BackgroundTransformContainer.Visibility = Visibility.Visible;
             BackgroundTransformContainer.Opacity = 1.0;
         }
         ResetDarknessOverlays();
@@ -381,6 +441,7 @@ public partial class NowPlayingView : UserControl
 
     private void SyncOsuVideoPlayback()
     {
+        if (!_isVideoActive) return;
         if (DataContext is not MainViewModel vm || vm.NowPlaying.CurrentTrack == null) return;
 
         var currentTrack = vm.NowPlaying.CurrentTrack;
@@ -399,7 +460,7 @@ public partial class NowPlayingView : UserControl
             long targetMs = (long)(targetSec * 1000.0);
             if (vm.NowPlaying.IsPlaying)
             {
-                if (_libVlcPlayer.Time >= 0 && Math.Abs(_libVlcPlayer.Time - targetMs) > 500)
+                if (_libVlcPlayer.Time >= 0 && Math.Abs(_libVlcPlayer.Time - targetMs) > 850)
                 {
                     _libVlcPlayer.Time = targetMs;
                 }
@@ -410,7 +471,7 @@ public partial class NowPlayingView : UserControl
             }
             else
             {
-                if (_libVlcPlayer.Time >= 0 && Math.Abs(_libVlcPlayer.Time - targetMs) > 500)
+                if (_libVlcPlayer.Time >= 0 && Math.Abs(_libVlcPlayer.Time - targetMs) > 850)
                 {
                     _libVlcPlayer.Time = targetMs;
                 }
@@ -429,22 +490,31 @@ public partial class NowPlayingView : UserControl
         {
             var targetTime = TimeSpan.FromSeconds(targetSec);
 
-            // Re-sincronizar solo si hay desvío mayor a 0.5s para no causar tartamudeo en el video
-            if (Math.Abs((OsuBackgroundVideoPlayer.Position - targetTime).TotalSeconds) > 0.5)
+            // Re-sincronizar solo si hay desvío mayor a 1.0s para evitar micro-seeks constantes de CPU
+            if (Math.Abs((OsuBackgroundVideoPlayer.Position - targetTime).TotalSeconds) > 1.0)
             {
                 OsuBackgroundVideoPlayer.Position = targetTime;
             }
-            OsuBackgroundVideoPlayer.Play();
+            if (!_isMediaElementPlaying)
+            {
+                OsuBackgroundVideoPlayer.Play();
+                _isMediaElementPlaying = true;
+            }
         }
         else
         {
-            OsuBackgroundVideoPlayer.Pause();
+            if (_isMediaElementPlaying)
+            {
+                OsuBackgroundVideoPlayer.Pause();
+                _isMediaElementPlaying = false;
+            }
         }
     }
 
     private void OnOsuVideoMediaFailed(object? sender, ExceptionRoutedEventArgs e)
     {
         e.Handled = true;
+        _isMediaElementPlaying = false;
 
         string? failedPath = null;
         if (OsuBackgroundVideoPlayer?.Source != null && OsuBackgroundVideoPlayer.Source.IsFile)
@@ -499,6 +569,7 @@ public partial class NowPlayingView : UserControl
             _currentVlcVideoPath = videoPath;
             _isVlcActive = true;
             _isVideoActive = true;
+            StopBackgroundCinematicMotion();
             if (!_isCinemaMode)
             {
                 _isCinemaMode = true;
@@ -509,14 +580,12 @@ public partial class NowPlayingView : UserControl
             {
                 OsuVlcVideoImage.Opacity = 1.0;
             }
-            if (OsuVideoBlurContainer != null)
-            {
-                OsuVideoBlurContainer.Opacity = 1.0;
-            }
             if (BackgroundTransformContainer != null)
             {
                 BackgroundTransformContainer.Opacity = 0.0;
+                BackgroundTransformContainer.Visibility = Visibility.Collapsed;
             }
+            UpdateVideoBlurBackdropVisibility();
 
             _libVlcPlayer.Play(media);
 
@@ -575,9 +644,11 @@ public partial class NowPlayingView : UserControl
         if (OsuVideoBlurContainer != null)
         {
             OsuVideoBlurContainer.Opacity = 0.0;
+            OsuVideoBlurContainer.Visibility = Visibility.Collapsed;
         }
         if (BackgroundTransformContainer != null)
         {
+            BackgroundTransformContainer.Visibility = Visibility.Visible;
             BackgroundTransformContainer.Opacity = 1.0;
         }
         ResetDarknessOverlays();
@@ -586,6 +657,7 @@ public partial class NowPlayingView : UserControl
             BackgroundPrimary.Source = vm.NowPlaying.BackgroundImage;
         }
         StartBackgroundCinematicMotion();
+        UpdateResponsiveVisualizerLayout(ActualWidth, ActualHeight);
     }
 
     private void ResetDarknessOverlays()
@@ -669,6 +741,7 @@ public partial class NowPlayingView : UserControl
         }
 
         StartBackgroundCinematicMotion();
+        UpdateResponsiveVisualizerLayout(ActualWidth, ActualHeight);
     }
 
     private void OnUnloaded(object sender, RoutedEventArgs e)
@@ -722,6 +795,36 @@ public partial class NowPlayingView : UserControl
         }
     }
 
+    private void OnPreviewMouseMove(object sender, System.Windows.Input.MouseEventArgs e)
+    {
+        Point currentPos = e.GetPosition(this);
+        if (!_hasMousePositionInitialized)
+        {
+            _lastMousePosition = currentPos;
+            _hasMousePositionInitialized = true;
+            return;
+        }
+
+        // Ignorar eventos PreviewMouseMove sintéticos generados por WPF cuando cambia IsHitTestVisible,
+        // el layout se reacomoda durante FadeOutHud(), o el visualizador/slider se actualiza bajo el cursor quieto.
+        double dx = Math.Abs(currentPos.X - _lastMousePosition.X);
+        double dy = Math.Abs(currentPos.Y - _lastMousePosition.Y);
+        if (dx < 3.0 && dy < 3.0)
+        {
+            return;
+        }
+
+        _lastMousePosition = currentPos;
+
+        // Pequeño margen tras iniciar FadeOutHud para evitar rebotes por cambios de layout simultáneos
+        if (!_isHudVisible && Environment.TickCount64 - _lastFadeOutTick < 350 && dx < 12.0 && dy < 12.0)
+        {
+            return;
+        }
+
+        OnUserActivity(sender, e);
+    }
+
     private void OnUserActivity(object? sender, EventArgs e)
     {
         _hudInactivityTimer.Stop();
@@ -756,6 +859,7 @@ public partial class NowPlayingView : UserControl
     private void FadeOutHud()
     {
         _isHudVisible = false;
+        _lastFadeOutTick = Environment.TickCount64;
         var duration = TimeSpan.FromMilliseconds(500);
         var moveDuration = TimeSpan.FromMilliseconds(600);
         var ease = new CubicEase { EasingMode = EasingMode.EaseOut };
@@ -1119,6 +1223,10 @@ public partial class NowPlayingView : UserControl
         {
             UpdateOsuVideoState(vmVideo.NowPlaying.CurrentTrack);
         }
+        else if (e.PropertyName == nameof(NowPlayingViewModel.OsuVideoStretch))
+        {
+            UpdateVideoBlurBackdropVisibility();
+        }
         else if (e.PropertyName == nameof(NowPlayingViewModel.CurrentPositionSeconds) ||
                  e.PropertyName == nameof(NowPlayingViewModel.IsPlaying))
         {
@@ -1184,12 +1292,23 @@ public partial class NowPlayingView : UserControl
         }
 
         StartBackgroundCinematicMotion();
+        UpdateResponsiveVisualizerLayout(ActualWidth, ActualHeight);
     }
 
     private int _currentMotionMode = 0;
 
+    private void StopBackgroundCinematicMotion()
+    {
+        if (BackgroundScale == null || BackgroundTranslate == null) return;
+        BackgroundScale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
+        BackgroundScale.BeginAnimation(ScaleTransform.ScaleYProperty, null);
+        BackgroundTranslate.BeginAnimation(TranslateTransform.XProperty, null);
+        BackgroundTranslate.BeginAnimation(TranslateTransform.YProperty, null);
+    }
+
     private void StartBackgroundCinematicMotion()
     {
+        if (_isVideoActive) return;
         if (BackgroundScale == null || BackgroundTranslate == null) return;
 
         // Alternar entre los 4 modos cinemáticos direccionales tipo documental (Pan & Scan)
@@ -1471,7 +1590,74 @@ public partial class NowPlayingView : UserControl
             if (np.IsCompactMode != isCompact)
                 np.IsCompactMode = isCompact;
         }
+        UpdateResponsiveVisualizerLayout(e.NewSize.Width, e.NewSize.Height);
         UpdateCompactTitleMarquee();
+    }
+
+    private void UpdateResponsiveVisualizerLayout(double width, double height)
+    {
+        if (width <= 0 || height <= 0) return;
+
+        // 1. Visualizador Central y Visualizador Inferior Derecha (modo escritorio > 750px):
+        //    - Ocultar cuando el ancho es menor a 940px o el alto es menor a 580px (para que no invada la carátula/título).
+        //    - Reducir progresivamente de escala entre 940px y 1240px (de 0.60x a 1.0x).
+        bool hideLargeVisualizers = width < 940 || height < 580;
+        double largeScale = Math.Clamp((width - 940.0) / 300.0, 0.0, 1.0) * 0.40 + 0.60;
+        if (height < 700)
+        {
+            double heightFactor = Math.Clamp((height - 580.0) / 120.0, 0.65, 1.0);
+            largeScale = Math.Min(largeScale, heightFactor);
+        }
+
+        if (VisualizerCenterInner != null)
+        {
+            VisualizerCenterInner.Visibility = hideLargeVisualizers ? Visibility.Collapsed : Visibility.Visible;
+        }
+        if (VisualizerCenterScale != null && !hideLargeVisualizers)
+        {
+            VisualizerCenterScale.ScaleX = largeScale;
+            VisualizerCenterScale.ScaleY = largeScale;
+        }
+
+        if (VisualizerRightInner != null)
+        {
+            VisualizerRightInner.Visibility = hideLargeVisualizers ? Visibility.Collapsed : Visibility.Visible;
+        }
+        if (VisualizerRightScale != null && !hideLargeVisualizers)
+        {
+            VisualizerRightScale.ScaleX = largeScale;
+            VisualizerRightScale.ScaleY = largeScale;
+        }
+
+        // 2. Visualizador en InfoCancion (debajo de título/artista en modo escritorio):
+        //    - Ocultar cuando el ancho < 830px o el alto < 540px.
+        //    - Escalar entre 830px y 1080px (de 0.72x a 1.0x).
+        bool hideInfoVisualizer = width < 830 || height < 540;
+        double infoScale = Math.Clamp((width - 830.0) / 250.0, 0.0, 1.0) * 0.28 + 0.72;
+        if (VisualizerInfoInner != null)
+        {
+            VisualizerInfoInner.Visibility = hideInfoVisualizer ? Visibility.Collapsed : Visibility.Visible;
+        }
+        if (VisualizerInfoScale != null && !hideInfoVisualizer)
+        {
+            VisualizerInfoScale.ScaleX = infoScale;
+            VisualizerInfoScale.ScaleY = infoScale;
+        }
+
+        // 3. Visualizador en Modo Compacto / Móvil (<= 750px):
+        //    - Ocultar si el ancho < 520px o el alto < 600px para no ensuciar el texto de la canción.
+        //    - Reducir su escala (de 0.55x a 0.82x) para que se mantenga compacto y estético.
+        if (CompactVisualizerContainer != null)
+        {
+            bool hideCompactVisualizer = width < 520 || height < 600;
+            CompactVisualizerContainer.Visibility = hideCompactVisualizer ? Visibility.Collapsed : Visibility.Visible;
+            if (CompactVisualizerScale != null && !hideCompactVisualizer)
+            {
+                double compactScale = Math.Clamp((width - 520.0) / 230.0, 0.0, 1.0) * 0.27 + 0.55;
+                CompactVisualizerScale.ScaleX = compactScale;
+                CompactVisualizerScale.ScaleY = compactScale;
+            }
+        }
     }
 
     private void OnCompactTitleSizeChanged(object sender, SizeChangedEventArgs e)

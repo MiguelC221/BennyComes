@@ -29,6 +29,7 @@ public partial class AudioVisualizerService : ObservableObject
 
     private readonly object _sampleLock = new();
     private readonly float[] _sampleBuffer = new float[FftSize * 2];
+    private readonly float[] _localSamples = new float[FftSize];
     private int _sampleBufferPos = 0;
     private DateTime _lastSampleTime = DateTime.MinValue;
 
@@ -72,9 +73,9 @@ public partial class AudioVisualizerService : ObservableObject
 
         InitDefaultWaveform();
 
-        _timer = new DispatcherTimer(DispatcherPriority.Render)
+        _timer = new DispatcherTimer(DispatcherPriority.Background)
         {
-            Interval = TimeSpan.FromMilliseconds(25) // ~40 FPS
+            Interval = TimeSpan.FromMilliseconds(28) // ~35 FPS
         };
         _timer.Tick += OnTimerTick;
         _timer.Start();
@@ -141,6 +142,12 @@ public partial class AudioVisualizerService : ObservableObject
 
     private void OnTimerTick(object? sender, EventArgs e)
     {
+        if (Application.Current?.MainWindow?.WindowState == WindowState.Minimized ||
+            (ViewModels.MainViewModel.Instance != null && ViewModels.MainViewModel.Instance.CurrentView != "NowPlaying"))
+        {
+            return;
+        }
+
         bool isSilent = (DateTime.UtcNow - _lastSampleTime).TotalMilliseconds > 350;
 
         if (isSilent || Mode == VisualizerMode.None)
@@ -149,28 +156,27 @@ public partial class AudioVisualizerService : ObservableObject
             return;
         }
 
-        float[] localSamples = new float[FftSize];
         lock (_sampleLock)
         {
             int start = (_sampleBufferPos - FftSize + _sampleBuffer.Length) % _sampleBuffer.Length;
             for (int i = 0; i < FftSize; i++)
             {
-                localSamples[i] = _sampleBuffer[(start + i) % _sampleBuffer.Length];
+                _localSamples[i] = _sampleBuffer[(start + i) % _sampleBuffer.Length];
             }
         }
 
         switch (Mode)
         {
             case VisualizerMode.SpectrumBars:
-                ProcessSpectrumBars(localSamples);
+                ProcessSpectrumBars(_localSamples);
                 break;
 
             case VisualizerMode.Waveform:
-                ProcessWaveform(localSamples);
+                ProcessWaveform(_localSamples);
                 break;
 
             case VisualizerMode.BassPulse:
-                ProcessBassPulse(localSamples);
+                ProcessBassPulse(_localSamples);
                 break;
         }
     }

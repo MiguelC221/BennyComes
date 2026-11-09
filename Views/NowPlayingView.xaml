@@ -29,13 +29,19 @@
                     </TransformGroup>
                 </Grid.RenderTransform>
                 <Image x:Name="BackgroundPrimary" Stretch="UniformToFill" Opacity="1.0"
-                       RenderOptions.BitmapScalingMode="HighQuality">
+                       RenderOptions.BitmapScalingMode="LowQuality">
+                    <Image.CacheMode>
+                        <BitmapCache RenderAtScale="0.5" />
+                    </Image.CacheMode>
                     <Image.Effect>
                         <BlurEffect x:Name="PrimaryBlur" Radius="{Binding NowPlaying.BackgroundBlurRadius}" RenderingBias="Performance" />
                     </Image.Effect>
                 </Image>
                 <Image x:Name="BackgroundSecondary" Stretch="UniformToFill" Opacity="0.0"
-                       RenderOptions.BitmapScalingMode="HighQuality">
+                       RenderOptions.BitmapScalingMode="LowQuality">
+                    <Image.CacheMode>
+                        <BitmapCache RenderAtScale="0.5" />
+                    </Image.CacheMode>
                     <Image.Effect>
                         <BlurEffect x:Name="SecondaryBlur" Radius="{Binding NowPlaying.BackgroundBlurRadius}" RenderingBias="Performance" />
                     </Image.Effect>
@@ -44,20 +50,25 @@
 
             <!-- Dynamic Blurred Video Backdrop Container (Rellena los espacios y bordes del vídeo de osu!) -->
             <Grid x:Name="OsuVideoBlurContainer" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Opacity="0.0" IsHitTestVisible="False">
-                <!-- Capa para MediaElement nativo (VisualBrush en tiempo real) -->
+                <Grid.CacheMode>
+                    <BitmapCache RenderAtScale="0.15" />
+                </Grid.CacheMode>
+                <!-- Capa para MediaElement nativo (VisualBrush en tiempo real a baja escala en caché) -->
                 <Rectangle x:Name="OsuVideoMediaElementBlur" Stretch="Fill" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" IsHitTestVisible="False">
                     <Rectangle.Fill>
-                        <VisualBrush Visual="{Binding ElementName=OsuBackgroundVideoPlayer}" Stretch="UniformToFill" />
+                        <VisualBrush Visual="{Binding ElementName=OsuBackgroundVideoPlayer}" Stretch="UniformToFill"
+                                     RenderOptions.BitmapScalingMode="LowQuality" />
                     </Rectangle.Fill>
                     <Rectangle.Effect>
-                        <BlurEffect Radius="60" KernelType="Gaussian" RenderingBias="Performance" />
+                        <BlurEffect Radius="22" KernelType="Box" RenderingBias="Performance" />
                     </Rectangle.Effect>
                 </Rectangle>
 
-                <!-- Capa para LibVLC Fallback (Renderizado dinámico de _vlcBitmap con UniformToFill y Blur) -->
-                <Image x:Name="OsuVlcVideoBlurImage" Stretch="UniformToFill" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False">
+                <!-- Capa para LibVLC Fallback (Renderizado dinámico de _vlcBitmap con UniformToFill y Blur ligero) -->
+                <Image x:Name="OsuVlcVideoBlurImage" Stretch="UniformToFill" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False"
+                       RenderOptions.BitmapScalingMode="LowQuality">
                     <Image.Effect>
-                        <BlurEffect Radius="60" KernelType="Gaussian" RenderingBias="Performance" />
+                        <BlurEffect Radius="22" KernelType="Box" RenderingBias="Performance" />
                     </Image.Effect>
                 </Image>
 
@@ -74,7 +85,8 @@
                           VerticalAlignment="Center"
                           IsHitTestVisible="False"
                           IsMuted="True"
-                          ScrubbingEnabled="True"
+                          ScrubbingEnabled="False"
+                          RenderOptions.BitmapScalingMode="LowQuality"
                           Opacity="0.0" />
 
             <!-- LibVLC Fallback Video Player Layer (Memoria / WriteableBitmap nativa sin Airspace) -->
@@ -83,6 +95,7 @@
                    HorizontalAlignment="Center"
                    VerticalAlignment="Center"
                    IsHitTestVisible="False"
+                   RenderOptions.BitmapScalingMode="LowQuality"
                    Opacity="0.0" />
 
             <!-- Darkening overlay with user-adjustable opacity -->
@@ -650,6 +663,9 @@
 
                     <!-- Visualizer Display Area (Posición 1: InfoCancion - left aligned with title) -->
                     <Grid x:Name="VisualizerContainer" Height="36" Width="260" Margin="0,16,0,0" HorizontalAlignment="Left" VerticalAlignment="Bottom">
+                        <Grid.LayoutTransform>
+                            <ScaleTransform x:Name="VisualizerInfoScale" ScaleX="1.0" ScaleY="1.0" />
+                        </Grid.LayoutTransform>
                         <Grid.Style>
                             <Style TargetType="Grid">
                                 <Setter Property="Visibility" Value="Collapsed" />
@@ -660,49 +676,51 @@
                                 </Style.Triggers>
                             </Style>
                         </Grid.Style>
-                        <!-- 1. Spectrum Bars -->
-                        <ItemsControl x:Name="SpectrumItems" ItemsSource="{Binding NowPlaying.Visualizer.SpectrumBars}"
-                                      HorizontalAlignment="Left" VerticalAlignment="Bottom">
-                            <ItemsControl.Style>
-                                <Style TargetType="ItemsControl">
-                                    <Setter Property="Visibility" Value="Collapsed" />
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding NowPlaying.Visualizer.SelectedVisualizerMode}" Value="Barras de Espectro">
-                                            <Setter Property="Visibility" Value="Visible" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </ItemsControl.Style>
-                            <ItemsControl.ItemsPanel>
-                                <ItemsPanelTemplate>
-                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Bottom" />
-                                </ItemsPanelTemplate>
-                            </ItemsControl.ItemsPanel>
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate>
-                                    <Border Width="5" Height="{Binding}" CornerRadius="2.5" Margin="1.5,0"
-                                            VerticalAlignment="Bottom"
-                                            Background="{Binding DataContext.Theme.CurrentAccentBrush, RelativeSource={RelativeSource AncestorType=UserControl}}" />
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
+                        <Grid x:Name="VisualizerInfoInner">
+                            <!-- 1. Spectrum Bars -->
+                            <ItemsControl x:Name="SpectrumItems" ItemsSource="{Binding NowPlaying.Visualizer.SpectrumBars}"
+                                          HorizontalAlignment="Left" VerticalAlignment="Bottom">
+                                <ItemsControl.Style>
+                                    <Style TargetType="ItemsControl">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding NowPlaying.Visualizer.SelectedVisualizerMode}" Value="Barras de Espectro">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </ItemsControl.Style>
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <StackPanel Orientation="Horizontal" VerticalAlignment="Bottom" />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Width="5" Height="{Binding}" CornerRadius="2.5" Margin="1.5,0"
+                                                VerticalAlignment="Bottom"
+                                                Background="{Binding DataContext.Theme.CurrentAccentBrush, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
 
-                        <!-- 2. Reactive Waveform -->
-                        <Polyline x:Name="WaveformLine" Points="{Binding NowPlaying.Visualizer.WaveformPoints}"
-                                  Stroke="{Binding Theme.CurrentAccentBrush}"
-                                  StrokeThickness="2.5"
-                                  HorizontalAlignment="Left" VerticalAlignment="Center">
-                            <Polyline.Style>
-                                <Style TargetType="Polyline">
-                                    <Setter Property="Visibility" Value="Collapsed" />
-                                    <Style.Triggers>
-                                        <DataTrigger Binding="{Binding NowPlaying.Visualizer.SelectedVisualizerMode}" Value="Onda Reactiva">
-                                            <Setter Property="Visibility" Value="Visible" />
-                                        </DataTrigger>
-                                    </Style.Triggers>
-                                </Style>
-                            </Polyline.Style>
-                        </Polyline>
+                            <!-- 2. Reactive Waveform -->
+                            <Polyline x:Name="WaveformLine" Points="{Binding NowPlaying.Visualizer.WaveformPoints}"
+                                      Stroke="{Binding Theme.CurrentAccentBrush}"
+                                      StrokeThickness="2.5"
+                                      HorizontalAlignment="Left" VerticalAlignment="Center">
+                                <Polyline.Style>
+                                    <Style TargetType="Polyline">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding NowPlaying.Visualizer.SelectedVisualizerMode}" Value="Onda Reactiva">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Polyline.Style>
+                            </Polyline>
+                        </Grid>
                     </Grid>
 
                     <!-- Real-Time Audio Technical Badges -->
@@ -741,9 +759,12 @@
             <!-- POSICIÓN 2: CENTRO DE LA VENTANA (MÁS ALTO, HASTA 120PX)       -->
             <!-- ============================================================== -->
             <Grid x:Name="VisualizerCenterContainer" Grid.Row="0" HorizontalAlignment="Center" VerticalAlignment="Center" Height="130" Margin="0,0,0,40"
-                  IsHitTestVisible="False">
+                  RenderTransformOrigin="0.5,0.5" IsHitTestVisible="False">
                 <Grid.RenderTransform>
-                    <TranslateTransform x:Name="VisualizerCenterTranslate" X="0" Y="0" />
+                    <TransformGroup>
+                        <ScaleTransform x:Name="VisualizerCenterScale" ScaleX="1.0" ScaleY="1.0" />
+                        <TranslateTransform x:Name="VisualizerCenterTranslate" X="0" Y="0" />
+                    </TransformGroup>
                 </Grid.RenderTransform>
                 <Grid.Style>
                     <Style TargetType="Grid">
@@ -755,58 +776,63 @@
                         </Style.Triggers>
                     </Style>
                 </Grid.Style>
-                <!-- Spectrum Bars Center -->
-                <ItemsControl ItemsSource="{Binding NowPlaying.Visualizer.SpectrumBars}"
-                              HorizontalAlignment="Center" VerticalAlignment="Bottom">
-                    <ItemsControl.Style>
-                        <Style TargetType="ItemsControl">
-                            <Setter Property="Visibility" Value="Collapsed" />
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding NowPlaying.Visualizer.SelectedVisualizerMode}" Value="Barras de Espectro">
-                                    <Setter Property="Visibility" Value="Visible" />
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </ItemsControl.Style>
-                    <ItemsControl.ItemsPanel>
-                        <ItemsPanelTemplate>
-                            <StackPanel Orientation="Horizontal" VerticalAlignment="Bottom" />
-                        </ItemsPanelTemplate>
-                    </ItemsControl.ItemsPanel>
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <Border Width="7" Height="{Binding}" CornerRadius="3.5" Margin="2,0"
-                                    VerticalAlignment="Bottom"
-                                    Background="{Binding DataContext.Theme.CurrentAccentBrush, RelativeSource={RelativeSource AncestorType=UserControl}}" />
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
+                <Grid x:Name="VisualizerCenterInner">
+                    <!-- Spectrum Bars Center -->
+                    <ItemsControl ItemsSource="{Binding NowPlaying.Visualizer.SpectrumBars}"
+                                  HorizontalAlignment="Center" VerticalAlignment="Bottom">
+                        <ItemsControl.Style>
+                            <Style TargetType="ItemsControl">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding NowPlaying.Visualizer.SelectedVisualizerMode}" Value="Barras de Espectro">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </ItemsControl.Style>
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Bottom" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Width="7" Height="{Binding}" CornerRadius="3.5" Margin="2,0"
+                                        VerticalAlignment="Bottom"
+                                        Background="{Binding DataContext.Theme.CurrentAccentBrush, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
 
-                <!-- Reactive Waveform Center -->
-                <Polyline Points="{Binding NowPlaying.Visualizer.WaveformPoints}"
-                          Stroke="{Binding Theme.CurrentAccentBrush}"
-                          StrokeThickness="3"
-                          HorizontalAlignment="Center" VerticalAlignment="Center">
-                    <Polyline.Style>
-                        <Style TargetType="Polyline">
-                            <Setter Property="Visibility" Value="Collapsed" />
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding NowPlaying.Visualizer.SelectedVisualizerMode}" Value="Onda Reactiva">
-                                    <Setter Property="Visibility" Value="Visible" />
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </Polyline.Style>
-                </Polyline>
+                    <!-- Reactive Waveform Center -->
+                    <Polyline Points="{Binding NowPlaying.Visualizer.WaveformPoints}"
+                              Stroke="{Binding Theme.CurrentAccentBrush}"
+                              StrokeThickness="3"
+                              HorizontalAlignment="Center" VerticalAlignment="Center">
+                        <Polyline.Style>
+                            <Style TargetType="Polyline">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding NowPlaying.Visualizer.SelectedVisualizerMode}" Value="Onda Reactiva">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Polyline.Style>
+                    </Polyline>
+                </Grid>
             </Grid>
 
             <!-- ============================================================== -->
             <!-- POSICIÓN 3: INFERIOR DERECHA (ALINEADA A INFO CANCIÓN, 100PX)  -->
             <!-- ============================================================== -->
             <Grid x:Name="VisualizerRightContainer" Grid.Row="0" HorizontalAlignment="Right" VerticalAlignment="Bottom" Height="110" Margin="0,0,48,16"
-                  IsHitTestVisible="False">
+                  RenderTransformOrigin="1.0,1.0" IsHitTestVisible="False">
                 <Grid.RenderTransform>
-                    <TranslateTransform x:Name="VisualizerRightTranslate" X="0" Y="0" />
+                    <TransformGroup>
+                        <ScaleTransform x:Name="VisualizerRightScale" ScaleX="1.0" ScaleY="1.0" />
+                        <TranslateTransform x:Name="VisualizerRightTranslate" X="0" Y="0" />
+                    </TransformGroup>
                 </Grid.RenderTransform>
                 <Grid.Style>
                     <Style TargetType="Grid">
@@ -818,49 +844,51 @@
                         </Style.Triggers>
                     </Style>
                 </Grid.Style>
-                <!-- Spectrum Bars Right -->
-                <ItemsControl ItemsSource="{Binding NowPlaying.Visualizer.SpectrumBars}"
-                              HorizontalAlignment="Right" VerticalAlignment="Bottom">
-                    <ItemsControl.Style>
-                        <Style TargetType="ItemsControl">
-                            <Setter Property="Visibility" Value="Collapsed" />
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding NowPlaying.Visualizer.SelectedVisualizerMode}" Value="Barras de Espectro">
-                                    <Setter Property="Visibility" Value="Visible" />
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </ItemsControl.Style>
-                    <ItemsControl.ItemsPanel>
-                        <ItemsPanelTemplate>
-                            <StackPanel Orientation="Horizontal" VerticalAlignment="Bottom" />
-                        </ItemsPanelTemplate>
-                    </ItemsControl.ItemsPanel>
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <Border Width="6" Height="{Binding}" CornerRadius="3" Margin="1.8,0"
-                                    VerticalAlignment="Bottom"
-                                    Background="{Binding DataContext.Theme.CurrentAccentBrush, RelativeSource={RelativeSource AncestorType=UserControl}}" />
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
+                <Grid x:Name="VisualizerRightInner">
+                    <!-- Spectrum Bars Right -->
+                    <ItemsControl ItemsSource="{Binding NowPlaying.Visualizer.SpectrumBars}"
+                                  HorizontalAlignment="Right" VerticalAlignment="Bottom">
+                        <ItemsControl.Style>
+                            <Style TargetType="ItemsControl">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding NowPlaying.Visualizer.SelectedVisualizerMode}" Value="Barras de Espectro">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </ItemsControl.Style>
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Bottom" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Width="6" Height="{Binding}" CornerRadius="3" Margin="1.8,0"
+                                        VerticalAlignment="Bottom"
+                                        Background="{Binding DataContext.Theme.CurrentAccentBrush, RelativeSource={RelativeSource AncestorType=UserControl}}" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
 
-                <!-- Reactive Waveform Right -->
-                <Polyline Points="{Binding NowPlaying.Visualizer.WaveformPoints}"
-                          Stroke="{Binding Theme.CurrentAccentBrush}"
-                          StrokeThickness="2.8"
-                          HorizontalAlignment="Right" VerticalAlignment="Center">
-                    <Polyline.Style>
-                        <Style TargetType="Polyline">
-                            <Setter Property="Visibility" Value="Collapsed" />
-                            <Style.Triggers>
-                                <DataTrigger Binding="{Binding NowPlaying.Visualizer.SelectedVisualizerMode}" Value="Onda Reactiva">
-                                    <Setter Property="Visibility" Value="Visible" />
-                                </DataTrigger>
-                            </Style.Triggers>
-                        </Style>
-                    </Polyline.Style>
-                </Polyline>
+                    <!-- Reactive Waveform Right -->
+                    <Polyline Points="{Binding NowPlaying.Visualizer.WaveformPoints}"
+                              Stroke="{Binding Theme.CurrentAccentBrush}"
+                              StrokeThickness="2.8"
+                              HorizontalAlignment="Right" VerticalAlignment="Center">
+                        <Polyline.Style>
+                            <Style TargetType="Polyline">
+                                <Setter Property="Visibility" Value="Collapsed" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding NowPlaying.Visualizer.SelectedVisualizerMode}" Value="Onda Reactiva">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Polyline.Style>
+                    </Polyline>
+                </Grid>
             </Grid>
 
             <!-- Bottom Transport & Seekbar (HUD) -->
@@ -1185,7 +1213,11 @@
                 <!-- 1. INFO DE PISTA + CORAZÓN CON VISUALIZADOR POR DETRÁS -->
                 <Grid Grid.Row="1" Margin="0,4,0,6">
                     <!-- Capa 0: Visualizador reactivo de fondo (Onda o Espectro) -->
-                    <Grid Panel.ZIndex="0" VerticalAlignment="Center" Height="50" IsHitTestVisible="False">
+                    <Grid x:Name="CompactVisualizerContainer" Panel.ZIndex="0" VerticalAlignment="Center" Height="50"
+                          RenderTransformOrigin="0.5,0.5" IsHitTestVisible="False">
+                        <Grid.RenderTransform>
+                            <ScaleTransform x:Name="CompactVisualizerScale" ScaleX="1.0" ScaleY="1.0" />
+                        </Grid.RenderTransform>
                         <!-- Onda Reactiva -->
                         <Polyline Points="{Binding NowPlaying.Visualizer.WaveformPoints}"
                                   Stroke="{Binding Theme.CurrentAccentBrush}"
