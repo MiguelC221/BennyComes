@@ -261,7 +261,17 @@
 
     <!-- Shared ArtistLetterSection DataTemplate (Letter Header + Normal WrapPanel of Artist Cards) -->
     <DataTemplate x:Key="SharedArtistLetterSectionTemplate" DataType="{x:Type models:ArtistLetterSection}">
-        <StackPanel Margin="0,10,0,16">
+        <StackPanel>
+            <StackPanel.Style>
+                <Style TargetType="StackPanel">
+                    <Setter Property="Margin" Value="0,10,0,16" />
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding HasLetter}" Value="False">
+                            <Setter Property="Margin" Value="0" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </StackPanel.Style>
             <Button Style="{StaticResource AlphaGroupHeaderButtonStyle}"
                     Content="{Binding Letter}"
                     Visibility="{Binding HasLetter, Converter={StaticResource BoolToVisConverter}}"

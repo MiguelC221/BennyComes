@@ -269,10 +269,14 @@ public partial class OsuLibraryViewModel : ObservableObject
             IsDoubtfulDialogOpen = false;
         }
 
-        ApplyFilter();
+        ApplyFilter(forceSongs: true);
     }
 
-    private void ApplyFilter()
+    private string? _lastSongsQuery;
+    private string? _lastArtistSignature;
+    private int _lastSongsSourceCount = -1;
+
+    private void ApplyFilter(bool forceSongs = false)
     {
         var swTotal = System.Diagnostics.Stopwatch.StartNew();
         string query = SearchFilter?.Trim() ?? string.Empty;
@@ -289,10 +293,18 @@ public partial class OsuLibraryViewModel : ObservableObject
                 (!string.IsNullOrEmpty(t.OsuArtistUnicode) && t.OsuArtistUnicode.Contains(query, StringComparison.OrdinalIgnoreCase)));
         }
 
-        var trackList = trackQuery.ToList();
-        Songs.ReplaceRange(trackList);
-        VideoSongs.ReplaceRange(trackList.Where(t => t.HasVideo).ToList());
-        System.Diagnostics.Debug.WriteLine($"[PERF] OsuLibrary.ApplyFilter Songs.ReplaceRange(count={trackList.Count}, video={VideoSongs.Count}): {swStep.Elapsed.TotalMilliseconds:F1} ms");
+        // Solo reconstruir canciones si cambio la busqueda o los datos (no al cambiar de pestana u orden de artistas)
+        bool songsDirty = forceSongs || !string.Equals(_lastSongsQuery, query, StringComparison.Ordinal)
+                          || _lastSongsSourceCount != _osuService.Tracks.Count;
+        if (songsDirty)
+        {
+            var trackList = trackQuery.ToList();
+            Songs.ReplaceRange(trackList);
+            VideoSongs.ReplaceRange(trackList.Where(t => t.HasVideo).ToList());
+            _lastSongsQuery = query;
+            _lastSongsSourceCount = _osuService.Tracks.Count;
+        }
+        System.Diagnostics.Debug.WriteLine($"[PERF] OsuLibrary.ApplyFilter Songs.ReplaceRange(dirty={songsDirty}, count={Songs.Count}, video={VideoSongs.Count}): {swStep.Elapsed.TotalMilliseconds:F1} ms");
 
         swStep.Restart();
         UpdateSongsGrouping();
@@ -307,6 +319,12 @@ public partial class OsuLibraryViewModel : ObservableObject
         var sourceArtists = _osuService.Artists.ToList();
         string sortOption = SelectedArtistSort;
         bool descending = IsSortDescending;
+        string artistSignature = $"{query}|{sortOption}|{descending}|{sourceArtists.Count}|{_osuService.Artists.GetHashCode()}";
+        if (!forceSongs && string.Equals(artistSignature, _lastArtistSignature, StringComparison.Ordinal) && ArtistSections.Count > 0)
+        {
+            return;
+        }
+        _lastArtistSignature = artistSignature;
         int buildVersion = System.Threading.Interlocked.Increment(ref _artistSectionsBuildVersion);
 
         _ = Task.Run(() =>
@@ -338,15 +356,18 @@ public partial class OsuLibraryViewModel : ObservableObject
             List<ArtistLetterSection> sections;
             if (isSortByTrackCount)
             {
-                // Al filtrar por cantidad de canciones, se desagrupan los artistas mostrando todos en una lista plana continua sin cabecera de letra
-                sections = new List<ArtistLetterSection>
+                // Lista plana sin cabecera, pero dividida en bloques para que el ListView pueda virtualizar
+                // (una sola seccion con miles de tarjetas obligaba a crearlas todas y congelaba la UI)
+                const int chunkSize = 24;
+                sections = new List<ArtistLetterSection>((filteredArtists.Count / chunkSize) + 1);
+                for (int i = 0; i < filteredArtists.Count; i += chunkSize)
                 {
-                    new ArtistLetterSection
+                    sections.Add(new ArtistLetterSection
                     {
                         Letter = string.Empty,
-                        Artists = filteredArtists
-                    }
-                };
+                        Artists = filteredArtists.GetRange(i, Math.Min(chunkSize, filteredArtists.Count - i))
+                    });
+                }
             }
             else
             {
