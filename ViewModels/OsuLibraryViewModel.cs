@@ -19,7 +19,26 @@ public partial class OsuLibraryViewModel : ObservableObject
     private readonly AudioPlayerService _audio = AudioPlayerService.Instance;
 
     [ObservableProperty]
-    private int _selectedTabIndex = 0; // 0 = Canciones, 1 = Artistas, 2 = Con vídeo
+    private int _selectedTabIndex = 0; // 0 = Canciones, 1 = Artistas, 2 = Con vídeo / Storyboard
+
+    public ObservableCollection<string> MediaFilterOptions { get; } = new()
+    {
+        "Todos (Vídeo o Storyboard)",
+        "Solo vídeos",
+        "Solo storyboards",
+        "Ambos (Vídeo y Storyboard)"
+    };
+
+    [ObservableProperty]
+    private string _selectedMediaFilter = "Todos (Vídeo o Storyboard)";
+
+    public string MediaFilterSummaryText => SelectedMediaFilter switch
+    {
+        "Solo vídeos" => $"{VideoSongs.Count} canciones con vídeo",
+        "Solo storyboards" => $"{VideoSongs.Count} canciones con storyboard",
+        "Ambos (Vídeo y Storyboard)" => $"{VideoSongs.Count} canciones con vídeo y storyboard",
+        _ => $"{VideoSongs.Count} canciones multimedia"
+    };
 
     [ObservableProperty]
     private string _searchFilter = string.Empty;
@@ -176,6 +195,12 @@ public partial class OsuLibraryViewModel : ObservableObject
         ApplyFilter();
     }
 
+    partial void OnSelectedMediaFilterChanged(string value)
+    {
+        ApplyFilter(forceSongs: true);
+        OnPropertyChanged(nameof(MediaFilterSummaryText));
+    }
+
     partial void OnSelectedArtistSortChanged(string value)
     {
         OnPropertyChanged(nameof(IsAlphabetEnabled));
@@ -274,12 +299,14 @@ public partial class OsuLibraryViewModel : ObservableObject
 
     private string? _lastSongsQuery;
     private string? _lastArtistSignature;
+    private string? _lastMediaFilter;
     private int _lastSongsSourceCount = -1;
 
     private void ApplyFilter(bool forceSongs = false)
     {
         var swTotal = System.Diagnostics.Stopwatch.StartNew();
         string query = SearchFilter?.Trim() ?? string.Empty;
+        string mediaFilter = SelectedMediaFilter;
 
         // 1. Filtrar canciones (por título, Artist, OsuArtistRoumaji o OsuArtistUnicode)
         var swStep = System.Diagnostics.Stopwatch.StartNew();
@@ -293,16 +320,28 @@ public partial class OsuLibraryViewModel : ObservableObject
                 (!string.IsNullOrEmpty(t.OsuArtistUnicode) && t.OsuArtistUnicode.Contains(query, StringComparison.OrdinalIgnoreCase)));
         }
 
-        // Solo reconstruir canciones si cambio la busqueda o los datos (no al cambiar de pestana u orden de artistas)
+        // Solo reconstruir canciones si cambio la busqueda, filtro multimedia o los datos
         bool songsDirty = forceSongs || !string.Equals(_lastSongsQuery, query, StringComparison.Ordinal)
+                          || !string.Equals(_lastMediaFilter, mediaFilter, StringComparison.Ordinal)
                           || _lastSongsSourceCount != _osuService.Tracks.Count;
         if (songsDirty)
         {
             var trackList = trackQuery.ToList();
             Songs.ReplaceRange(trackList);
-            VideoSongs.ReplaceRange(trackList.Where(t => t.HasVideo).ToList());
+
+            IEnumerable<Track> filteredMedia = mediaFilter switch
+            {
+                "Solo vídeos" => trackList.Where(t => t.HasVideo),
+                "Solo storyboards" => trackList.Where(t => t.HasStoryboard),
+                "Ambos (Vídeo y Storyboard)" => trackList.Where(t => t.HasVideo && t.HasStoryboard),
+                _ => trackList.Where(t => t.HasVideo || t.HasStoryboard) // "Todos (Vídeo o Storyboard)"
+            };
+
+            VideoSongs.ReplaceRange(filteredMedia.ToList());
             _lastSongsQuery = query;
+            _lastMediaFilter = mediaFilter;
             _lastSongsSourceCount = _osuService.Tracks.Count;
+            OnPropertyChanged(nameof(MediaFilterSummaryText));
         }
         System.Diagnostics.Debug.WriteLine($"[PERF] OsuLibrary.ApplyFilter Songs.ReplaceRange(dirty={songsDirty}, count={Songs.Count}, video={VideoSongs.Count}): {swStep.Elapsed.TotalMilliseconds:F1} ms");
 

@@ -450,14 +450,14 @@
                     </Button.Template>
                 </Button>
 
-                <!-- 3. Con vídeo Tab -->
+                <!-- 3. Vídeo / Storyboard Tab -->
                 <Button Background="Transparent" BorderThickness="0" FocusVisualStyle="{x:Null}" Margin="0,0,12,0" Padding="0" Cursor="Hand"
                         PreviewMouseLeftButtonDown="OnVideoSongsTabPreviewMouseDown" Click="OnVideoSongsTabClick">
                     <Button.Template>
                         <ControlTemplate TargetType="Button">
                             <Border x:Name="TabHitBox" Background="Transparent" CornerRadius="8" Padding="14,8,14,6">
                                 <StackPanel Orientation="Vertical">
-                                    <TextBlock x:Name="TabText" Text="Con vídeo" FontFamily="Segoe UI Variable Display, Segoe UI" FontSize="20"
+                                    <TextBlock x:Name="TabText" Text="Vídeo / Storyboard" FontFamily="Segoe UI Variable Display, Segoe UI" FontSize="20"
                                                Foreground="{DynamicResource TextSecondaryBrush}" FontWeight="Normal" />
                                     <Border x:Name="Indicator" Height="3" CornerRadius="1.5" Margin="0,6,0,0"
                                             Background="{Binding Theme.CurrentAccentBrush}" Opacity="0"
@@ -562,8 +562,9 @@
                 </ui:Button>
             </StackPanel>
 
-            <!-- Right: Sort Controls (for Artists Tab) & Item Count -->
+            <!-- Right: Sort Controls (for Artists Tab) / Media Filter (for Tab 2) & Item Count -->
             <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                <!-- Artists Tab Sort Controls -->
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,14,0">
                     <StackPanel.Style>
                         <Style TargetType="StackPanel">
@@ -588,6 +589,24 @@
                     </ui:Button>
                 </StackPanel>
 
+                <!-- Media Filter Controls (for Video / Storyboard Tab) -->
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,14,0">
+                    <StackPanel.Style>
+                        <Style TargetType="StackPanel">
+                            <Setter Property="Visibility" Value="Collapsed" />
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding OsuLibrary.SelectedTabIndex}" Value="2">
+                                    <Setter Property="Visibility" Value="Visible" />
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </StackPanel.Style>
+
+                    <TextBlock Text="Filtro:" FontSize="13" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center" Margin="0,0,8,0" />
+                    <ComboBox Width="230" ItemsSource="{Binding OsuLibrary.MediaFilterOptions}"
+                              SelectedItem="{Binding OsuLibrary.SelectedMediaFilter, Mode=TwoWay}" />
+                </StackPanel>
+
                 <TextBlock FontSize="12.5" Foreground="{DynamicResource TextSecondaryBrush}" VerticalAlignment="Center">
                     <TextBlock.Style>
                         <Style TargetType="TextBlock">
@@ -597,7 +616,7 @@
                                     <Setter Property="Text" Value="{Binding OsuLibrary.Artists.Count, StringFormat='{}{0} artistas'}" />
                                 </DataTrigger>
                                 <DataTrigger Binding="{Binding OsuLibrary.SelectedTabIndex}" Value="2">
-                                    <Setter Property="Text" Value="{Binding OsuLibrary.VideoSongs.Count, StringFormat='{}{0} canciones con vídeo'}" />
+                                    <Setter Property="Text" Value="{Binding OsuLibrary.MediaFilterSummaryText}" />
                                 </DataTrigger>
                             </Style.Triggers>
                         </Style>
